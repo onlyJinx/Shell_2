@@ -560,7 +560,7 @@ function nginx(){
 	###crate service
 	#单双引号不转义，反单引号 $ 要转
 
-	if [[ "$(type -P apt)" ]] then
+	if [[ "$(type -P apt)" ]]; then
 		###crate service
 		cat >/etc/systemd/system/trojan.service<<-EOF
 			[Unit]
@@ -580,7 +580,7 @@ function nginx(){
 			[Install]
 			WantedBy=multi-user.target
 		EOF
-	elif [[ "$(type -P yum)" ]] then
+	elif [[ "$(type -P yum)" ]]; then
 		wget -P /etc/init.d https://raw.githubusercontent.com/onlyJinx/shell_CentOS7/master/nginx
 		chmod a+x /etc/init.d/nginx
 		chkconfig --add /etc/init.d/nginx
@@ -600,8 +600,76 @@ function nginx(){
 	systemctl enable nginx
 
 }
+function caddy(){
+	echo "先关闭监听443/80端口的程序(下面直接回车)"
+	check_port 443
+	check_port 80
+	if ! [[ $(type -P go) ]]; then
+		apt install -y wget
+		yum install -y wget
+		wget -P /tmp https://golang.google.cn/dl/go1.16.6.linux-amd64.tar.gz
+		tar zxvf /tmp/go1.16.6.linux-amd64.tar.gz -C /tmp/
+		export PATH=$PATH:/tmp/go/bin
+	fi
+	if [[ $(type -P go) ]]; then
+		go get -u github.com/caddyserver/xcaddy/cmd/xcaddy
+		~/go/bin/xcaddy build --with github.com/caddyserver/forwardproxy@caddy2=github.com/klzgrad/forwardproxy@naive
+		if [[ -e /root/caddy ]]; then
+			mkdir /etc/caddy
+			mv /root/caddy /etc/caddy/
+			chmod +x /etc/caddy/caddy
+			cat >/etc/Caddyfile<<-EOF
+				{
+					http_port  80
+					https_port 443
+				}
+				:443, example.com
+				tls me@example.com
+				route {
+					forward_proxy {
+						basic_auth user pass
+						hide_ip
+						hide_via
+						probe_resistance
+					}
+					file_server { root /etc/local/nginx/html }
+				}
+			EOF
 
-select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx"
+			cat >/etc/shadowsocks-libev/config.json<<-EOF
+				[Unit]
+				Description=Caddy
+				Documentation=https://caddyserver.com/docs/
+				After=network.target network-online.target
+				Requires=network-online.target
+
+				[Service]
+				User=root
+				Group=root
+				ExecStart=/etc/caddy/caddy run --environ --config /etc/caddy/Caddyfile
+				ExecReload=/etc/caddy/caddy reload --config /etc/caddy/Caddyfile
+				TimeoutStopSec=5s
+				LimitNOFILE=1048576
+				LimitNPROC=512
+				PrivateTmp=true
+				ProtectSystem=full
+				AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+				[Install]
+				WantedBy=multi-user.target
+			EOF
+
+		else
+			echo "caddy编译失败"
+		fi
+		
+	else
+		echo "Go环境配置失败！"
+	fi
+	rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
+}
+
+select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "caddy"
 do
 	case $option in
 		"shadowsocks-libev")
@@ -609,9 +677,6 @@ do
 			break;;
 		"transmission")
 			transmission
-			break;;
-		"aria2")
-			aria2
 			break;;
 		"Up_kernel")
 			Up_kernel
@@ -621,6 +686,9 @@ do
 			break;;
 		"nginx")
 			nginx
+			break;;
+		"caddy")
+			aria2
 			break;;
 		*)
 			echo "nothink to do"
