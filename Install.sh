@@ -7,7 +7,7 @@ function check(){
 	###调用函数
 	###函数名 参数1 参数2
 	if [ "0" != "$?" ]; then
-		echo "$1编译失败，请手动检查"
+		echo "$1"
 		exit 0
 	fi
 }
@@ -124,7 +124,7 @@ function shadowsocks-libev(){
 	cd mbedtls*
 	make SHARED=1 CFLAGS=-fPIC
 	sudo make DESTDIR=/usr install
-	check "shadowsocks依赖MbedTLS"
+	check "shadowsocks依赖MbedTLS编译失败！"
 	cd ~
 	sudo ldconfig
 
@@ -143,7 +143,7 @@ function shadowsocks-libev(){
 	cd LATEST
 	./configure --prefix=/usr
 	make && make install
-	check "shadowsocks依赖Libsodium"
+	check "shadowsocks依赖Libsodium编译失败！"
 	sudo ldconfig
 	cd ~
 
@@ -155,24 +155,10 @@ function shadowsocks-libev(){
 	autoconf configure.ac
 	./configure --prefix=/usr && make
 	sudo make install
-	check "shadowsocks依赖c-ares"
+	check "shadowsocks依赖c-ares编译失败！"
 	sudo ldconfig
 	cd ~
 	###安装方法引用http://blog.sina.com.cn/s/blog_6c4a60110101342m.html
-
-	###Installation of simple-obfs
-
-	###obfs已弃用###
-	#git clone https://github.com/shadowsocks/simple-obfs.git
-	#cd simple-obfs
-	#git submodule update --init --recursive
-	#./autogen.sh
-	#./configure && make
-	#sudo make install
-
-
-	#wget https://github.com/shadowsocks/v2ray-plugin/releases/download/v1.1.0/v2ray-plugin-linux-amd64-v1.1.0.tar.gz
-	#tar zxvf v2ray-plugin* && mv v2ray-plugin-linux-amd64 /etc/shadowsocks-libev/v2ray-plugin &&rm -f v2ray-plugin*
 
 	###报错 undefined reference to `ares_set_servers_ports_csv'，指定libsodium configure路径
 	###Installation of shadowsocks-libev
@@ -181,7 +167,7 @@ function shadowsocks-libev(){
 	git submodule update --init --recursive
 	./autogen.sh && ./configure --with-sodium-include=/usr/include --with-sodium-lib=/usr/lib
 	##检查编译返回的状态码
-	check "ShadowSocks-libev"
+	check "ShadowSocks-libev configure失败！"
 	make && make install
 
 	###尝试运行程序
@@ -225,19 +211,6 @@ function shadowsocks-libev(){
 	WantedBy=multi-user.target
 	EOF
 
-	###禁用ping###
-	###echo net.ipv4.icmp_echo_ignore_all=1>>/etc/sysctl.conf
-	###sysctl -p
-
-
-	###firewall oprt
-
-	##firewall-cmd --zone=public --add-port=$port/tcp --permanent
-	##firewall-cmd --zone=public --add-port=$port/udp --permanent
-
-	##firewall-cmd --reload 
-
-
 	systemctl start ssl&&systemctl enable ssl
 	### remove the file
 	cd /root && rm -fr mbedtls* shadowsocks-libev libsodium LATEST.tar.gz c-ares
@@ -268,7 +241,7 @@ function transmission(){
 	passwd=${passwd:-transmission2020}
 	clear
 	download_dir "输入下载文件保存路径(默认/usr/downloads): " "/usr/downloads"
-	check
+	check "downloads文件夹创建失败！"
 	config_path="/root/.config/transmission-daemon/settings.json"
 
 	if [[ "$(type -P apt)" ]]; then
@@ -286,11 +259,7 @@ function transmission(){
 
 	./autogen.sh && make && make install
 	###检查返回状态码
-	check transmission
-	###尝试运行程序
-	#check_fin "transmission-daemon"
-	##默认配置文件
-	##vi /root/.config/transmission-daemon/settings.json
+	check "transmission编译失败！"
 
 	##crate service
 	cat >/etc/systemd/system/transmission-daemon.service<<-EOF
@@ -302,15 +271,22 @@ function transmission(){
 	User=root
 	Type=simple
 	ExecStart=/usr/local/bin/transmission-daemon -f --log-error
-	ExecStop=/bin/kill -s STOP $MAINPID
-	ExecReload=/bin/kill -s HUP $MAINPID
+	ExecStop=/bin/kill -s STOP \$MAINPID
+	ExecReload=/bin/kill -s HUP \$MAINPID
 
 	[Install]
 	WantedBy=multi-user.target
 	EOF
 
+	##调节UPD缓冲区
+	echo "sysctl -w net.core.rmem_max=4195328" >> /etc/sysctl.conf
+	echo "sysctl -w net.core.wmem_max=4195328" >> /etc/sysctl.conf
+	/sbin/sysctl -p
+
 	##首次启动，生成配置文件
+
 	systemctl start transmission-daemon.service
+	check "transmission启动失败！"
 	systemctl stop transmission-daemon.service
 
 	##systemctl status transmission-daemon.service
@@ -336,12 +312,6 @@ function transmission(){
 	##limit rate
 	sed -i "/ratio-limit-enabled/ s/false/true/" $config_path
 	sed -i "/\"ratio-limit\"/ s/:.*/: 4,/" $config_path
-
-	##firewall-cmd --zone=public --add-port=51413/tcp --permanent
-	##firewall-cmd --zone=public --add-port=51413/udp --permanent
-	##firewall-cmd --zone=public --add-port=$port/tcp --permanent
-	##firewall-cmd --zone=public --add-port=$port/udp --permanent
-	##firewall-cmd --reload
 
 	##替换webUI
 	cd ~
