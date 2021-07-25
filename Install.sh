@@ -258,6 +258,7 @@ function transmission(){
 	tar xf transmission-3.00.tar.xz && cd transmission-3.00
 
 	./autogen.sh && make && make install
+	rm -fr transmission-3.00 transmission-3.00.tar.xz
 	###检查返回状态码
 	check "transmission编译失败！"
 
@@ -611,6 +612,10 @@ function caddy(){
 	# fi
 	read -p "输入邮箱(回车不设置)： " caddyEmain
 	caddyEmain=${caddyEmain:-noemail@qq.com}
+	read -p "设置用户名： " caddyUser
+	caddyUser=${caddyUser:-Oieu!ji330}
+	read -p "设置密码： " caddyPass
+	caddyPass=${caddyPass:-5eele9P!il_}
 	if ! [[ $(type -P go) ]]; then
 		apt install -y wget
 		yum install -y wget
@@ -619,13 +624,14 @@ function caddy(){
 		export PATH=$PATH:/tmp/go/bin
 	fi
 	if [[ $(type -P go) ]]; then
+		cd /tmp/
 		go get -u github.com/caddyserver/xcaddy/cmd/xcaddy
 		~/go/bin/xcaddy build --with github.com/caddyserver/forwardproxy@caddy2=github.com/klzgrad/forwardproxy@naive
 		if [[ -e /root/caddy ]]; then
 			mkdir /etc/caddy
 			mv /root/caddy /etc/caddy/
 			chmod +x /etc/caddy/caddy
-			cat >/etc/Caddyfile<<-EOF
+			cat >/etc/caddy/Caddyfile<<-EOF
 				{
 					http_port  80
 					https_port 443
@@ -634,7 +640,7 @@ function caddy(){
 				tls $caddyEmain
 				route {
 					forward_proxy {
-						basic_auth user pass
+						basic_auth $caddyUser $caddyPass
 						hide_ip
 						hide_via
 						probe_resistance
@@ -643,7 +649,7 @@ function caddy(){
 				}
 			EOF
 
-			cat >/etc/shadowsocks-libev/config.json<<-EOF
+			cat >/etc/systemd/system/caddy.service<<-EOF
 				[Unit]
 				Description=Caddy
 				Documentation=https://caddyserver.com/docs/
@@ -674,6 +680,10 @@ function caddy(){
 		echo "Go环境配置失败！"
 	fi
 	rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
+
+	clear
+	echo -e username:"      ""\e[31m\e[1m$caddyUser\e[0m"
+	echo -e password:"      ""\e[31m\e[1m$caddyPass\e[0m"
 }
 
 select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "caddy"
