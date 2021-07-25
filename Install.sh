@@ -544,12 +544,13 @@ function nginx(){
 
 	make && make install
 	check "编译nginx失败！"
-	
+
 	#清理残留
 	rm -fr /tmp/nginx-$nginx_version
 
 	ln -s /usr/local/nginx/sbin/nginx /usr/bin/nginx
-	cp /usr/local/nginx/conf/nginx.conf /usr/local/nginx/conf/nginx.conf_backup
+	mv /usr/local/nginx/conf/nginx.conf /usr/local/nginx/conf/nginx.conf_backup
+	wget -O /usr/local/nginx/conf/nginx.conf https://raw.githubusercontent.com/onlyJinx/Shell_2/main/nginxForFsGrpc.conf
 	echo "export ngp=/usr/local/nginx/conf/nginx.conf" >> /etc/profile
 	source /etc/profile
 	###crate service
