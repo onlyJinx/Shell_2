@@ -734,9 +734,10 @@ function trojan(){
 }
 
 function nginx(){
+	echo "检测443及80端口"
 	check_port 443
 	check_port 80
-	
+
 	read -p "输入NGINX版本(默认1.21.1)： " nginx_version
 	nginx_version=${nginx_version:-1.21.1}
 	nginx_url=http://nginx.org/download/nginx-${nginx_version}.tar.gz
@@ -754,6 +755,8 @@ function nginx(){
 	wget $nginx_url && tar zxf nginx-${nginx_version}.tar.gz && cd nginx-$nginx_version
 	./configure \
 	--prefix=/usr/local/nginx \
+	--pid-path=/var/run/nginx.pid \
+	--lock-path=/var/run/nginx.lock \
 	--with-http_ssl_module \
 	--with-http_stub_status_module \
 	--with-http_realip_module \
