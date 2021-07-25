@@ -419,7 +419,10 @@ function Up_kernel(){
 	if [[ "$(type -P apt)" ]]; then
 		echo "deb https://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
 		apt update
-		apt install -y -t buster-backports linux-image-cloud-amd64 linux-headers-cloud-amd64
+		apt install -y -t buster-backports linux-image-cloud-amd64 linux-headers-cloud-amd64 vim
+		eecho "set nocompatible" >> /etc/vim/vimrc.tiny
+		eecho "set backspace=2" >> /etc/vim/vimrc.tiny
+		sed -i '/mouse=a/ s/mouse=a/mouse-=a/' /usr/share/vim/vim81/defaults.vim
 	elif [[ "$(type -P yum)" ]]; then
 		###导入elrepo密钥
 		rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
@@ -556,11 +559,38 @@ function nginx(){
 	
 	###crate service
 	#单双引号不转义，反单引号 $ 要转
-	wget -P /etc/init.d https://raw.githubusercontent.com/onlyJinx/shell_CentOS7/master/nginx
 
-	chmod a+x /etc/init.d/nginx
-	chkconfig --add /etc/init.d/nginx
-	chkconfig nginx on
+	if [[ "$(type -P apt)" ]] then
+		###crate service
+		cat >/etc/systemd/system/trojan.service<<-EOF
+			[Unit]
+			Description=nginx - high performance web server
+			Documentation=https://nginx.org/en/docs/
+			After=network-online.target remote-fs.target nss-lookup.target
+			Wants=network-online.target
+
+			[Service]
+			Type=forking
+			PIDFile=/run/nginx.pid
+			ExecStartPre=/usr/local/nginx/sbin/nginx -t -c /usr/local/nginx/conf/nginx.conf
+			ExecStart=/usr/local/nginx/sbin/nginx -c /usr/local/nginx/conf/nginx.conf
+			ExecReload=/bin/kill -s HUP \$MAINPID
+			ExecStop=/bin/kill -s TERM \$MAINPID
+
+			[Install]
+			WantedBy=multi-user.target
+		EOF
+	elif [[ "$(type -P yum)" ]] then
+		wget -P /etc/init.d https://raw.githubusercontent.com/onlyJinx/shell_CentOS7/master/nginx
+		chmod a+x /etc/init.d/nginx
+		chkconfig --add /etc/init.d/nginx
+		chkconfig nginx on
+	else
+		ceho "can't create nginx service"
+		echo "error: The script does not support the package manager in this operating system."
+		exit 1
+	fi
+
 
 	###nginx编译引用自博客
 	###https://www.cnblogs.com/stulzq/p/9291223.html
