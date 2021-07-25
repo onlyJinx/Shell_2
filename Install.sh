@@ -414,62 +414,6 @@ function aria2(){
 
 }
 
-function httpd(){
-
-	##if判断参考https://www.cnblogs.com/include/archive/2011/12/09/2307905.html
-	count=0
-	while(1>0)
-	do
-	read -p "输入一个大于1024的端口(第$count次)  " port
-	let count++
-	port=${port:-80}
-	if [ "$port" -gt "1024" ];then
-		if [ -n "$(ss -lnp|grep :$port)" ];then
-			clear
-			echo "端口$port已被占用，请输入其他端口"
-		else
-			break
-		fi
-
-	elif [ "$port" -eq "80" ] || [ "$port" -eq "443" ];then
-		if [ -n "$(ss -lnp|grep :$port)" ];then
-			clear
-			echo "端口$port已被占用，请输入其他端口"
-		else
-			break
-		fi
-	fi
-
-	if [ $count -gt 10 ]; then
-		clear
-		echo "滚"
-		break
-	fi
-	done
-
-	yum install httpd -y
-	sed -i "/^Listen/ s/[0-9].*/$po
-	rt/" /etc/httpd/conf/httpd.conf
-	##firewall-cmd --zone=public --add-port=$port/tcp --permanent
-	##firewall-cmd --zone=public --add-port=$port/udp --permanent
-	##firewall-cmd --reload
-	clear
-
-	##webui
-	cd ~
-	git clone https://github.com/ziahamza/webui-aria2.git
-	#rm -fr /usr/share/nginx/html/*
-	mv /var/www/html /var/www/html_b
-	mkdir /var/www/html/
-	cp -r /root/webui-aria2/docs/* /var/www/html/
-	##config file
-	##vi /etc/nginx/conf.d/default.conf
-	#sed -i "/listen/ s/80/$port/" /etc/nginx/conf.d/default.conf
-
-	systemctl enable httpd
-	systemctl start httpd
-
-}
 
 function Up_kernel(){
 	if [[ "$(type -P apt)" ]]; then
@@ -522,16 +466,16 @@ function Up_kernel(){
 
 function trojan(){
 	clear
-	echo "######强烈建议使用443及80端口######"
-	echo "#不会自动申请证书，请先准备好ssl证书#"
-	echo "######并放到 /tmp/trojan 目录######"
-	echo "########按任意键开始端口检测########"
-	read
-	clear
-	echo "直接回车检测https(443)监听端口"
-	check_port 443
-	echo "直接回车检测http(80)监听端口"
-	check_port 80
+	echo ""
+	read -p "输入Trojan HTTPS端口(默认443)： " trojan_https_port
+	trojan_https_port=${trojan_https_port:-443}
+	check_port $trojan_https_port
+	trojan_https_port=$port
+
+	read -p "输入Trojan 回落端口(默认80)： " trojan_http_port
+	trojan_http_port=${trojan_http_port:-80}
+	check_port $trojan_http_port
+	trojan_http_port=$port
 	clear
 
 	while [[ true ]]; do
@@ -541,170 +485,21 @@ function trojan(){
 		fi
 	done
 
-	###检测证书文件
-	clear
-	echo "########端口检测本地证书########"
-	if [ ! -d "/tmp/trojan" ];then
-		mkdir /tmp/trojan
-	fi
-	count=$(ls -l /tmp/trojan | grep "^-" | wc -l ) 
-	if [ $count -gt 2 ];then
-	        echo "这个/tmp/trojan目录怎么有$count个文件？证书加Key才两个文件而已,自己清空该目录所有文件再放入key和证书!!!"
-	        exit 0
-	elif  ! [ -f /tmp/trojan/*key ]; then
-		#cp /tmp/trojan/*key /etc/trojan/private.key
-		echo "请将密钥key放入 /tmp/trojan 文件夹后再执行该脚本"
-		exit 0
-	elif [ -f /tmp/trojan/*pem ]; then
-		#cp /tmp/trojan/*pem /etc/trojan/certificate.pem
-		cert=pem
-		echo "已检测到pem证书文件"
-	elif [ -f /tmp/trojan/*crt ]; then
-		#cp /tmp/trojan/*crt /etc/trojan/certificate.crt
-		cert=crt
-		echo "已检测到crt证书文件"
-	else
-		echo "请将证书文件(crt/pem)放入/tmp/trojan 文件夹后再执行该脚本"
-		exit 0
-	fi
-
 	read -p "设置一个trojan密码(默认trojanWdai1)： " PW
 	PW=${PW:-trojanWdai1}
-	read -p "请输入trojan版本号(默认1.15.1),可以到这里查https://github.com/trojan-gfw/trojan/releases： " trojan_version
+	read -p "请输入trojan版本号(默认1.15.1)： " trojan_version
 	trojan_version=${trojan_version:-1.15.1}
-	nginx_version=1.21.1
-	nginx_url=http://nginx.org/download/nginx-${nginx_version}.tar.gz
-	yum -y install gcc gcc-c++ pcre pcre-devel zlib zlib-devel openssl openssl-devel wget
-	wget $nginx_url && tar zxf nginx-${nginx_version}.tar.gz && cd nginx-$nginx_version
 
-	./configure \
-	--prefix=/usr/local/nginx \
-	--with-http_ssl_module \
-	--with-http_stub_status_module \
-	--with-http_realip_module \
-	--with-threads \
-	--with-stream_ssl_module \
-	--with-http_v2_module \
-	--with-stream_ssl_preread_module \
-	--with-stream=dynamic
-	check
-	make && make install
-	check
-	ln -s /usr/local/nginx/sbin/nginx /usr/bin/nginx
-	mv /usr/local/nginx/conf/nginx.conf /usr/local/nginx/conf/nginx.conf_backup
-
-	##nginx配置文件修改
-	##wget -P /usr/local/nginx/conf https://raw.githubusercontent.com/onlyJinx/shell_CentOS7/master/nginx.conf
-	cat >/usr/local/nginx/conf/nginx.conf<<-EOF
-		load_module /usr/local/nginx/modules/ngx_stream_module.so;
-		worker_processes  1;
-		events {
-		    worker_connections  1024;
-		}
-		stream {
-		    map \$ssl_preread_server_name \$name {
-		        $domain 127.0.0.1:555;    #forward to trojan
-		        #aria2.domain.com 127.0.0.1:6801;    #forward to aria2_rpc
-		        default 127.0.0.1:4433;             #block all
-		    }
-		    server {
-		        listen 443 reuseport;
-		        listen [::]:443 reuseport;
-		        proxy_pass \$name;
-		        ssl_preread on;                     #开启 ssl_preread
-		    }
-		}
-
-		http {
-		    include       mime.types;
-		    default_type  application/octet-stream;
-		    sendfile        on;
-		    keepalive_timeout  65;
-
-		    ###全站https
-		    server {
-		        listen 0.0.0.0:80;
-		        listen [::]:80;
-		        server_name _;
-		        return 301 https://\$host\$request_uri;
-		    }
-
-		    server {
-		        listen       4433 default ssl;
-		        server_name  _;
-		        return 403;  #block all
-		        ssl_certificate      /etc/trojan/certificate.pem;
-		        ssl_certificate_key  /etc/trojan/private.key;
-
-		        ssl_session_cache    shared:SSL:1m;
-		        ssl_session_timeout  5m;
-
-		        ssl_ciphers  HIGH:!aNULL:!MD5;
-		        ssl_prefer_server_ciphers  on;
-
-		        location / {
-		            root   html;
-		            index  index.html index.htm;
-		        }
-		    }
-
-
-		    server {
-		    listen       127.0.0.1:6801 ssl;
-		    server_name  _;
-		        ssl_certificate      /etc/trojan/certificate.pem;
-		        ssl_certificate_key  /etc/trojan/private.key;
-		        location / {
-		            proxy_pass                  http://127.0.0.1:6800;
-		        }
-		    }
-
-		    ##Trojan伪装站点
-		    server {
-		        listen       127.0.0.1:5555 http2; 
-		        server_name  _;
-		        charset utf-8;
-		        absolute_redirect off;
-		        #ssl_certificate      /etc/trojan/certificate.pem;
-		        #ssl_certificate_key  /etc/trojan/private.key;
-		        location / {
-		            #index index.html;
-		        }
-		    }
-
-		}
-	EOF
-	###crate service
-	#单双引号不转义，反单引号 $ 要转
-	wget -P /etc/init.d https://raw.githubusercontent.com/onlyJinx/shell_CentOS7/master/nginx
-
-	chmod a+x /etc/init.d/nginx
-	chkconfig --add /etc/init.d/nginx
-	chkconfig nginx on
-
-	###nginx编译引用自博客
-	###https://www.cnblogs.com/stulzq/p/9291223.html
 	wget https://github.com/trojan-gfw/trojan/releases/download/v${trojan_version}/trojan-${trojan_version}-linux-amd64.tar.xz && tar xvJf trojan-${trojan_version}-linux-amd64.tar.xz -C /etc
 	ln -s /etc/trojan/trojan /usr/bin/trojan
 	config_path=/etc/trojan/config.json
 	sed -i '/password2/ d' $config_path
 	sed -i "/certificate.crt/ s/.crt/.$cert/" $config_path
-	sed -i "/local_port/ s/443/555/" $config_path
-	sed -i "/remote_port/ s/80/5100/" $config_path
-	sed -i "/h2\":/ s/81/5555/" $config_path
-	sed -i ":http/1.1: s:http/1.1:h2:" $config_path
+	sed -i "/local_port/ s/443/$trojan_https_port/" $config_path
+	sed -i "/remote_port/ s/80/$trojan_http_port/" $config_path
 	sed -i "/\"password1\",/ s/\"password1\",/\"$PW\"/" $config_path
 	sed -i ":\"cert\": s:path\/to:etc\/trojan:" $config_path
 	sed -i ":\"key\": s:path\/to:etc\/trojan:" $config_path
-
-
-	##复制证书文件
-	cp /tmp/trojan/*key /etc/trojan/private.key
-	if [[ "$cert" == "crt" ]]; then
-		cp /tmp/trojan/*crt /etc/trojan/certificate.crt
-	else
-		cp /tmp/trojan/*pem /etc/trojan/certificate.pem
-	fi
 
 	###crate service
 	cat >/etc/systemd/system/trojan.service<<-EOF
@@ -718,18 +513,8 @@ function trojan(){
 	WantedBy=multi-user.target
 	EOF
 
-	##firewall-cmd --zone=public --add-port=443/tcp --permanent
-	##firewall-cmd --zone=public --add-port=443/udp --permanent
-	##firewall-cmd --zone=public --add-port=80/tcp --permanent
-	##firewall-cmd --zone=public --add-port=80/udp --permanent
-	##firewall-cmd --reload
-
 	systemctl start trojan
 	systemctl enable trojan
-
-	systemctl start nginx
-	systemctl status nginx
-	systemctl enable nginx
 
 }
 
@@ -771,7 +556,8 @@ function nginx(){
 
 	ln -s /usr/local/nginx/sbin/nginx /usr/bin/nginx
 	cp /usr/local/nginx/conf/nginx.conf /usr/local/nginx/conf/nginx.conf_backup
-
+	echo "export ngp=/usr/local/nginx/conf/nginx.conf" >> /etc/profile
+	source /etc/profile
 	###crate service
 	#单双引号不转义，反单引号 $ 要转
 	wget -P /etc/init.d https://raw.githubusercontent.com/onlyJinx/shell_CentOS7/master/nginx
@@ -786,6 +572,7 @@ function nginx(){
 	systemctl start nginx
 	systemctl status nginx
 	systemctl enable nginx
+
 }
 
 select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan+nginx" "nginx"
