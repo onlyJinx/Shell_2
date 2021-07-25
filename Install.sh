@@ -389,21 +389,9 @@ function aria2(){
 	    file-allocation=prealloc
 	EOF
 
-	##安装nginx
-	#SElinux原因不再用nginx，用httpd替代
-	#rpm -ivh http://nginx.org/packages/centos/7/noarch/RPMS/nginx-release-centos-7-0.el7.ngx.noarch.rpm
-	#yum install nginx -y
-	##selinux 设置
-	#ausearch -c 'nginx' --raw | audit2allow -M my-nginx
-	#semodule -i my-nginx.pp
-
-
 	systemctl enable aria2
 	systemctl start aria2
 
-	##firewall-cmd --zone=public --add-port=6800/tcp --permanent
-	##firewall-cmd --zone=public --add-port=6800/udp --permanent
-	##firewall-cmd --reload 
 	clear
 
 	while [[ true ]]; do
@@ -603,7 +591,6 @@ function trojan(){
 	make && make install
 	check
 	ln -s /usr/local/nginx/sbin/nginx /usr/bin/nginx
-
 	mv /usr/local/nginx/conf/nginx.conf /usr/local/nginx/conf/nginx.conf_backup
 
 	##nginx配置文件修改
@@ -746,7 +733,56 @@ function trojan(){
 
 }
 
-select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan+nginx"
+function nginx(){
+	read -p "输入NGINX版本(默认1.21.1)： " nginx_version
+	nginx_version=${nginx_version:-1.21.1}
+	nginx_url=http://nginx.org/download/nginx-${nginx_version}.tar.gz
+
+	##安装依赖
+	if [[ "$(type -P apt)" ]]; then
+		apt-get install build-essential libpcre3 libpcre3-dev zlib1g-dev git openssl wget -y
+	elif [[ "$(type -P yum)" ]]; then
+		yum -y install gcc gcc-c++ pcre pcre-devel zlib zlib-devel openssl openssl-devel wget
+	else
+		echo "error: The script does not support the package manager in this operating system."
+		exit 1
+	fi
+
+	wget $nginx_url && tar zxf nginx-${nginx_version}.tar.gz && cd nginx-$nginx_version
+	./configure \
+	--prefix=/usr/local/nginx \
+	--with-http_ssl_module \
+	--with-http_stub_status_module \
+	--with-http_realip_module \
+	--with-threads \
+	--with-stream_ssl_module \
+	--with-http_v2_module \
+	--with-stream_ssl_preread_module \
+	--with-stream=dynamic
+
+	make && make install
+	check "编译nginx失败！"
+
+	ln -s /usr/local/nginx/sbin/nginx /usr/bin/nginx
+	cp /usr/local/nginx/conf/nginx.conf /usr/local/nginx/conf/nginx.conf_backup
+
+	###crate service
+	#单双引号不转义，反单引号 $ 要转
+	wget -P /etc/init.d https://raw.githubusercontent.com/onlyJinx/shell_CentOS7/master/nginx
+
+	chmod a+x /etc/init.d/nginx
+	chkconfig --add /etc/init.d/nginx
+	chkconfig nginx on
+
+	###nginx编译引用自博客
+	###https://www.cnblogs.com/stulzq/p/9291223.html
+
+	systemctl start nginx
+	systemctl status nginx
+	systemctl enable nginx
+}
+
+select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan+nginx" "nginx"
 do
 	case $option in
 		"shadowsocks-libev")
@@ -763,6 +799,9 @@ do
 			break;;
 		"trojan+nginx")
 			trojan
+			break;;
+		"nginx")
+			nginx
 			break;;
 		*)
 			echo "nothink to do"
