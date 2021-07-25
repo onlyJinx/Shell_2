@@ -685,6 +685,9 @@ do
 		"transmission")
 			transmission
 			break;;
+		"aria2")
+			aria2
+			break;;
 		"Up_kernel")
 			Up_kernel
 			break;;
@@ -695,7 +698,7 @@ do
 			nginx
 			break;;
 		"caddy")
-			aria2
+			caddy
 			break;;
 		*)
 			echo "nothink to do"
