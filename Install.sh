@@ -467,11 +467,11 @@ function Up_kernel(){
 function trojan(){
 	clear
 	echo ""
-	echo "输入Trojan HTTPS端口(默认443)： "
+	echo "Trojan HTTPS端口： "
 	check_port 443
 	trojan_https_port=$port
 
-	echo "输入Trojan 回落端口(默认80)： "
+	echo "Trojan 回落端口： "
 	check_port 80
 	trojan_http_port=$port
 	clear
