@@ -465,7 +465,10 @@ function Up_kernel(){
 	###使修改的内核配置生效
 	echo net.core.default_qdisc=fq >> /etc/sysctl.conf
 	echo net.ipv4.tcp_congestion_control=bbr >> /etc/sysctl.conf
-	sysctl -p
+	read -p "重启电脑生效，是否现在重启? (y/N): " sureReboot
+	if [[ "y" == "$sureReboot" ]]; then
+		reboot
+	fi
 
 }
 
@@ -564,7 +567,7 @@ function nginx(){
 
 	if [[ "$(type -P apt)" ]]; then
 		###crate service
-		cat >/etc/systemd/system/trojan.service<<-EOF
+		cat >/etc/systemd/system/nginx.service<<-EOF
 			[Unit]
 			Description=nginx - high performance web server
 			Documentation=https://nginx.org/en/docs/
