@@ -604,6 +604,13 @@ function caddy(){
 	echo "先关闭监听443/80端口的程序(下面直接回车)"
 	check_port 443
 	check_port 80
+	read -p "输入域名： " caddyDomain
+	if [[ caddyDomain -eq "" ]]; then
+		echo "没有输入域名"
+		exit 1
+	fi
+	read -p "输入邮箱(回车不设置)： " caddyEmain
+	caddyEmain=${caddyEmain:-noemail@qq.com}
 	if ! [[ $(type -P go) ]]; then
 		apt install -y wget
 		yum install -y wget
@@ -623,8 +630,8 @@ function caddy(){
 					http_port  80
 					https_port 443
 				}
-				:443, example.com
-				tls me@example.com
+				:443, $caddyDomain
+				tls $caddyEmain
 				route {
 					forward_proxy {
 						basic_auth user pass
