@@ -476,18 +476,11 @@ function trojan(){
 	trojan_http_port=$port
 	clear
 
-	while [[ true ]]; do
-		read -p "请输入域名:" domain
-		if [[ -n $domain ]]; then
-			break;
-		fi
-	done
-
 	read -p "设置一个trojan密码(默认trojanWdai1)： " PW
 	PW=${PW:-trojanWdai1}
-	read -p "请输入trojan版本号(默认1.15.1)： " trojan_version
-	trojan_version=${trojan_version:-1.15.1}
-
+	trojan_version=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
+	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
+	
 	wget https://github.com/trojan-gfw/trojan/releases/download/v${trojan_version}/trojan-${trojan_version}-linux-amd64.tar.xz && tar xvJf trojan-${trojan_version}-linux-amd64.tar.xz -C /etc
 	ln -s /etc/trojan/trojan /usr/bin/trojan
 	config_path=/etc/trojan/config.json
@@ -535,7 +528,7 @@ function nginx(){
 		exit 1
 	fi
 
-	wget $nginx_url && tar zxf nginx-${nginx_version}.tar.gz && cd nginx-$nginx_version
+	wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${nginx_version}.tar.gz && cd /tmp/nginx-$nginx_version
 	./configure \
 	--prefix=/usr/local/nginx \
 	--pid-path=/run/nginx.pid \
