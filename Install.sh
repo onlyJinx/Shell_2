@@ -605,10 +605,10 @@ function caddy(){
 	check_port 443
 	check_port 80
 	read -p "输入域名： " caddyDomain
-	if [[ "" -eq "$caddyDomain" ]]; then
-		echo "没有输入域名"
-		exit 1
-	fi
+	# if [[ "" -eq "$caddyDomain" ]]; then
+	# 	echo "没有输入域名"
+	# 	exit 1
+	# fi
 	read -p "输入邮箱(回车不设置)： " caddyEmain
 	caddyEmain=${caddyEmain:-noemail@qq.com}
 	if ! [[ $(type -P go) ]]; then
