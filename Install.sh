@@ -467,14 +467,12 @@ function Up_kernel(){
 function trojan(){
 	clear
 	echo ""
-	read -p "输入Trojan HTTPS端口(默认443)： " trojan_https_port
-	trojan_https_port=${trojan_https_port:-443}
-	check_port $trojan_https_port
+	echo "输入Trojan HTTPS端口(默认443)： "
+	check_port 443
 	trojan_https_port=$port
 
-	read -p "输入Trojan 回落端口(默认80)： " trojan_http_port
-	trojan_http_port=${trojan_http_port:-80}
-	check_port $trojan_http_port
+	echo "输入Trojan 回落端口(默认80)： "
+	check_port 80
 	trojan_http_port=$port
 	clear
 
@@ -575,7 +573,7 @@ function nginx(){
 
 }
 
-select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan+nginx" "nginx"
+select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx"
 do
 	case $option in
 		"shadowsocks-libev")
@@ -590,7 +588,7 @@ do
 		"Up_kernel")
 			Up_kernel
 			break;;
-		"trojan+nginx")
+		"trojan")
 			trojan
 			break;;
 		"nginx")
