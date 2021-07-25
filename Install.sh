@@ -605,7 +605,7 @@ function caddy(){
 	check_port 443
 	check_port 80
 	read -p "输入域名： " caddyDomain
-	if [[ $caddyDomain -eq "" ]]; then
+	if [[ "$caddyDomain" -eq "" ]]; then
 		echo "没有输入域名"
 		exit 1
 	fi
