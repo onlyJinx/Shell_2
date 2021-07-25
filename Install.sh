@@ -480,7 +480,7 @@ function trojan(){
 	PW=${PW:-trojanWdai1}
 	trojan_version=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
 	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
-	
+
 	wget https://github.com/trojan-gfw/trojan/releases/download/v${trojan_version}/trojan-${trojan_version}-linux-amd64.tar.xz && tar xvJf trojan-${trojan_version}-linux-amd64.tar.xz -C /etc
 	ln -s /etc/trojan/trojan /usr/bin/trojan
 	config_path=/etc/trojan/config.json
@@ -528,7 +528,7 @@ function nginx(){
 		exit 1
 	fi
 
-	wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${nginx_version}.tar.gz && cd /tmp/nginx-$nginx_version
+	wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${nginx_version}.tar.gz -C /tmp/ && cd /tmp/nginx-$nginx_version
 	./configure \
 	--prefix=/usr/local/nginx \
 	--pid-path=/run/nginx.pid \
@@ -544,6 +544,9 @@ function nginx(){
 
 	make && make install
 	check "编译nginx失败！"
+	
+	#清理残留
+	rm -fr /tmp/nginx-$nginx_version
 
 	ln -s /usr/local/nginx/sbin/nginx /usr/bin/nginx
 	cp /usr/local/nginx/conf/nginx.conf /usr/local/nginx/conf/nginx.conf_backup
