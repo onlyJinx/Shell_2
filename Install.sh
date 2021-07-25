@@ -553,6 +553,7 @@ function nginx(){
 	wget -O /usr/local/nginx/conf/nginx.conf https://raw.githubusercontent.com/onlyJinx/Shell_2/main/nginxForFsGrpc.conf
 	echo "export ngp=/usr/local/nginx/conf/nginx.conf" >> /etc/profile
 	source /etc/profile
+	
 	###crate service
 	#单双引号不转义，反单引号 $ 要转
 	wget -P /etc/init.d https://raw.githubusercontent.com/onlyJinx/shell_CentOS7/master/nginx
