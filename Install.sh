@@ -494,9 +494,8 @@ function XRAY(){
 		else
 			yum install -y unzip
 		fi
-	else 
-		unzip /tmp/Xray-linux-64.zip -d /tmp
 	fi
+	unzip /tmp/Xray-linux-64.zip -d /tmp
 	if ! [[ -d /usr/local/share/xray ]];then
 		mkdir /usr/local/share/xray
 	fi
@@ -518,16 +517,16 @@ function XRAY(){
 	XRAY_CONFIG=/usr/local/etc/xray/config.json
 	wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/xtls_tcp_grpc_ws.json
 
-	sed -i 's/XTLS_PORT/$XRAY_XTLS_PORT/' $XRAY_CONFIG
-	sed -i 's/DESP_PORT/$XRAY_DESP_PORT/' $XRAY_CONFIG
-	sed -i 's/GRPC_PORT/$XRAY_GRPC_PORT/' $XRAY_CONFIG
-	sed -i 's/GRPC_NAME/$XRAY_GRPC_NAME/' $XRAY_CONFIG
-	sed -i 's/WS_PORT/$XRAY_WS_PORT/' $XRAY_CONFIG
-	sed -i 's/WS_PATH/$XRAY_WS_PATH/' $XRAY_CONFIG
+	sed -i "s/XTLS_PORT/$XRAY_XTLS_PORT/" $XRAY_CONFIG
+	sed -i "s/DESP_PORT/$XRAY_DESP_PORT/" $XRAY_CONFIG
+	sed -i "s/GRPC_PORT/$XRAY_GRPC_PORT/" $XRAY_CONFIG
+	sed -i "s/GRPC_NAME/$XRAY_GRPC_NAME/" $XRAY_CONFIG
+	sed -i "s/WS_PORT/$XRAY_WS_PORT/" $XRAY_CONFIG
+	sed -i "s/WS_PATH/$XRAY_WS_PATH/" $XRAY_CONFIG
 
-	sed -i 's/XtlsForUUID/$XRAY_UUID/' $XRAY_CONFIG
-	sed -i 's/GRPC_UUID/$XRAY_GRPC_UUID/' $XRAY_CONFIG
-	sed -i 's/WS_UUID/$XRAY_WS_UUID/' $XRAY_CONFIG
+	sed -i "s/XtlsForUUID/$XRAY_UUID/" $XRAY_CONFIG
+	sed -i "s/GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
+	sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
 
 	cat > /etc/systemd/system/xray.service <<-EOF
 	[Unit]
