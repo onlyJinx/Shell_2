@@ -746,7 +746,7 @@ function caddy(){
 	echo -e password:"      ""\e[31m\e[1m$caddyPass\e[0m"
 }
 
-select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "caddy"
+select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "xray" "caddy"
 do
 	case $option in
 		"shadowsocks-libev")
@@ -766,6 +766,9 @@ do
 			break;;
 		"nginx")
 			nginx
+			break;;
+		"xray")
+			xray
 			break;;
 		"caddy")
 			caddy
