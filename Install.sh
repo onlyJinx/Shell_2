@@ -422,8 +422,8 @@ function Up_kernel(){
 		echo "deb https://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
 		apt update
 		apt install -y -t buster-backports linux-image-cloud-amd64 linux-headers-cloud-amd64 vim
-		eecho "set nocompatible" >> /etc/vim/vimrc.tiny
-		eecho "set backspace=2" >> /etc/vim/vimrc.tiny
+		echo "set nocompatible" >> /etc/vim/vimrc.tiny
+		echo "set backspace=2" >> /etc/vim/vimrc.tiny
 		sed -i '/mouse=a/ s/mouse=a/mouse-=a/' /usr/share/vim/vim81/defaults.vim
 	elif [[ "$(type -P yum)" ]]; then
 		###导入elrepo密钥
