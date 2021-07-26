@@ -45,7 +45,7 @@
             "settings": {
                 "clients": [
                     {
-                        "id": "YougRPCName"
+                        "id": "GRPC_UUID"
                     }
                 ],
                 "decryption": "none"
@@ -64,7 +64,7 @@
             "settings": {
                 "clients": [
                     {
-                        "id": "wsForUUID",
+                        "id": "WS_UUID",
                         "level": 0,
                         "email": "love@example.com"
                     }
