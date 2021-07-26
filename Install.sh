@@ -488,8 +488,8 @@ function xray(){
 	XRAY_WS_PORT=$port
 	read -p "Grpc Name(默认 GetNames)?  " XRAY_GRPC_NAME
 	XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-GetNames}
-	read -p "WebSocks Path(默认 WeCorcks)?  " XRAY_WS_PATH
-	XRAY_WS_PATH=${XRAY_WS_PATH:-WeCorcks}
+	read -p "WebSocks Path(默认 WscokilR39o)?  " XRAY_WS_PATH
+	XRAY_WS_PATH=${XRAY_WS_PATH:-WscokilR39o}
 
 	XRAY_CONFIG=/usr/local/etc/xray/config.json
 	bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u root --beta
@@ -513,6 +513,18 @@ function xray(){
 	sed -i 's/XtlsForUUID/$XRAY_UUID/' $XRAY_CONFIG
 	sed -i 's/GRPC_UUID/$XRAY_GRPC_UUID/' $XRAY_CONFIG
 	sed -i 's/WS_UUID/$XRAY_WS_UUID/' $XRAY_CONFIG
+
+	systemctl start xray
+
+	check "XRAY服务启动失败"
+
+	echo "XRAY服务正在运行"
+
+	echo vless://$XRAY_UUID@127.0.0.1:443?security=xtls\&sni=domain.com\&flow=xtls-rprx-direct#VLESS_xtls
+
+	echo vless://$XRAY_GRPC_UUID@domain.com:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=domain.com#GRPC
+
+	echo vless://XRAY_WS_UUID@127.0.0.1:443?type=ws\&security=tls\&path=%2F$XRAY_WS_UUID%3Fed%3D2048\&host=domain.com\&sni=domain.com#WS
 
 }
 
