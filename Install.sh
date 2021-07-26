@@ -548,15 +548,15 @@ function XRAY(){
 	[Install]
 	WantedBy=multi-user.target
 	EOF
-	systemctl start xray
+	#systemctl restart xray
 	clear
-	check "XRAY服务启动失败" "XRAY服务正在运行"
+	#check "XRAY服务启动失败" "XRAY服务正在运行"
 
-	echo vless://$XRAY_UUID@127.0.0.1:443?security=xtls\&sni=domain.com\&flow=xtls-rprx-direct#VLESS_xtls
+	#echo vless://$XRAY_UUID@127.0.0.1:443?security=xtls\&sni=domain.com\&flow=xtls-rprx-direct#VLESS_xtls
 
-	echo vless://$XRAY_GRPC_UUID@domain.com:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=domain.com#GRPC
+	#echo vless://$XRAY_GRPC_UUID@domain.com:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=domain.com#GRPC
 
-	echo vless://XRAY_WS_UUID@127.0.0.1:443?type=ws\&security=tls\&path=%2F$XRAY_WS_UUID%3Fed%3D2048\&host=domain.com\&sni=domain.com#WS
+	#echo vless://XRAY_WS_UUID@127.0.0.1:443?type=ws\&security=tls\&path=%2F$XRAY_WS_UUID%3Fed%3D2048\&host=domain.com\&sni=domain.com#WS
 
 }
 
