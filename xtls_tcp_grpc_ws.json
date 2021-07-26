@@ -18,7 +18,7 @@
                 "decryption": "none",
                 "fallbacks": [
                     {
-                        "dest": 5555
+                        "dest": DESP_PORT
                     }
                 ]
             },
@@ -39,7 +39,7 @@
             }
         },
         {
-            "port": 2002,
+            "port": GRPC_PORT,
             "listen": "127.0.0.1",
             "protocol": "vless",
             "settings": {
@@ -53,12 +53,12 @@
             "streamSettings": {
                 "network": "grpc",
                 "grpcSettings": {
-                    "serviceName": "Todo"
+                    "serviceName": "GRPC_NAME"
                 }
             }
         },
         {
-            "port": 1234,
+            "port": WS_PORT,
             "listen": "127.0.0.1",
             "protocol": "vless",
             "settings": {
@@ -75,7 +75,7 @@
                 "network": "ws",
                 "security": "none",
                 "wsSettings": {
-                    "path": "/YouPtah"
+                    "path": "/WS_PATH"
                 }
             }
         }
