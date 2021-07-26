@@ -474,8 +474,8 @@ function Up_kernel(){
 function XRAY(){
 	check_port "XRAY_XTLS 监听端口(默认1000)?  " 1000
 	XRAY_XTLS_PORT=$port
-	check_port "回落端口(默认 5555)?  " 5555
-	XRAY_DESP_PORT=$port
+	read -p "回落端口(默认 5555)?  " XRAY_DESP_PORT
+	XRAY_DESP_PORT=${XRAY_DESP_PORT:-5555}
 	check_port "GRPC 监听端口(默认 1234)?  " 1234
 	XRAY_GRPC_PORT=$port
 	check_port "WebSocks 监听端口(默认 1235)?  " 1235
