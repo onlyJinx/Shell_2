@@ -473,7 +473,7 @@ function Up_kernel(){
 
 function xray(){
 
-	check_port "XRAY_XTLS 监听端口(默认1000)" 1000
+	check_port "XRAY_XTLS 监听端口(默认1000)?  " 1000
 	XRAY_XTLS_PORT=$port
 	check_port "回落端口(默认 5555)?  " 5555
 	XRAY_DESP_PORT=$port
@@ -487,7 +487,10 @@ function xray(){
 	XRAY_WS_PATH=${XRAY_WS_PATH:-WscokilR39o}
 
 	XRAY_CONFIG=/usr/local/etc/xray/config.json
-	bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u root --beta
+	#bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u root --beta
+	wget https://github.com/XTLS/Xray-install/raw/main/install-release.sh
+	sed -i '/^main.\"\$@\"/d' install-release.sh
+	bash -c install-release.sh @ install -u root --beta
 	if [[ "$(type -P xray)" ]]; then
 		XRAY_UUID=$(xray uuid)
 		XRAY_GRPC_UUID=$(xray uuid)
