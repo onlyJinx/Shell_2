@@ -486,11 +486,22 @@ function xray(){
 	read -p "WebSocks Path(默认 WscokilR39o)?  " XRAY_WS_PATH
 	XRAY_WS_PATH=${XRAY_WS_PATH:-WscokilR39o}
 
-	XRAY_CONFIG=/usr/local/etc/xray/config.json
-	#bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u root --beta
-	wget https://github.com/XTLS/Xray-install/raw/main/install-release.sh
-	sed -i '/^main.\"\$@\"/d' install-release.sh
-	bash -c install-release.sh @ install -u root --beta
+	XRAY_RELEASE_LATEST=`wget -q -O - https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
+	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
+	wget -P /tmp https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
+	if ! [[ "$(type -P unzip)" ]];then
+		apt install -y unzip
+		yum install -y unzip
+	else 
+		unzip /tmp/Xray-linux-64.zip -d /tmp
+	fi
+	if ! [[ -d /usr/local/share/xray ]];then
+		mkdir /usr/local/share/xray
+	fi
+	mv /tmp/geoip.dat /usr/local/share/xray/geoip.dat
+	mv /tmp/geosite.dat /usr/local/share/xray/geosite.dat
+	mv /tmp/xray /usr/local/bin/xray
+
 	if [[ "$(type -P xray)" ]]; then
 		XRAY_UUID=$(xray uuid)
 		XRAY_GRPC_UUID=$(xray uuid)
@@ -499,6 +510,7 @@ function xray(){
 		echo "XRAY安装失败！"
 		exit 1
 	fi
+	XRAY_CONFIG=/usr/local/etc/xray/config.json
 	wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/xtls_tcp_grpc_ws.json
 
 	sed -i 's/XTLS_PORT/$XRAY_XTLS_PORT/' $XRAY_CONFIG
@@ -511,6 +523,27 @@ function xray(){
 	sed -i 's/XtlsForUUID/$XRAY_UUID/' $XRAY_CONFIG
 	sed -i 's/GRPC_UUID/$XRAY_GRPC_UUID/' $XRAY_CONFIG
 	sed -i 's/WS_UUID/$XRAY_WS_UUID/' $XRAY_CONFIG
+
+	cat > /etc/systemd/system/xray.service <<-EOF
+	[Unit]
+	Description=Xray Service
+	Documentation=https://github.com/xtls
+	After=network.target nss-lookup.target
+
+	[Service]
+	User=root
+	#CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+	#AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+	#NoNewPrivileges=true
+	ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
+	Restart=on-failure
+	RestartPreventExitStatus=23
+	LimitNPROC=10000
+	LimitNOFILE=1000000
+
+	[Install]
+	WantedBy=multi-user.target
+	EOF
 
 	systemctl start xray
 
