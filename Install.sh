@@ -471,7 +471,7 @@ function Up_kernel(){
 
 }
 
-function install_xray(){
+function xray(){
 	echo "222222222222222222"
 	check_port "XRAY_XTLS 监听端口(默认1000)?  " 1000
 	XRAY_XTLS_PORT=$port
@@ -506,10 +506,10 @@ function install_xray(){
 	# mv /tmp/geosite.dat /usr/local/share/xray/geosite.dat
 	# mv /tmp/xray /usr/local/bin/xray
 
-	if [[ "$(type -P xray)" ]]; then
-		XRAY_UUID=$(xray uuid)
-		XRAY_GRPC_UUID=$(xray uuid)
-		XRAY_WS_UUID=$(xray uuid)
+	if [[ "$(type -P /usr/local/bin/xray)" ]]; then
+		XRAY_UUID=$(/usr/local/bin/xray uuid)
+		XRAY_GRPC_UUID=$(/usr/local/bin/xray uuid)
+		XRAY_WS_UUID=$(/usr/local/bin/xray uuid)
 	else 
 		echo "XRAY安装失败！"
 		exit 1
@@ -795,7 +795,7 @@ do
 			nginx
 			break;;
 		"xray")
-			install_xray
+			xray
 			break;;
 		"caddy")
 			caddy
