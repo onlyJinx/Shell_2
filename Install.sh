@@ -2,13 +2,10 @@
 ##CDN 104.16.160.3|104.16.192.155|104.20.157.6
 ##ss -lnp|grep :$port|awk -F "pid=" '{print $2}'|sed s/,.*//xargs kill -9
 function check(){
-	###状态码赋值给s
-	#return_code=$?
-	###调用函数
 	###函数名 参数1 参数2
 	if [ "0" != "$?" ]; then
 		echo "$1"
-		exit 1
+		exit 0
 	else 
 		echo "$2"
 	fi
