@@ -471,7 +471,7 @@ function Up_kernel(){
 
 }
 
-function xray(){
+function XRAY(){
 	check_port "XRAY_XTLS 监听端口(默认1000)?  " 1000
 	XRAY_XTLS_PORT=$port
 	check_port "回落端口(默认 5555)?  " 5555
@@ -512,6 +512,9 @@ function xray(){
 		echo "XRAY安装失败！"
 		exit 1
 	fi
+	if ! [[ -d /usr/local/etc/xray ]];then
+		mkdir /usr/local/etc/xray
+	fi
 	XRAY_CONFIG=/usr/local/etc/xray/config.json
 	wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/xtls_tcp_grpc_ws.json
 
@@ -547,7 +550,7 @@ function xray(){
 	WantedBy=multi-user.target
 	EOF
 	systemctl start xray
-
+	clear
 	check "XRAY服务启动失败" "XRAY服务正在运行"
 
 	echo vless://$XRAY_UUID@127.0.0.1:443?security=xtls\&sni=domain.com\&flow=xtls-rprx-direct#VLESS_xtls
@@ -771,7 +774,7 @@ function caddy(){
 	echo -e password:"      ""\e[31m\e[1m$caddyPass\e[0m"
 }
 
-select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "xray" "caddy"
+select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "XRAY" "caddy"
 do
 	case $option in
 		"shadowsocks-libev")
@@ -792,8 +795,8 @@ do
 		"nginx")
 			nginx
 			break;;
-		"xray")
-			xray
+		"XRAY")
+			XRAY
 			break;;
 		"caddy")
 			caddy
