@@ -472,6 +472,50 @@ function Up_kernel(){
 
 }
 
+function xray(){
+
+	echo "XRAY 监听端口(默认 1000)?  "
+	check_port 1000
+	XRAY_XTLS_PORT=$port
+	echo "回落端口(默认 5555)?  "
+	check_port 5555
+	XRAY_DESP_PORT=$port
+	echo "GRPC 监听端口(默认 1234)?  "
+	check_port 1234
+	XRAY_GRPC_PORT=$port
+	echo "WebSocks 监听端口(默认 1235)?  "
+	check_port 1235
+	XRAY_WS_PORT=$port
+	read -p "Grpc Name(默认 GetNames)?  " XRAY_GRPC_NAME
+	XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-GetNames}
+	read -p "WebSocks Path(默认 WeCorcks)?  " XRAY_WS_PATH
+	XRAY_WS_PATH=${XRAY_WS_PATH:-WeCorcks}
+
+	XRAY_CONFIG=/usr/local/etc/xray/config.json
+	bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u root --beta
+	if [[ "$(type -P xray)" ]]; then
+		XRAY_UUID=$(xray uuid)
+		XRAY_GRPC_UUID=$(xray uuid)
+		XRAY_WS_UUID=$(xray uuid)
+	else 
+		echo "XRAY安装失败！"
+		exit 1
+	fi
+	wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/xtls_tcp_grpc_ws.json
+
+	sed -i 's/XTLS_PORT/$XRAY_XTLS_PORT/' $XRAY_CONFIG
+	sed -i 's/DESP_PORT/$XRAY_DESP_PORT/' $XRAY_CONFIG
+	sed -i 's/GRPC_PORT/$XRAY_GRPC_PORT/' $XRAY_CONFIG
+	sed -i 's/GRPC_NAME/$XRAY_GRPC_NAME/' $XRAY_CONFIG
+	sed -i 's/WS_PORT/$XRAY_WS_PORT/' $XRAY_CONFIG
+	sed -i 's/WS_PATH/$XRAY_WS_PATH/' $XRAY_CONFIG
+
+	sed -i 's/XtlsForUUID/$XRAY_UUID/' $XRAY_CONFIG
+	sed -i 's/GRPC_UUID/$XRAY_GRPC_UUID/' $XRAY_CONFIG
+	sed -i 's/WS_UUID/$XRAY_WS_UUID/' $XRAY_CONFIG
+
+}
+
 function trojan(){
 	clear
 	echo ""
