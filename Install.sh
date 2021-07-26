@@ -472,7 +472,7 @@ function Up_kernel(){
 }
 
 function install_xray(){
-
+	echo "222222222222222222"
 	check_port "XRAY_XTLS 监听端口(默认1000)?  " 1000
 	XRAY_XTLS_PORT=$port
 	check_port "回落端口(默认 5555)?  " 5555
