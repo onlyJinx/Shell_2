@@ -795,7 +795,7 @@ do
 			nginx
 			break;;
 		"xray")
-			xray
+			install_xray
 			break;;
 		"caddy")
 			caddy
