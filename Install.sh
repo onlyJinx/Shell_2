@@ -8,7 +8,9 @@ function check(){
 	###函数名 参数1 参数2
 	if [ "0" != "$?" ]; then
 		echo "$1"
-		exit 0
+		exit 1
+	else 
+		echo "$2"
 	fi
 }
 
@@ -259,7 +261,7 @@ function transmission(){
 	tar xf transmission-3.00.tar.xz && cd transmission-3.00
 
 	./autogen.sh && make && make install
-	rm -fr transmission-3.00 transmission-3.00.tar.xz
+	rm -fr ../transmission-3.00 ../transmission-3.00.tar.xz
 	###检查返回状态码
 	check "transmission编译失败！"
 
@@ -319,12 +321,12 @@ function transmission(){
 	cd ~
 	git clone https://github.com/ronggang/transmission-web-control.git
 	mv /usr/local/share/transmission/web/index.html /usr/local/share/transmission/web/index.original.html
-	cp -r /root/transmission-web-control/src/* /usr/local/share/transmission/web/
-
-	systemctl start transmission-daemon.service
-	systemctl enable transmission-daemon.service
+	mv /root/transmission-web-control/src/* /usr/local/share/transmission/web/
 
 	clear
+	systemctl start transmission-daemon.service
+	check "transmission-daemon 运行失败" "transmission-daemon 运行正常"
+	systemctl enable transmission-daemon.service
 
 	echo -e port:"          ""\e[31m\e[1m$port\e[0m"
 	echo -e password:"      ""\e[31m\e[1m$passwd\e[0m"
@@ -516,9 +518,7 @@ function xray(){
 
 	systemctl start xray
 
-	check "XRAY服务启动失败"
-
-	echo "XRAY服务正在运行"
+	check "XRAY服务启动失败" "XRAY服务正在运行"
 
 	echo vless://$XRAY_UUID@127.0.0.1:443?security=xtls\&sni=domain.com\&flow=xtls-rprx-direct#VLESS_xtls
 
