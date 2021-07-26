@@ -15,8 +15,8 @@ function check_port(){
 
 	while [[ true ]]; do
 
-		read -p "请输入监听端口(默认$1):" port
-		port=${port:-$1}
+		read -p "$1" port
+		port=${port:-$2}
 		myport=$(ss -lnp|grep :$port)
 		if [ -n "$myport" ];then
 			echo "端口$port已被占用,输入 y 关闭占用进程,输入 n 退出程序直接回车更换其他端口"
@@ -104,7 +104,7 @@ function shadowsocks-libev(){
 	read -t 60 -p "请输入密码，直接回车则设置为默认密码: nPB4bF5K8+apre." passwd
 	passwd=${passwd:-nPB4bF5K8+apre.}
 
-	check_port 443
+	check_port "请输入端口号(默认443)" 443
 
 	###echo "passwd=$passwd"
 	###搬瓦工默认禁用epel
@@ -231,7 +231,7 @@ function transmission(){
 	check_directory_exist transmission-3.00+
 	check_version transmission-daemon transmission
 	clear
-	check_port 9091
+	check_port "请输入端口号(默认9091)" 9091
 	clear
 	read -p "请输入用户名，直接回车则设置为默认用户 transmission:  " uname
 	uname=${uname:-transmission}
@@ -473,17 +473,13 @@ function Up_kernel(){
 
 function xray(){
 
-	echo "XRAY 监听端口(默认 1000)?  "
-	check_port 1000
+	check_port "XRAY_XTLS 监听端口(默认1000)" 1000
 	XRAY_XTLS_PORT=$port
-	echo "回落端口(默认 5555)?  "
-	check_port 5555
+	check_port "回落端口(默认 5555)?  " 5555
 	XRAY_DESP_PORT=$port
-	echo "GRPC 监听端口(默认 1234)?  "
-	check_port 1234
+	check_port "GRPC 监听端口(默认 1234)?  " 1234
 	XRAY_GRPC_PORT=$port
-	echo "WebSocks 监听端口(默认 1235)?  "
-	check_port 1235
+	check_port "WebSocks 监听端口(默认 1235)?  " 1235
 	XRAY_WS_PORT=$port
 	read -p "Grpc Name(默认 GetNames)?  " XRAY_GRPC_NAME
 	XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-GetNames}
@@ -528,12 +524,9 @@ function xray(){
 function trojan(){
 	clear
 	echo ""
-	echo "Trojan HTTPS端口： "
-	check_port 443
+	check_port "请输入Trojan HTTPS端口: " 443
 	trojan_https_port=$port
-
-	echo "Trojan 回落端口： "
-	check_port 80
+	check_port "Trojan 回落端口: " 80
 	trojan_http_port=$port
 	clear
 
@@ -571,10 +564,8 @@ function trojan(){
 }
 
 function nginx(){
-	echo "检测443及80端口"
-	check_port 443
-	check_port 80
-
+	check_port "直接回车: " 443
+	check_port "直接回车: " 80
 	read -p "输入NGINX版本(默认1.21.1)： " nginx_version
 	nginx_version=${nginx_version:-1.21.1}
 	nginx_url=http://nginx.org/download/nginx-${nginx_version}.tar.gz
@@ -660,8 +651,8 @@ function nginx(){
 }
 function caddy(){
 	echo "先关闭监听443/80端口的程序(下面直接回车)"
-	check_port 443
-	check_port 80
+	check_port "直接回车: " 443
+	check_port "直接回车: " 80
 	read -p "输入域名： " caddyDomain
 	# if [[ "" -eq "$caddyDomain" ]]; then
 	# 	echo "没有输入域名"
