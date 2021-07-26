@@ -490,8 +490,11 @@ function xray(){
 	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 	wget -P /tmp https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
 	if ! [[ "$(type -P unzip)" ]];then
-		apt install -y unzip
-		yum install -y unzip
+		if [[ "$(type -P apt)" ]];then
+			apt install -y unzip
+		else
+			yum install -y unzip
+		fi
 	else 
 		unzip /tmp/Xray-linux-64.zip -d /tmp
 	fi
