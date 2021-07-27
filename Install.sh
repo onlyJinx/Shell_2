@@ -241,7 +241,6 @@ function transmission(){
 	clear
 	download_dir "输入下载文件保存路径(默认/usr/downloads): " "/usr/downloads"
 	check "downloads文件夹创建失败！"
-	config_path="/root/.config/transmission-daemon/settings.json"
 
 	if [[ "$(type -P apt)" ]]; then
 		echo "Debian"
@@ -289,8 +288,10 @@ function transmission(){
 	systemctl start transmission-daemon.service
 	check "transmission启动失败！"
 	systemctl stop transmission-daemon.service
-
+	ss -lnp|grep 9091
+	read -p
 	##systemctl status transmission-daemon.service
+	config_path="/root/.config/transmission-daemon/settings.json"
 
 	## change config  sed引用 https://segmentfault.com/a/1190000020613397
 	
