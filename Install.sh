@@ -294,26 +294,31 @@ function transmission(){
 	config_path="/root/.config/transmission-daemon/settings.json"
 
 	## change config  sed引用 https://segmentfault.com/a/1190000020613397
-	
-	sed -i '/rpc-whitelist-enabled/ s/true/false/' $config_path
-	sed -i '/rpc-host-whitelist-enabled/ s/true/false/' $config_path
-	sed -i '/rpc-authentication-required/ s/false/true/' $config_path
-	##取消未完成文件自动添加 .part后缀
-	sed -i '/rename-partial-files/ s/true/false/' $config_path
-	##单引号里特殊符号都不起作用$ or /\，使用双引号替代单引号
-	##sed -i "/rpc-username/ s/\"\"/\"$uname\"/" $config_path
-	sed -i "/rpc-username/ s/: \".*/: \"$uname\",/" $config_path
-	sed -i "/rpc-port/ s/9091/$port/" $config_path
-	##sed分隔符/和路径分隔符混淆，用:代替/
-	sed -i ":download-dir: s:\/root\/Downloads:$dir:" $config_path
-	sed -i "/rpc-password/ s/\"{.*/\"$passwd\",/" $config_path
-	##开启限速
-	sed -i "/speed-limit-up-enabled/ s/false/true/" $config_path
-	##限速1M/s
-	sed -i "/\"speed-limit-up\"/ s/:.*/: 1024,/" $config_path
-	##limit rate
-	sed -i "/ratio-limit-enabled/ s/false/true/" $config_path
-	sed -i "/\"ratio-limit\"/ s/:.*/: 4,/" $config_path
+	if [[ -e $config_path ]]; then
+		sed -i '/rpc-whitelist-enabled/ s/true/false/' $config_path
+		sed -i '/rpc-host-whitelist-enabled/ s/true/false/' $config_path
+		sed -i '/rpc-authentication-required/ s/false/true/' $config_path
+		##取消未完成文件自动添加 .part后缀
+		sed -i '/rename-partial-files/ s/true/false/' $config_path
+		##单引号里特殊符号都不起作用$ or /\，使用双引号替代单引号
+		##sed -i "/rpc-username/ s/\"\"/\"$uname\"/" $config_path
+		sed -i "/rpc-username/ s/: \".*/: \"$uname\",/" $config_path
+		sed -i "/rpc-port/ s/9091/$port/" $config_path
+		##sed分隔符/和路径分隔符混淆，用:代替/
+		sed -i ":download-dir: s:\/root\/Downloads:$dir:" $config_path
+		sed -i "/rpc-password/ s/\"{.*/\"$passwd\",/" $config_path
+		##开启限速
+		sed -i "/speed-limit-up-enabled/ s/false/true/" $config_path
+		##限速1M/s
+		sed -i "/\"speed-limit-up\"/ s/:.*/: 1024,/" $config_path
+		##limit rate
+		sed -i "/ratio-limit-enabled/ s/false/true/" $config_path
+		sed -i "/\"ratio-limit\"/ s/:.*/: 4,/" $config_path
+	else
+		echo "找不到配置文件"
+		read -p ""
+	fi
+
 
 	##替换webUI
 	cd ~
