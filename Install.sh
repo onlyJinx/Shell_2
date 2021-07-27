@@ -289,7 +289,7 @@ function transmission(){
 	check "transmission启动失败！"
 	systemctl stop transmission-daemon.service
 	ss -lnp|grep 9091
-	read -p
+	read -p ""
 	##systemctl status transmission-daemon.service
 	config_path="/root/.config/transmission-daemon/settings.json"
 
