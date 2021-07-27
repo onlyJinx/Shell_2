@@ -718,9 +718,9 @@ function caddy(){
 		cd /tmp/
 		go get -u github.com/caddyserver/xcaddy/cmd/xcaddy
 		~/go/bin/xcaddy build --with github.com/caddyserver/forwardproxy@caddy2=github.com/klzgrad/forwardproxy@naive
-		if [[ -e /root/caddy ]]; then
+		if [[ -e /tmp/caddy ]]; then
 			mkdir /etc/caddy
-			mv /root/caddy /etc/caddy/
+			mv /tmp/caddy /etc/caddy/
 			chmod +x /etc/caddy/caddy
 			cat >/etc/caddy/Caddyfile<<-EOF
 				{
@@ -765,10 +765,12 @@ function caddy(){
 
 		else
 			echo "caddy编译失败"
+			exit 1
 		fi
 		
 	else
 		echo "Go环境配置失败！"
+		exit 1
 	fi
 	rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
 
