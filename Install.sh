@@ -333,9 +333,9 @@ function transmission(){
 		else
 			systemctl daemon-reload	
 			systemctl start transmission-daemon.service
-			sleep 1
+			sleep 2
 			systemctl stop transmission-daemon.service
-			sleep 1
+			sleep 2
 			let count++
 		fi
 	done
