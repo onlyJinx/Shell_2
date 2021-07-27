@@ -313,8 +313,8 @@ function transmission(){
 	if ! [[ "$(cat /etc/sysctl.conf|grep 4195328)" ]]; then
 		echo "sysctl -w net.core.rmem_max=4195328" >> /etc/sysctl.conf
 		echo "sysctl -w net.core.wmem_max=4195328" >> /etc/sysctl.conf
-		/sbin/sysctl -p > /dev/nul 2 > &1&
-		/usr/sbin/sysctl -p > /dev/nul 2 > &1&
+		/sbin/sysctl -p
+		/usr/sbin/sysctl -p
 	fi
 	##首次启动，生成配置文件
 	systemctl start transmission-daemon.service
