@@ -10,7 +10,17 @@ function check(){
 		echo "$2"
 	fi
 }
-
+function packageManager(){
+	if [[ "$(type -P apt)" ]]; then
+		PKGMANAGER="apt install -y --no-install-recommends"
+	elif [[ "$(type -P yum)" ]]; then
+		PKGMANAGER="yum install -y"
+	else
+		echo "不支持的系统"
+		exit 1
+	fi
+}
+packageManager
 function check_port(){
 
 	while [[ true ]]; do
@@ -231,23 +241,23 @@ function transmission(){
 	check_directory_exist transmission-3.00+
 	check_version transmission-daemon transmission
 	clear
-	check_port "请输入端口号(默认9091)" 9091
+	check_port "请输入端口号(9091)" 9091
 	clear
-	read -p "请输入用户名，直接回车则设置为默认用户 transmission:  " uname
+	read -p "请输入用户名(transmission):  " uname
 	uname=${uname:-transmission}
 	clear
-	read -p "请输入密码，直接回车则设置为默认密码 transmission2020:  " passwd
+	read -p "请输入密码(transmission2020):  " passwd
 	passwd=${passwd:-transmission2020}
 	clear
-	download_dir "输入下载文件保存路径(默认/usr/downloads): " "/usr/downloads"
+	download_dir "文件保存路径(默认/usr/downloads): " "/usr/downloads"
 	check "downloads文件夹创建失败！"
 
 	if [[ "$(type -P apt)" ]]; then
 		echo "Debian"
-		apt-get -y --no-install-recommends install ca-certificates libcurl4-openssl-dev libssl-dev pkg-config build-essential autoconf libtool zlib1g-dev intltool libevent-dev wget git
+		$PKGMANAGER ca-certificates libcurl4-openssl-dev libssl-dev pkg-config build-essential autoconf libtool zlib1g-dev intltool libevent-dev wget git
 		check "transmission依赖安装失败"
 	elif [[ "$(type -P yum)" ]]; then
-		yum -y install gcc gcc-c++ make automake libtool gettext openssl-devel libevent-devel intltool libiconv curl-devel systemd-devel wget git
+		$PKGMANAGER gcc gcc-c++ make automake libtool gettext openssl-devel libevent-devel intltool libiconv curl-devel systemd-devel wget git
 	else
 		echo "error: The script does not support the package manager in this operating system."
 		exit 1
@@ -279,7 +289,7 @@ function transmission(){
 	EOF
 	systemctl daemon-reload
 	##调节UPD缓冲区
-	if [[ "$(cat /etc/sysctl.conf|grep 4195328)" ]]; then
+	if ! [[ "$(cat /etc/sysctl.conf|grep 4195328)" ]]; then
 		echo "sysctl -w net.core.rmem_max=4195328" >> /etc/sysctl.conf
 		echo "sysctl -w net.core.wmem_max=4195328" >> /etc/sysctl.conf
 		/sbin/sysctl -p
@@ -288,33 +298,33 @@ function transmission(){
 	systemctl start transmission-daemon.service
 	check "transmission启动失败！"
 	systemctl stop transmission-daemon.service
-	config_path="/root/.config/transmission-daemon/settings.json"
+	TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
 	## change config  sed引用 https://segmentfault.com/a/1190000020613397
-	if [[ -e $config_path ]]; then
-		sed -i '/rpc-whitelist-enabled/ s/true/false/' $config_path
-		sed -i '/rpc-host-whitelist-enabled/ s/true/false/' $config_path
-		sed -i '/rpc-authentication-required/ s/false/true/' $config_path
+	if [[ -e $TRANSMISSION_CONFIG ]]; then
+		sed -i '/rpc-whitelist-enabled/ s/true/false/' $TRANSMISSION_CONFIG
+		sed -i '/rpc-host-whitelist-enabled/ s/true/false/' $TRANSMISSION_CONFIG
+		sed -i '/rpc-authentication-required/ s/false/true/' $TRANSMISSION_CONFIG
 		##取消未完成文件自动添加 .part后缀
-		sed -i '/rename-partial-files/ s/true/false/' $config_path
+		sed -i '/rename-partial-files/ s/true/false/' $TRANSMISSION_CONFIG
 		##单引号里特殊符号都不起作用$ or /\，使用双引号替代单引号
-		##sed -i "/rpc-username/ s/\"\"/\"$uname\"/" $config_path
-		sed -i "/rpc-username/ s/: \".*/: \"$uname\",/" $config_path
-		sed -i "/rpc-port/ s/9091/$port/" $config_path
+		##sed -i "/rpc-username/ s/\"\"/\"$uname\"/" $TRANSMISSION_CONFIG
+		sed -i "/rpc-username/ s/: \".*/: \"$uname\",/" $TRANSMISSION_CONFIG
+		sed -i "/rpc-port/ s/9091/$port/" $TRANSMISSION_CONFIG
 		##sed分隔符/和路径分隔符混淆，用:代替/
-		sed -i ":download-dir: s:\/root\/Downloads:$dir:" $config_path
-		sed -i "/rpc-password/ s/\"{.*/\"$passwd\",/" $config_path
+		sed -i ":download-dir: s:\/root\/Downloads:$dir:" $TRANSMISSION_CONFIG
+		sed -i "/rpc-password/ s/\"{.*/\"$passwd\",/" $TRANSMISSION_CONFIG
 		##开启限速
-		sed -i "/speed-limit-up-enabled/ s/false/true/" $config_path
+		sed -i "/speed-limit-up-enabled/ s/false/true/" $TRANSMISSION_CONFIG
 		##限速1M/s
-		sed -i "/\"speed-limit-up\"/ s/:.*/: 1024,/" $config_path
+		sed -i "/\"speed-limit-up\"/ s/:.*/: 1024,/" $TRANSMISSION_CONFIG
 		##limit rate
-		sed -i "/ratio-limit-enabled/ s/false/true/" $config_path
-		sed -i "/\"ratio-limit\"/ s/:.*/: 4,/" $config_path
+		sed -i "/ratio-limit-enabled/ s/false/true/" $TRANSMISSION_CONFIG
+		sed -i "/\"ratio-limit\"/ s/:.*/: 4,/" $TRANSMISSION_CONFIG
 	else
 		echo "找不到配置文件"
 		read -p "按任意键重启transmission-daemon"
-		systemctl start transmission-daemon.service
 		systemctl daemon-reload	
+		systemctl start transmission-daemon.service
 	fi
 
 
@@ -327,7 +337,7 @@ function transmission(){
 	systemctl start transmission-daemon.service
 	clear
 	check "transmission-daemon 运行失败" "transmission-daemon 运行正常"
-	systemctl enable transmission-daemon.service
+	systemctl enable transmission-daemon.service > /dev/nul 2>&1&
 
 	echo -e port:"          ""\e[31m\e[1m$port\e[0m"
 	echo -e password:"      ""\e[31m\e[1m$passwd\e[0m"
@@ -347,7 +357,7 @@ function aria2(){
 	read -p "输入密码(默认密码crazy_0)： " key
 	key=${key:-crazy_0}
 
-	yum install -y gcc-c++ make libtool automake bison autoconf git intltool libssh2-devel expat-devel gmp-devel nettle-devel libssh2-devel zlib-devel c-ares-devel gnutls-devel libgcrypt-devel libxml2-devel sqlite-devel gettext xz-devel gperftools gperftools-devel gperftools-libs trousers-devel
+	$PKGMANAGER gcc-c++ make libtool automake bison autoconf git intltool libssh2-devel expat-devel gmp-devel nettle-devel libssh2-devel zlib-devel c-ares-devel gnutls-devel libgcrypt-devel libxml2-devel sqlite-devel gettext xz-devel gperftools gperftools-devel gperftools-libs trousers-devel
 
 	git clone https://github.com/aria2/aria2.git && cd aria2
 
@@ -424,7 +434,7 @@ function Up_kernel(){
 	if [[ "$(type -P apt)" ]]; then
 		echo "deb https://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
 		apt update
-		apt install -y -t buster-backports linux-image-cloud-amd64 linux-headers-cloud-amd64 vim
+		$PKGMANAGER -t buster-backports linux-image-cloud-amd64 linux-headers-cloud-amd64 vim
 		echo "set nocompatible" >> /etc/vim/vimrc.tiny
 		echo "set backspace=2" >> /etc/vim/vimrc.tiny
 		sed -i '/mouse=a/ s/mouse=a/mouse-=a/' /usr/share/vim/vim81/defaults.vim
@@ -493,11 +503,7 @@ function XRAY(){
 	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 	wget -P /tmp https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
 	if ! [[ "$(type -P unzip)" ]];then
-		if [[ "$(type -P apt)" ]];then
-			apt install -y unzip
-		else
-			yum install -y unzip
-		fi
+		$PKGMANAGER unzip
 	fi
 	unzip /tmp/Xray-linux-64.zip -d /tmp
 	if ! [[ -d /usr/local/share/xray ]];then
@@ -520,7 +526,6 @@ function XRAY(){
 	fi
 	XRAY_CONFIG=/usr/local/etc/xray/config.json
 	wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/xtls_tcp_grpc_ws.json
-
 	sed -i "s/XTLS_PORT/$XRAY_XTLS_PORT/" $XRAY_CONFIG
 	sed -i "s/DESP_PORT/$XRAY_DESP_PORT/" $XRAY_CONFIG
 	sed -i "s/GRPC_PORT/$XRAY_GRPC_PORT/" $XRAY_CONFIG
@@ -552,10 +557,8 @@ function XRAY(){
 	[Install]
 	WantedBy=multi-user.target
 	EOF
-	#systemctl restart xray
-	clear
-	#check "XRAY服务启动失败" "XRAY服务正在运行"
 
+	clear
 	#echo vless://$XRAY_UUID@127.0.0.1:443?security=xtls\&sni=domain.com\&flow=xtls-rprx-direct#VLESS_xtls
 
 	#echo vless://$XRAY_GRPC_UUID@domain.com:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=domain.com#GRPC
@@ -615,9 +618,9 @@ function nginx(){
 
 	##安装依赖
 	if [[ "$(type -P apt)" ]]; then
-		apt-get install build-essential libpcre3 libpcre3-dev zlib1g-dev git openssl wget -y
+		$PKGMANAGER build-essential libpcre3 libpcre3-dev zlib1g-dev git openssl wget
 	elif [[ "$(type -P yum)" ]]; then
-		yum -y install gcc gcc-c++ pcre pcre-devel zlib zlib-devel openssl openssl-devel wget
+		$PKGMANAGER gcc gcc-c++ pcre pcre-devel zlib zlib-devel openssl openssl-devel wget
 	else
 		echo "error: The script does not support the package manager in this operating system."
 		exit 1
@@ -708,8 +711,7 @@ function caddy(){
 	read -p "设置密码： " caddyPass
 	caddyPass=${caddyPass:-5eele9P!il_}
 	if ! [[ $(type -P go) ]]; then
-		apt install -y wget
-		yum install -y wget
+		$PKGMANAGER wget
 		wget -P /tmp https://golang.google.cn/dl/go1.16.6.linux-amd64.tar.gz
 		tar zxvf /tmp/go1.16.6.linux-amd64.tar.gz -C /tmp/
 		export PATH=$PATH:/tmp/go/bin
@@ -762,6 +764,9 @@ function caddy(){
 				[Install]
 				WantedBy=multi-user.target
 			EOF
+			systemctl daemon-reload
+			systemctl start caddy 
+			check "caddy启动失败"
 
 		else
 			echo "caddy编译失败"
@@ -773,8 +778,8 @@ function caddy(){
 		exit 1
 	fi
 	rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
-
 	clear
+	systemctl status caddy
 	echo -e username:"      ""\e[31m\e[1m$caddyUser\e[0m"
 	echo -e password:"      ""\e[31m\e[1m$caddyPass\e[0m"
 }
