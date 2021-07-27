@@ -559,11 +559,11 @@ function XRAY(){
 	EOF
 
 	clear
-	#echo vless://$XRAY_UUID@127.0.0.1:443?security=xtls\&sni=domain.com\&flow=xtls-rprx-direct#VLESS_xtls
+	echo vless://$XRAY_UUID@127.0.0.1:443?security=xtls\&sni=domain.com\&flow=xtls-rprx-direct#VLESS_xtls
 
-	#echo vless://$XRAY_GRPC_UUID@domain.com:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=domain.com#GRPC
+	echo vless://$XRAY_GRPC_UUID@domain.com:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=domain.com#GRPC
 
-	#echo vless://XRAY_WS_UUID@127.0.0.1:443?type=ws\&security=tls\&path=%2F$XRAY_WS_UUID%3Fed%3D2048\&host=domain.com\&sni=domain.com#WS
+	echo vless://XRAY_WS_UUID@127.0.0.1:443?type=ws\&security=tls\&path=%2F$XRAY_WS_UUID%3Fed%3D2048\&host=domain.com\&sni=domain.com#WS
 
 }
 
@@ -618,7 +618,7 @@ function nginx(){
 
 	##安装依赖
 	if [[ "$(type -P apt)" ]]; then
-		$PKGMANAGER build-essential libpcre3 libpcre3-dev zlib1g-dev git openssl wget
+		$PKGMANAGER build-essential libpcre3 libpcre3-dev zlib1g-dev git openssl wget libssl-dev
 	elif [[ "$(type -P yum)" ]]; then
 		$PKGMANAGER gcc gcc-c++ pcre pcre-devel zlib zlib-devel openssl openssl-devel wget
 	else
