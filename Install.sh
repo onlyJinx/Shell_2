@@ -319,10 +319,12 @@ function transmission(){
 	##首次启动，生成配置文件
 	systemctl start transmission-daemon.service
 	check "transmission启动失败！"
+	sleep 2
 	systemctl stop transmission-daemon.service
+	sleep 2
 	TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
 	## change config  sed引用 https://segmentfault.com/a/1190000020613397
-
+	count=0
 	for((i=1;i<3;i++))
 	do
 		if [[ -e $TRANSMISSION_CONFIG ]]; then
@@ -331,11 +333,14 @@ function transmission(){
 		else
 			systemctl daemon-reload	
 			systemctl start transmission-daemon.service
+			sleep 1
 			systemctl stop transmission-daemon.service
-
+			sleep 1
+			let count++
 		fi
 	done
-
+	echo $count
+	read -p "press any key"
 	##替换webUI
 	cd ~
 	git clone https://github.com/ronggang/transmission-web-control.git
