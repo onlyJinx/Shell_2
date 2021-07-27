@@ -563,7 +563,7 @@ function XRAY(){
 
 	echo vless://$XRAY_GRPC_UUID@domain.com:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=domain.com#GRPC
 
-	echo vless://XRAY_WS_UUID@127.0.0.1:443?type=ws\&security=tls\&path=%2F$XRAY_WS_UUID%3Fed%3D2048\&host=domain.com\&sni=domain.com#WS
+	echo vless://XRAY_WS_UUID@127.0.0.1:443?type=ws\&security=tls\&path=%2F$XRAY_WS_PATH%3Fed%3D2048\&host=domain.com\&sni=domain.com#WS
 
 }
 
