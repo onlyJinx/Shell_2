@@ -237,6 +237,27 @@ function shadowsocks-libev(){
 }
 
 function transmission(){
+	function MODIFY_CONFIG(){
+		sed -i '/rpc-whitelist-enabled/ s/true/false/' $TRANSMISSION_CONFIG
+		sed -i '/rpc-host-whitelist-enabled/ s/true/false/' $TRANSMISSION_CONFIG
+		sed -i '/rpc-authentication-required/ s/false/true/' $TRANSMISSION_CONFIG
+		##取消未完成文件自动添加 .part后缀
+		sed -i '/rename-partial-files/ s/true/false/' $TRANSMISSION_CONFIG
+		##单引号里特殊符号都不起作用$ or /\，使用双引号替代单引号
+		##sed -i "/rpc-username/ s/\"\"/\"$uname\"/" $TRANSMISSION_CONFIG
+		sed -i "/rpc-username/ s/: \".*/: \"$uname\",/" $TRANSMISSION_CONFIG
+		sed -i "/rpc-port/ s/9091/$port/" $TRANSMISSION_CONFIG
+		##sed分隔符/和路径分隔符混淆，用:代替/
+		sed -i ":download-dir: s:\/root\/Downloads:$dir:" $TRANSMISSION_CONFIG
+		sed -i "/rpc-password/ s/\"{.*/\"$passwd\",/" $TRANSMISSION_CONFIG
+		##开启限速
+		sed -i "/speed-limit-up-enabled/ s/false/true/" $TRANSMISSION_CONFIG
+		##限速1M/s
+		sed -i "/\"speed-limit-up\"/ s/:.*/: 1024,/" $TRANSMISSION_CONFIG
+		##limit rate
+		sed -i "/ratio-limit-enabled/ s/false/true/" $TRANSMISSION_CONFIG
+		sed -i "/\"ratio-limit\"/ s/:.*/: 4,/" $TRANSMISSION_CONFIG
+	}
 
 	check_directory_exist transmission-3.00+
 	check_version transmission-daemon transmission
@@ -292,7 +313,8 @@ function transmission(){
 	if ! [[ "$(cat /etc/sysctl.conf|grep 4195328)" ]]; then
 		echo "sysctl -w net.core.rmem_max=4195328" >> /etc/sysctl.conf
 		echo "sysctl -w net.core.wmem_max=4195328" >> /etc/sysctl.conf
-		/sbin/sysctl -p
+		/sbin/sysctl -p > /dev/nul 2 > &1&
+		/usr/sbin/sysctl -p > /dev/nul 2 > &1&
 	fi
 	##首次启动，生成配置文件
 	systemctl start transmission-daemon.service
@@ -300,33 +322,19 @@ function transmission(){
 	systemctl stop transmission-daemon.service
 	TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
 	## change config  sed引用 https://segmentfault.com/a/1190000020613397
-	if [[ -e $TRANSMISSION_CONFIG ]]; then
-		sed -i '/rpc-whitelist-enabled/ s/true/false/' $TRANSMISSION_CONFIG
-		sed -i '/rpc-host-whitelist-enabled/ s/true/false/' $TRANSMISSION_CONFIG
-		sed -i '/rpc-authentication-required/ s/false/true/' $TRANSMISSION_CONFIG
-		##取消未完成文件自动添加 .part后缀
-		sed -i '/rename-partial-files/ s/true/false/' $TRANSMISSION_CONFIG
-		##单引号里特殊符号都不起作用$ or /\，使用双引号替代单引号
-		##sed -i "/rpc-username/ s/\"\"/\"$uname\"/" $TRANSMISSION_CONFIG
-		sed -i "/rpc-username/ s/: \".*/: \"$uname\",/" $TRANSMISSION_CONFIG
-		sed -i "/rpc-port/ s/9091/$port/" $TRANSMISSION_CONFIG
-		##sed分隔符/和路径分隔符混淆，用:代替/
-		sed -i ":download-dir: s:\/root\/Downloads:$dir:" $TRANSMISSION_CONFIG
-		sed -i "/rpc-password/ s/\"{.*/\"$passwd\",/" $TRANSMISSION_CONFIG
-		##开启限速
-		sed -i "/speed-limit-up-enabled/ s/false/true/" $TRANSMISSION_CONFIG
-		##限速1M/s
-		sed -i "/\"speed-limit-up\"/ s/:.*/: 1024,/" $TRANSMISSION_CONFIG
-		##limit rate
-		sed -i "/ratio-limit-enabled/ s/false/true/" $TRANSMISSION_CONFIG
-		sed -i "/\"ratio-limit\"/ s/:.*/: 4,/" $TRANSMISSION_CONFIG
-	else
-		echo "找不到配置文件"
-		read -p "按任意键重启transmission-daemon"
-		systemctl daemon-reload	
-		systemctl start transmission-daemon.service
-	fi
 
+	for((i=1;i<3;i++))
+	do
+		if [[ -e $TRANSMISSION_CONFIG ]]; then
+			MODIFY_CONFIG
+			break
+		else
+			systemctl daemon-reload	
+			systemctl start transmission-daemon.service
+			systemctl stop transmission-daemon.service
+
+		fi
+	done
 
 	##替换webUI
 	cd ~
