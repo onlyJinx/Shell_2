@@ -238,25 +238,25 @@ function shadowsocks-libev(){
 
 function transmission(){
 	function MODIFY_CONFIG(){
-		sed -i '/rpc-whitelist-enabled/ s/true/false/' $TRANSMISSION_CONFIG
-		sed -i '/rpc-host-whitelist-enabled/ s/true/false/' $TRANSMISSION_CONFIG
-		sed -i '/rpc-authentication-required/ s/false/true/' $TRANSMISSION_CONFIG
+		sed -i '/rpc-whitelist-enabled/ s/true/false/' $1
+		sed -i '/rpc-host-whitelist-enabled/ s/true/false/' $1
+		sed -i '/rpc-authentication-required/ s/false/true/' $1
 		##取消未完成文件自动添加 .part后缀
-		sed -i '/rename-partial-files/ s/true/false/' $TRANSMISSION_CONFIG
+		sed -i '/rename-partial-files/ s/true/false/' $1
 		##单引号里特殊符号都不起作用$ or /\，使用双引号替代单引号
 		##sed -i "/rpc-username/ s/\"\"/\"$uname\"/" $TRANSMISSION_CONFIG
-		sed -i "/rpc-username/ s/: \".*/: \"$uname\",/" $TRANSMISSION_CONFIG
-		sed -i "/rpc-port/ s/9091/$port/" $TRANSMISSION_CONFIG
+		sed -i "/rpc-username/ s/: \".*/: \"$uname\",/" $1
+		sed -i "/rpc-port/ s/9091/$port/" $1
 		##sed分隔符/和路径分隔符混淆，用:代替/
-		sed -i ":download-dir: s:\/root\/Downloads:$dir:" $TRANSMISSION_CONFIG
-		sed -i "/rpc-password/ s/\"{.*/\"$passwd\",/" $TRANSMISSION_CONFIG
+		sed -i ":download-dir: s:\/root\/Downloads:$dir:" $1
+		sed -i "/rpc-password/ s/\"{.*/\"$passwd\",/" $1
 		##开启限速
-		sed -i "/speed-limit-up-enabled/ s/false/true/" $TRANSMISSION_CONFIG
+		sed -i "/speed-limit-up-enabled/ s/false/true/" $1
 		##限速1M/s
-		sed -i "/\"speed-limit-up\"/ s/:.*/: 1024,/" $TRANSMISSION_CONFIG
+		sed -i "/\"speed-limit-up\"/ s/:.*/: 1024,/" $1
 		##limit rate
-		sed -i "/ratio-limit-enabled/ s/false/true/" $TRANSMISSION_CONFIG
-		sed -i "/\"ratio-limit\"/ s/:.*/: 4,/" $TRANSMISSION_CONFIG
+		sed -i "/ratio-limit-enabled/ s/false/true/" $1
+		sed -i "/\"ratio-limit\"/ s/:.*/: 4,/" $1
 	}
 
 	check_directory_exist transmission-3.00+
@@ -311,8 +311,8 @@ function transmission(){
 	systemctl daemon-reload
 	##调节UPD缓冲区
 	if ! [[ "$(cat /etc/sysctl.conf|grep 4195328)" ]]; then
-		echo "sysctl -w net.core.rmem_max=4195328" >> /etc/sysctl.conf
-		echo "sysctl -w net.core.wmem_max=4195328" >> /etc/sysctl.conf
+		echo "net.core.rmem_max=4195328" >> /etc/sysctl.conf
+		echo "net.core.wmem_max=4195328" >> /etc/sysctl.conf
 		/sbin/sysctl -p
 		/usr/sbin/sysctl -p
 	fi
@@ -326,7 +326,7 @@ function transmission(){
 	for((i=1;i<3;i++))
 	do
 		if [[ -e $TRANSMISSION_CONFIG ]]; then
-			MODIFY_CONFIG
+			MODIFY_CONFIG $TRANSMISSION_CONFIG
 			break
 		else
 			systemctl daemon-reload	
