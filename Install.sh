@@ -778,7 +778,8 @@ function caddy(){
 				WantedBy=multi-user.target
 			EOF
 			systemctl daemon-reload
-			systemctl start caddy 
+			systemctl start caddy
+			systemctl enable caddy 
 			check "caddy启动失败"
 
 		else
