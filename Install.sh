@@ -277,22 +277,18 @@ function transmission(){
 	[Install]
 	WantedBy=multi-user.target
 	EOF
-
+	systemctl daemon-reload
 	##调节UPD缓冲区
-	echo "sysctl -w net.core.rmem_max=4195328" >> /etc/sysctl.conf
-	echo "sysctl -w net.core.wmem_max=4195328" >> /etc/sysctl.conf
-	/sbin/sysctl -p
-
+	if [[ "$(cat /etc/sysctl.conf|grep 4195328)" ]]; then
+		echo "sysctl -w net.core.rmem_max=4195328" >> /etc/sysctl.conf
+		echo "sysctl -w net.core.wmem_max=4195328" >> /etc/sysctl.conf
+		/sbin/sysctl -p
+	fi
 	##首次启动，生成配置文件
-
 	systemctl start transmission-daemon.service
 	check "transmission启动失败！"
 	systemctl stop transmission-daemon.service
-	ss -lnp|grep 9091
-	read -p ""
-	##systemctl status transmission-daemon.service
 	config_path="/root/.config/transmission-daemon/settings.json"
-
 	## change config  sed引用 https://segmentfault.com/a/1190000020613397
 	if [[ -e $config_path ]]; then
 		sed -i '/rpc-whitelist-enabled/ s/true/false/' $config_path
@@ -316,7 +312,9 @@ function transmission(){
 		sed -i "/\"ratio-limit\"/ s/:.*/: 4,/" $config_path
 	else
 		echo "找不到配置文件"
-		read -p ""
+		read -p "按任意键重启transmission-daemon"
+		systemctl start transmission-daemon.service
+		systemctl daemon-reload	
 	fi
 
 
