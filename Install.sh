@@ -319,7 +319,7 @@ function transmission(){
 	git clone https://github.com/ronggang/transmission-web-control.git
 	mv /usr/local/share/transmission/web/index.html /usr/local/share/transmission/web/index.original.html
 	mv /root/transmission-web-control/src/* /usr/local/share/transmission/web/
-	rm -fr ../transmission-web-control
+	rm -fr transmission-web-control
 	systemctl start transmission-daemon.service
 	clear
 	check "transmission-daemon 运行失败" "transmission-daemon 运行正常"
