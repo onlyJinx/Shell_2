@@ -705,8 +705,6 @@ function nginx(){
 		echo "error: The script does not support the package manager in this operating system."
 		exit 1
 	fi
-
-
 	###nginx编译引用自博客
 	###https://www.cnblogs.com/stulzq/p/9291223.html
 
