@@ -448,10 +448,13 @@ function aria2(){
 
 function Up_kernel(){
 	if [[ "$(type -P apt)" ]]; then
-		echo "deb https://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
+		if ! [[ "$(cat /etc/apt/sources.list | grep buster-backports)" ]]; then
+			echo "deb https://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
+		fi
 		apt update
 		apt upgrade -y
 		$PKGMANAGER -t buster-backports linux-image-cloud-amd64 linux-headers-cloud-amd64 vim
+		check "内核安装失败"
 		echo "set nocompatible" >> /etc/vim/vimrc.tiny
 		echo "set backspace=2" >> /etc/vim/vimrc.tiny
 		sed -i '/mouse=a/ s/mouse=a/mouse-=a/' /usr/share/vim/vim81/defaults.vim
