@@ -716,14 +716,16 @@ function nginx(){
 
 }
 function caddy(){
-	echo "先关闭监听443/80端口的程序(下面直接回车)"
-	check_port "直接回车: " 443
-	check_port "直接回车: " 80
-	read -p "输入域名： " caddyDomain
-	# if [[ "" -eq "$caddyDomain" ]]; then
-	# 	echo "没有输入域名"
-	# 	exit 1
-	# fi
+	check_port "NOINPUT" 443
+	check_port "NOINPUT: " 80
+	while [[ true ]]; do
+		read -p "输入域名(不能为空)： " CADDY_DOMAIN
+		if ! [[ "$CADDY_DOMAIN" ]]; then
+			echo "域名不能为空，重新输入！"
+		else 
+			break
+		fi		
+	done
 	read -p "输入邮箱(回车不设置)： " CADDY_EMAIL
 	CADDY_EMAIL=${CADDY_EMAIL:-noemail@qq.com}
 	read -p "设置用户名： " CADDY_USER
@@ -749,7 +751,7 @@ function caddy(){
 					http_port  80
 					https_port 443
 				}
-				:443, $caddyDomain
+				:443, $CADDY_DOMAIN
 				tls $CADDY_EMAIL
 				route {
 					forward_proxy {
