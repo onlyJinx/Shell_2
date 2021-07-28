@@ -506,14 +506,14 @@ function XRAY(){
 	XRAY_XTLS_PORT=$port
 	read -p "回落端口(默认 5555)?  " XRAY_DESP_PORT
 	XRAY_DESP_PORT=${XRAY_DESP_PORT:-5555}
-	check_port "GRPC 监听端口(默认 1234)?  " 1234
+	check_port "GRPC 监听端口(默认 2002)?  " 2002
 	XRAY_GRPC_PORT=$port
-	check_port "WebSocks 监听端口(默认 1235)?  " 1235
+	check_port "WebSocks 监听端口(默认 1234)?  " 1234
 	XRAY_WS_PORT=$port
-	read -p "Grpc Name(默认 GetNames)?  " XRAY_GRPC_NAME
-	XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-GetNames}
-	read -p "WebSocks Path(默认 WscokilR39o)?  " XRAY_WS_PATH
-	XRAY_WS_PATH=${XRAY_WS_PATH:-WscokilR39o}
+	read -p "Grpc Name(默认 grpcforward )?  " XRAY_GRPC_NAME
+	XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
+	read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
+	XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
 
 	XRAY_RELEASE_LATEST=`wget -q -O - https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
 	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
