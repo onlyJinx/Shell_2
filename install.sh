@@ -450,6 +450,7 @@ function Up_kernel(){
 	if [[ "$(type -P apt)" ]]; then
 		echo "deb https://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
 		apt update
+		apt upgrade -y
 		$PKGMANAGER -t buster-backports linux-image-cloud-amd64 linux-headers-cloud-amd64 vim
 		echo "set nocompatible" >> /etc/vim/vimrc.tiny
 		echo "set backspace=2" >> /etc/vim/vimrc.tiny
