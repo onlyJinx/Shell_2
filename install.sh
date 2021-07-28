@@ -717,7 +717,7 @@ function nginx(){
 }
 function caddy(){
 	check_port "NOINPUT" 443
-	check_port "NOINPUT: " 80
+	check_port "NOINPUT" 80
 	while [[ true ]]; do
 		read -p "输入域名(不能为空)： " CADDY_DOMAIN
 		if ! [[ "$CADDY_DOMAIN" ]]; then
