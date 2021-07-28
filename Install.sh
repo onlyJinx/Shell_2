@@ -23,9 +23,9 @@ function packageManager(){
 packageManager
 function check_port(){
 	#提示语 默认端口
-	#带noinput参数时不跳过端口输入，直接调用默认端口
+	#带NOINPUT参数时不跳过端口输入，直接调用默认端口
 	while [[ true ]]; do
-		if [[ "noinput" == "$1" ]];then
+		if [[ "NOINPUT" == "$1" ]];then
 			port=$2
 		else
 			read -p "$1" port
@@ -587,9 +587,9 @@ function trojan(){
 	clear
 	echo ""
 	check_port "请输入Trojan HTTPS端口: " 443
-	trojan_https_port=$port
+	TROJAN_HTTPS_PORT=$port
 	check_port "Trojan 回落端口: " 80
-	trojan_http_port=$port
+	TROJAN_HTTP_PORT=$port
 	clear
 
 	read -p "设置一个trojan密码(默认trojanWdai1)： " PW
@@ -599,14 +599,14 @@ function trojan(){
 
 	wget https://github.com/trojan-gfw/trojan/releases/download/v${trojan_version}/trojan-${trojan_version}-linux-amd64.tar.xz && tar xvJf trojan-${trojan_version}-linux-amd64.tar.xz -C /etc
 	ln -s /etc/trojan/trojan /usr/bin/trojan
-	config_path=/etc/trojan/config.json
-	sed -i '/password2/ d' $config_path
-	sed -i "/certificate.crt/ s/.crt/.$cert/" $config_path
-	sed -i "/local_port/ s/443/$trojan_https_port/" $config_path
-	sed -i "/remote_port/ s/80/$trojan_http_port/" $config_path
-	sed -i "/\"password1\",/ s/\"password1\",/\"$PW\"/" $config_path
-	sed -i ":\"cert\": s:path\/to:etc\/trojan:" $config_path
-	sed -i ":\"key\": s:path\/to:etc\/trojan:" $config_path
+	TROJAN_CONFIG=/etc/trojan/config.json
+	sed -i '/password2/ d' $TROJAN_CONFIG
+	sed -i "/certificate.crt/ s/.crt/.$cert/" $TROJAN_CONFIG
+	sed -i "/local_port/ s/443/$TROJAN_HTTPS_PORT/" $TROJAN_CONFIG
+	sed -i "/remote_port/ s/80/$TROJAN_HTTP_PORT/" $TROJAN_CONFIG
+	sed -i "/\"password1\",/ s/\"password1\",/\"$PW\"/" $TROJAN_CONFIG
+	sed -i ":\"cert\": s:path\/to:etc\/trojan:" $TROJAN_CONFIG
+	sed -i ":\"key\": s:path\/to:etc\/trojan:" $TROJAN_CONFIG
 
 	###crate service
 	cat >/etc/systemd/system/trojan.service<<-EOF
@@ -626,11 +626,11 @@ function trojan(){
 }
 
 function nginx(){
-	check_port "noinput" 443
-	check_port "noinput" 80
-	read -p "输入NGINX版本(默认1.21.1)： " nginx_version
-	nginx_version=${nginx_version:-1.21.1}
-	nginx_url=http://nginx.org/download/nginx-${nginx_version}.tar.gz
+	check_port "NOINPUT" 443
+	check_port "NOINPUT" 80
+	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
+	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
+	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
 
 	##安装依赖
 	if [[ "$(type -P apt)" ]]; then
@@ -642,7 +642,7 @@ function nginx(){
 		exit 1
 	fi
 
-	wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${nginx_version}.tar.gz -C /tmp/ && cd /tmp/nginx-$nginx_version
+	wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${NGINX_VERSION}.tar.gz -C /tmp/ && cd /tmp/nginx-$NGINX_VERSION
 	./configure \
 	--prefix=/usr/local/nginx \
 	--pid-path=/run/nginx.pid \
@@ -660,7 +660,7 @@ function nginx(){
 	check "编译nginx失败！"
 
 	#清理残留
-	rm -fr /tmp/nginx-$nginx_version
+	rm -fr /tmp/nginx-$NGINX_VERSION
 
 	ln -s /usr/local/nginx/sbin/nginx /usr/bin/nginx
 	mv /usr/local/nginx/conf/nginx.conf /usr/local/nginx/conf/nginx.conf_backup
@@ -720,12 +720,12 @@ function caddy(){
 	# 	echo "没有输入域名"
 	# 	exit 1
 	# fi
-	read -p "输入邮箱(回车不设置)： " caddyEmain
-	caddyEmain=${caddyEmain:-noemail@qq.com}
-	read -p "设置用户名： " caddyUser
-	caddyUser=${caddyUser:-Oieu!ji330}
-	read -p "设置密码： " caddyPass
-	caddyPass=${caddyPass:-5eele9P!il_}
+	read -p "输入邮箱(回车不设置)： " CADDY_EMAIL
+	CADDY_EMAIL=${CADDY_EMAIL:-noemail@qq.com}
+	read -p "设置用户名： " CADDY_USER
+	CADDY_USER=${CADDY_USER:-Oieu!ji330}
+	read -p "设置密码： " CADDY_PASSWD
+	CADDY_PASSWD=${CADDY_PASSWD:-5eele9P!il_}
 	if ! [[ $(type -P go) ]]; then
 		$PKGMANAGER wget
 		wget -P /tmp https://golang.google.cn/dl/go1.16.6.linux-amd64.tar.gz
@@ -746,10 +746,10 @@ function caddy(){
 					https_port 443
 				}
 				:443, $caddyDomain
-				tls $caddyEmain
+				tls $CADDY_EMAIL
 				route {
 					forward_proxy {
-						basic_auth $caddyUser $caddyPass
+						basic_auth $CADDY_USER $CADDY_PASSWD
 						hide_ip
 						hide_via
 						probe_resistance
@@ -797,8 +797,8 @@ function caddy(){
 	rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
 	clear
 	systemctl status caddy
-	echo -e username:"      ""\e[31m\e[1m$caddyUser\e[0m"
-	echo -e password:"      ""\e[31m\e[1m$caddyPass\e[0m"
+	echo -e username:"      ""\e[31m\e[1m$CADDY_USER\e[0m"
+	echo -e password:"      ""\e[31m\e[1m$CADDY_PASSWD\e[0m"
 }
 
 select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "XRAY" "caddy"
