@@ -22,11 +22,15 @@ function packageManager(){
 }
 packageManager
 function check_port(){
-
+	#提示语 默认端口
+	#带noinput参数时不跳过端口输入，直接调用默认端口
 	while [[ true ]]; do
-
-		read -p "$1" port
-		port=${port:-$2}
+		if [[ "noinput" == "$1" ]];then
+			port=$2
+		else
+			read -p "$1" port
+			port=${port:-$2}
+		fi
 		myport=$(ss -lnp|grep :$port)
 		if [ -n "$myport" ];then
 			echo "端口$port已被占用,输入 y 关闭占用进程,输入 n 退出程序直接回车更换其他端口"
@@ -51,7 +55,6 @@ function check_port(){
 			break
 		fi
 	done
-
 }
 
 function check_version(){
@@ -293,7 +296,7 @@ function transmission(){
 	check "transmission编译失败！"
 
 	##crate service
-	cat >/etc/systemd/system/transmission-daemon.service<<-EOF
+	cat >/etc/systemd/system/transmission.service<<-EOF
 	[Unit]
 	Description=Transmission BitTorrent Daemon
 	After=network.target
@@ -317,10 +320,10 @@ function transmission(){
 		/usr/sbin/sysctl -p
 	fi
 	##首次启动，生成配置文件
-	systemctl start transmission-daemon.service
+	systemctl start transmission.service
 	check "transmission启动失败！"
 	sleep 2
-	systemctl stop transmission-daemon.service
+	systemctl stop transmission.service
 	sleep 2
 	TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
 	## change config  sed引用 https://segmentfault.com/a/1190000020613397
@@ -332,9 +335,9 @@ function transmission(){
 			break
 		else
 			systemctl daemon-reload	
-			systemctl start transmission-daemon.service
+			systemctl start transmission.service
 			sleep 2
-			systemctl stop transmission-daemon.service
+			systemctl stop transmission.service
 			sleep 2
 			let count++
 		fi
@@ -347,10 +350,10 @@ function transmission(){
 	mv /usr/local/share/transmission/web/index.html /usr/local/share/transmission/web/index.original.html
 	mv /root/transmission-web-control/src/* /usr/local/share/transmission/web/
 	rm -fr transmission-web-control
-	systemctl start transmission-daemon.service
+	systemctl start transmission.service
 	clear
 	check "transmission-daemon 运行失败" "transmission-daemon 运行正常"
-	systemctl enable transmission-daemon.service > /dev/nul 2>&1&
+	systemctl enable transmission.service > /dev/nul 2>&1&
 
 	echo -e port:"          ""\e[31m\e[1m$port\e[0m"
 	echo -e password:"      ""\e[31m\e[1m$passwd\e[0m"
@@ -623,8 +626,8 @@ function trojan(){
 }
 
 function nginx(){
-	check_port "直接回车: " 443
-	check_port "直接回车: " 80
+	check_port "noinput" 443
+	check_port "noinput" 80
 	read -p "输入NGINX版本(默认1.21.1)： " nginx_version
 	nginx_version=${nginx_version:-1.21.1}
 	nginx_url=http://nginx.org/download/nginx-${nginx_version}.tar.gz
