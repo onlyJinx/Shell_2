@@ -754,7 +754,7 @@ function caddy(){
 						hide_via
 						probe_resistance
 					}
-					file_server { root /etc/local/nginx/html }
+					file_server { root /usr/local/nginx/html }
 				}
 			EOF
 
