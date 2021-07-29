@@ -512,7 +512,7 @@ function XRAY(){
 		if ! [[ "$(type -P unzip)" ]];then
 			$PKGMANAGER unzip
 		fi
-		unzip /tmp/Xray-linux-64.zip -d /tmp
+		unzip -o /tmp/Xray-linux-64.zip -d /tmp
 		if ! [[ -d /usr/local/share/xray ]];then
 			mkdir /usr/local/share/xray
 		fi
@@ -520,16 +520,17 @@ function XRAY(){
 		mv /tmp/geoip.dat /usr/local/share/xray/geoip.dat
 		mv /tmp/geosite.dat /usr/local/share/xray/geosite.dat
 		mv /tmp/xray /usr/local/bin/xray
+		rm -f /tmp/README.md /tmp/LICENSE Xray-linux-64.zip
 	}
 
 	if [[ "$(type -P xray)" ]]; then
-		XTLS_INSTALLED_VERSION=xray version|sed -n 1p|cut -d ' ' -f 2
+		XTLS_INSTALLED_VERSION=$(xray version|sed -n 1p|cut -d ' ' -f 2)
 	fi
 	XRAY_RELEASE_LATEST=`wget -q -O - https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
 	CHECK_VERSION xray Xray $XTLS_INSTALLED_VERSION $XRAY_RELEASE_LATEST
-	if [[ "NEED_UPDATE" == "1" ]]; then
+	if [[ "$NEED_UPDATE" == "1" ]]; then
 		INSTALL_BINARY
-		TMP_VERSION=xray version|sed -n 1p|cut -d ' ' -f 2|sed 's/\.//g'
+		TMP_VERSION=$(xray version|sed -n 1p|cut -d ' ' -f 2|sed 's/\.//g')
 		XRAY_RELEASE_LATEST_FORMAT=$(echo $XRAY_RELEASE_LATEST | sed 's/\.//g')
 		if [[ "$TMP_VERSION" == "$XRAY_RELEASE_LATEST_FORMAT" ]]; then
 			echo "Xray已更新(v$XRAY_RELEASE_LATEST)"
