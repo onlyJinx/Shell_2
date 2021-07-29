@@ -115,10 +115,26 @@ function check_directory_exist(){
 }
 
 function acme.sh(){
-	read -p "输入DNSPod ID" DNSPOD_ID
-	export DP_Id=$DNSPOD_ID
-	read -p "输入DNSPod KEY" DNSPOD_KEY
-	export DP_Key=$DNSPOD_KEY
+	echo "选择校验方式"
+	select option in "DNS" "HTTP"
+	do
+		case $option in
+			"DNS")
+				ACME_DNS
+				break;;
+			"HTTP")
+				ACME_HTTP
+				break;;
+			*)
+				echo "nothink to do"
+				break;;
+		esac
+	done
+
+	if ! [[ "$(type -P curl)" ]]; then
+		$PKGMANAGER curl
+	fi
+	curl  https://get.acme.sh | sh -s email=$ACME_EMAIL
 	read -p "email? " ACME_EMAIL
 	ACME_EMAIL=${ACME_EMAIL:-no_email@gmail.com}
 	read -p "输入域名，多个域名使用空格分开 a.com b.com c.com " APPLY_DOMAIN
@@ -126,13 +142,21 @@ function acme.sh(){
 	if ! [[ -e /ssl ]]; then
 		mkdir /ssl
 	fi
-	if ! [[ "$(type -P curl)" ]]; then
-		$PKGMANAGER curl
-	fi
-	curl  https://get.acme.sh | sh -s email=$ACME_EMAIL
-	/root/.acme.sh/acme.sh --set-default-ca --server letsencrypt
-	/root/.acme.sh/acme.sh --issue --dns dns_dp -d $APPLY_DOMAIN
-	/root/.acme.sh/acme.sh --installcert -d $APPLY_DOMAIN --key-file /ssl/private.key --fullchain-file /ssl/fullchain.cer --reloadcmd "systemctl restart nginx"
+	ACME_PATH_RUN="/root/.acme.sh/acme.sh"
+	$ACME_PATH_RUN --set-default-ca --server letsencrypt
+	$ACME_APPLY_CER
+	$ACME_PATH_RUN --installcert -d $APPLY_DOMAIN --key-file /ssl/private.key --fullchain-file /ssl/fullchain.cer --reloadcmd "systemctl restart nginx"
+
+	function ACME_DNS(){
+		read -p "输入DNSPod ID" DNSPOD_ID
+		export DP_Id=$DNSPOD_ID
+		read -p "输入DNSPod KEY" DNSPOD_KEY
+		export DP_Key=$DNSPOD_KEY
+		ACME_APPLY_CER="$ACME_PATH_RUN --issue --dns dns_dp -d $APPLY_DOMAIN"
+	}
+	function ACME_HTTP(){
+		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --nginx"
+	}
 }
 
 function shadowsocks-libev(){
@@ -867,9 +891,12 @@ function caddy(){
 	echo -e password:"      ""\e[31m\e[1m$CADDY_PASSWD\e[0m"
 }
 
-select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Projext_X" "caddy"
+select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Projext_X" "caddy"
 do
 	case $option in
+		"acme.sh")
+			acme.sh
+			break;;
 		"shadowsocks-libev")
 			shadowsocks-libev
 			break;;
