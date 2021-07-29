@@ -579,7 +579,7 @@ function XRAY(){
 	NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
 	if [[ -e $NGINX_CONFIG ]];then
 		echo "检测到Nginx配置文件，是否写入xray内容"
-		read -p "" UPDATE_NGINX_CONFIG
+		read UPDATE_NGINX_CONFIG
 		if [[ "y" == "UPDATE_NGINX_CONFIG" ]];then
 			sed -i 's/#enable_SSL//' $NGINX_CONFIG
 			sed -i 's/;#enable_SSL//' $NGINX_CONFIG
