@@ -62,7 +62,7 @@ function CHECK_VERSION(){
 	if [ -x "$(command -v $1)" ]; then
 		echo "$2已安装 $3，是否继续覆盖安装服务器版本$4 ?(Y/n)"
 		read -t 30 sel
-		if [ "$sel" == "y" ] || [ "$sel" == "Y" ];then
+		if [ "$sel" == "y" ] || [ "$sel" == "Y" ] || [ "$sel" == "" ];then
 			echo "继续执行安装"
 			NEED_UPDATE=1
 		else
@@ -505,7 +505,7 @@ function Up_kernel(){
 
 }
 
-function XRAY(){
+function Projext_X(){
 	function INSTALL_BINARY(){
 		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 		wget -P /tmp https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
@@ -842,7 +842,7 @@ function caddy(){
 	echo -e password:"      ""\e[31m\e[1m$CADDY_PASSWD\e[0m"
 }
 
-select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "XRAY" "caddy"
+select option in "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Projext_X" "caddy"
 do
 	case $option in
 		"shadowsocks-libev")
@@ -863,8 +863,8 @@ do
 		"nginx")
 			nginx
 			break;;
-		"XRAY")
-			XRAY
+		"Projext_X")
+			Projext_X
 			break;;
 		"caddy")
 			caddy
