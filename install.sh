@@ -578,18 +578,20 @@ function XRAY(){
 
 	NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
 	if [[ -e $NGINX_CONFIG ]];then
-		echo "检测到Nginx配置文件，是否写入xray内容"
-		read UPDATE_NGINX_CONFIG
-		if [[ "y" == "$UPDATE_NGINX_CONFIG" ]];then
-			sed -i 's/;#enable_SSL//' $NGINX_CONFIG
-			sed -i 's/#enable_SSL//' $NGINX_CONFIG
-			sed -i "s/grpcforwardBy2021/$XRAY_GRPC_NAME/" $NGINX_CONFIG
-			sed -i "/127.0.0.1:2002/ s/2002/$XRAY_GRPC_PORT/" $NGINX_CONFIG
-			sed -i "s/wsforwardBy2021/$XRAY_WS_PATH/" $NGINX_CONFIG
-			sed -i "/127.0.0.1:1234/ s/1234/$XRAY_WS_PORT/" $NGINX_CONFIG
-			echo "请配置好证书密钥后reload NGINX.conf"
-		else 
-			echo "配置未更改"
+		if [[ "$(cat $NGINX_CONFIG | grep #enable_SSL)" ]]; then
+			echo "检测到Nginx配置文件，是否写入xray内容"
+			read UPDATE_NGINX_CONFIG
+			if [[ "y" == "$UPDATE_NGINX_CONFIG" ]];then
+				sed -i 's/;#enable_SSL//' $NGINX_CONFIG
+				sed -i 's/#enable_SSL//' $NGINX_CONFIG
+				sed -i "s/grpcforwardBy2021/$XRAY_GRPC_NAME/" $NGINX_CONFIG
+				sed -i "/127.0.0.1:2002/ s/2002/$XRAY_GRPC_PORT/" $NGINX_CONFIG
+				sed -i "s/wsforwardBy2021/$XRAY_WS_PATH/" $NGINX_CONFIG
+				sed -i "/127.0.0.1:1234/ s/1234/$XRAY_WS_PORT/" $NGINX_CONFIG
+				echo "请配置好证书密钥后reload NGINX.conf"
+			else 
+				echo "配置未更改"
+			fi
 		fi
 	fi
 
