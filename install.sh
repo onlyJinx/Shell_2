@@ -522,7 +522,7 @@ function XRAY(){
 		mv /tmp/xray /usr/local/bin/xray
 	}
 
-	if [[ "$(tpye -P xray)" ]]; then
+	if [[ "$(type -P xray)" ]]; then
 		XTLS_INSTALLED_VERSION=xray version|sed -n 1p|cut -d ' ' -f 2
 	fi
 	XRAY_RELEASE_LATEST=`wget -q -O - https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
