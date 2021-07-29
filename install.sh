@@ -57,10 +57,11 @@ function check_port(){
 	done
 }
 
-function check_version(){
+function CHECK_VERSION(){
+	#test run,software name,current version,latest version
 	if [ -x "$(command -v $1)" ]; then
-		echo "$2已安装，是否继续覆盖安装？(Y/N)"
-		read -t 30 -p "" sel
+		echo "$2已安装 $3，是否继续覆盖安装服务器版本$4 ?(Y/n)"
+		read -t 30 sel
 		if [ "$sel" == "y" ] || [ "$sel" == "Y" ];then
 			echo "继续执行安装"
 		else
@@ -113,7 +114,7 @@ function check_directory_exist(){
 function shadowsocks-libev(){
 
 	check_directory_exist /root/shadowsocks-libev
-	check_version ss-server shadowsocks
+	#CHECK_VERSION ss-server shadowsocks
 	read -t 60 -p "请输入密码，直接回车则设置为默认密码: nPB4bF5K8+apre." passwd
 	passwd=${passwd:-nPB4bF5K8+apre.}
 
@@ -263,7 +264,7 @@ function transmission(){
 	}
 
 	check_directory_exist transmission-3.00+
-	check_version transmission-daemon transmission
+	CHECK_VERSION transmission-daemon transmission
 	clear
 	check_port "请输入端口号(9091)" 9091
 	clear
@@ -364,7 +365,7 @@ function transmission(){
 function aria2(){
 
 	check_directory_exist aria2
-	check_version aria2c aria2
+	CHECK_VERSION aria2c aria2
 	clear
 	download_dir "输入下载文件保存路径(默认/usr/downloads): " "/usr/downloads"
 	clear
@@ -504,6 +505,11 @@ function Up_kernel(){
 }
 
 function XRAY(){
+	if [[ "$(tpye -P xray)" ]]; then
+		XTLS_INSTALLED_VERSION=xray version|sed -n 1p|cut -d ' ' -f 2
+	fi
+	XRAY_RELEASE_LATEST=`wget -q -O - https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
+	CHECK_VERSION xray Xray $XTLS_INSTALLED_VERSION $XRAY_RELEASE_LATEST
 	check_port "XRAY_XTLS 监听端口(默认1000)?  " 1000
 	XRAY_XTLS_PORT=$port
 	read -p "回落端口(默认 5555)?  " XRAY_DESP_PORT
@@ -517,7 +523,6 @@ function XRAY(){
 	read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
 	XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
 
-	XRAY_RELEASE_LATEST=`wget -q -O - https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
 	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 	wget -P /tmp https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
 	if ! [[ "$(type -P unzip)" ]];then
