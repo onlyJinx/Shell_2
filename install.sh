@@ -578,7 +578,7 @@ function XRAY(){
 
 	NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
 	if [[ -e $NGINX_CONFIG ]];then
-		if [[ "$(cat $NGINX_CONFIG | grep #enable_SSL)" ]]; then
+		if [[ "$(cat $NGINX_CONFIG | grep \#enable_SSL)" ]]; then
 			echo "检测到Nginx配置文件，是否写入xray内容"
 			read UPDATE_NGINX_CONFIG
 			if [[ "y" == "$UPDATE_NGINX_CONFIG" ]];then
