@@ -143,6 +143,7 @@ function acme.sh(){
 		mkdir /ssl
 	fi
 	ACME_PATH_RUN="/root/.acme.sh/acme.sh"
+	alias ./acme.sh=$ACME_PATH_RUN
 	$ACME_PATH_RUN --set-default-ca --server letsencrypt
 	$ACME_APPLY_CER
 	$ACME_PATH_RUN --installcert -d $APPLY_DOMAIN --key-file /ssl/private.key --fullchain-file /ssl/fullchain.cer --reloadcmd "systemctl restart nginx"
