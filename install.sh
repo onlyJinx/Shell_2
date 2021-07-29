@@ -580,7 +580,7 @@ function XRAY(){
 	if [[ -e $NGINX_CONFIG ]];then
 		echo "检测到Nginx配置文件，是否写入xray内容"
 		read UPDATE_NGINX_CONFIG
-		if [[ "y" == "UPDATE_NGINX_CONFIG" ]];then
+		if [[ "y" == "$UPDATE_NGINX_CONFIG" ]];then
 			sed -i 's/#enable_SSL//' $NGINX_CONFIG
 			sed -i 's/;#enable_SSL//' $NGINX_CONFIG
 			sed -i "s/grpcforwardBy2021/$XRAY_GRPC_NAME/" $NGINX_CONFIG
