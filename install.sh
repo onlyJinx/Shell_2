@@ -134,7 +134,6 @@ function acme.sh(){
 	if ! [[ "$(type -P curl)" ]]; then
 		$PKGMANAGER curl
 	fi
-	curl  https://get.acme.sh | sh -s email=$ACME_EMAIL
 	read -p "email? " ACME_EMAIL
 	ACME_EMAIL=${ACME_EMAIL:-no_email@gmail.com}
 	read -p "输入域名，多个域名使用空格分开 a.com b.com c.com " APPLY_DOMAIN
@@ -142,6 +141,7 @@ function acme.sh(){
 	if ! [[ -e /ssl ]]; then
 		mkdir /ssl
 	fi
+	curl  https://get.acme.sh | sh -s email=$ACME_EMAIL
 	ACME_PATH_RUN="/root/.acme.sh/acme.sh"
 	alias ./acme.sh=$ACME_PATH_RUN
 	$ACME_PATH_RUN --set-default-ca --server letsencrypt
@@ -156,6 +156,7 @@ function acme.sh(){
 		ACME_APPLY_CER="$ACME_PATH_RUN --issue --dns dns_dp -d $APPLY_DOMAIN"
 	}
 	function ACME_HTTP(){
+		echo "ACME_HTTP"
 		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --nginx"
 	}
 }
