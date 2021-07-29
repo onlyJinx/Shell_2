@@ -125,7 +125,7 @@ function acme.sh(){
 	}
 	function ACME_HTTP(){
 		echo "ACME_HTTP"
-		ACME_APPLY_CER="$ACME_PATH_RUN --issue --nginx"
+		ACME_APPLY_CER="$ACME_PATH_RUN --issue --webroot /usr/local/nginx/html/"
 	}
 	echo "选择校验方式"
 	select option in "DNS" "HTTP"
