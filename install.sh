@@ -12,8 +12,10 @@ function check(){
 }
 function packageManager(){
 	if [[ "$(type -P apt)" ]]; then
+		apt update
 		PKGMANAGER="apt install -y --no-install-recommends"
 	elif [[ "$(type -P yum)" ]]; then
+		yum update
 		PKGMANAGER="yum install -y"
 	else
 		echo "不支持的系统"
@@ -110,6 +112,27 @@ function check_directory_exist(){
 			echo 已将目录 $1 移动至 $1_$(date +%T)
 		fi
 	fi
+}
+
+function acme.sh(){
+	read -p "输入DNSPod ID" DNSPOD_ID
+	export DP_Id=$DNSPOD_ID
+	read -p "输入DNSPod KEY" DNSPOD_KEY
+	export DP_Key=$DNSPOD_KEY
+	read -p "email? " ACME_EMAIL
+	ACME_EMAIL=${ACME_EMAIL:-no_email@gmail.com}
+	read -p "输入域名，多个域名使用空格分开 a.com b.com c.com " APPLY_DOMAIN
+	APPLY_DOMAIN=$(echo $APPLY_DOMAIN | sed 's/ / -d /g')
+	if ! [[ -e /ssl ]]; then
+		mkdir /ssl
+	fi
+	if ! [[ "$(type -P curl)" ]]; then
+		$PKGMANAGER curl
+	fi
+	curl  https://get.acme.sh | sh -s email=$ACME_EMAIL
+	/root/.acme.sh/acme.sh --set-default-ca --server letsencrypt
+	/root/.acme.sh/acme.sh --issue --dns dns_dp -d $APPLY_DOMAIN
+	/root/.acme.sh/acme.sh --installcert -d $APPLY_DOMAIN --key-file /ssl/private.key --fullchain-file /ssl/fullchain.cer --reloadcmd "systemctl restart nginx"
 }
 
 function shadowsocks-libev(){
@@ -541,18 +564,20 @@ function Projext_X(){
 			exit 1
 		fi
 	else
-		check_port "XRAY_XTLS 监听端口(默认1000)?  " 1000
+		check_port "XRAY_XTLS 监听端口(1000)?  " 1000
 		XRAY_XTLS_PORT=$port
-		read -p "回落端口(默认 5555)?  " XRAY_DESP_PORT
+		read -p "回落端口(5555)?  " XRAY_DESP_PORT
 		XRAY_DESP_PORT=${XRAY_DESP_PORT:-5555}
-		check_port "GRPC 监听端口(默认 2002)?  " 2002
+		check_port "GRPC 监听端口(2002)?  " 2002
 		XRAY_GRPC_PORT=$port
-		check_port "WebSocks 监听端口(默认 1234)?  " 1234
+		check_port "WebSocks 监听端口(1234)?  " 1234
 		XRAY_WS_PORT=$port
-		read -p "Grpc Name(默认 grpcforward )?  " XRAY_GRPC_NAME
+		read -p "Grpc Name(grpcforward)?  " XRAY_GRPC_NAME
 		XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
 		read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
 		XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
+		read -p "请输入域名(project_x.com): " XRAY_DOMAIN
+		XRAY_DOMAIN=${XRAY_DOMAIN:-project_x.com}
 		INSTALL_BINARY
 		if [[ "$(type -P /usr/local/bin/xray)" ]]; then
 			XRAY_UUID=$(/usr/local/bin/xray uuid)
@@ -609,18 +634,18 @@ function Projext_X(){
 					sed -i "/127.0.0.1:2002/ s/2002/$XRAY_GRPC_PORT/" $NGINX_CONFIG
 					sed -i "s/wsforwardBy2021/$XRAY_WS_PATH/" $NGINX_CONFIG
 					sed -i "/127.0.0.1:1234/ s/1234/$XRAY_WS_PORT/" $NGINX_CONFIG
-					echo "请配置好证书密钥后reload NGINX.conf"
+					echo "请配置好证书密钥后手动重载nginx配置"
 				else 
 					echo "配置未更改"
 				fi
 			fi
 		fi
 
-		echo vless://$XRAY_UUID@127.0.0.1:443?security=xtls\&sni=domain.com\&flow=xtls-rprx-direct#VLESS_xtls
+		echo vless://$XRAY_UUID@127.0.0.1:443?security=xtls\&sni=$XRAY_DOMAIN\&flow=xtls-rprx-direct#VLESS_xtls
 
-		echo vless://$XRAY_GRPC_UUID@domain.com:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=domain.com#GRPC
+		echo vless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=$XRAY_DOMAIN#GRPC
 
-		echo vless://$XRAY_WS_UUID@127.0.0.1:443?type=ws\&security=tls\&path=%2F$XRAY_WS_PATH%3Fed%3D2048\&host=domain.com\&sni=domain.com#WS
+		echo vless://$XRAY_WS_UUID@127.0.0.1:443?type=ws\&security=tls\&path=%2F$XRAY_WS_PATH%3Fed%3D2048\&host=$XRAY_DOMAIN\&sni=$XRAY_DOMAIN#WS
 	fi
 }
 
