@@ -64,6 +64,7 @@ function CHECK_VERSION(){
 		read -t 30 sel
 		if [ "$sel" == "y" ] || [ "$sel" == "Y" ];then
 			echo "继续执行安装"
+			NEED_UPDATE=1
 		else
 			echo "已取消安装"
 			exit 0
@@ -505,105 +506,121 @@ function Up_kernel(){
 }
 
 function XRAY(){
+	function INSTALL_BINARY(){
+		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
+		wget -P /tmp https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
+		if ! [[ "$(type -P unzip)" ]];then
+			$PKGMANAGER unzip
+		fi
+		unzip /tmp/Xray-linux-64.zip -d /tmp
+		if ! [[ -d /usr/local/share/xray ]];then
+			mkdir /usr/local/share/xray
+		fi
+		alias mv='mv -i'
+		mv /tmp/geoip.dat /usr/local/share/xray/geoip.dat
+		mv /tmp/geosite.dat /usr/local/share/xray/geosite.dat
+		mv /tmp/xray /usr/local/bin/xray
+	}
+
 	if [[ "$(tpye -P xray)" ]]; then
 		XTLS_INSTALLED_VERSION=xray version|sed -n 1p|cut -d ' ' -f 2
 	fi
 	XRAY_RELEASE_LATEST=`wget -q -O - https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
 	CHECK_VERSION xray Xray $XTLS_INSTALLED_VERSION $XRAY_RELEASE_LATEST
-	check_port "XRAY_XTLS 监听端口(默认1000)?  " 1000
-	XRAY_XTLS_PORT=$port
-	read -p "回落端口(默认 5555)?  " XRAY_DESP_PORT
-	XRAY_DESP_PORT=${XRAY_DESP_PORT:-5555}
-	check_port "GRPC 监听端口(默认 2002)?  " 2002
-	XRAY_GRPC_PORT=$port
-	check_port "WebSocks 监听端口(默认 1234)?  " 1234
-	XRAY_WS_PORT=$port
-	read -p "Grpc Name(默认 grpcforward )?  " XRAY_GRPC_NAME
-	XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
-	read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
-	XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
+	if [[ "NEED_UPDATE" == "1" ]]; then
+		INSTALL_BINARY
+		TMP_VERSION=xray version|sed -n 1p|cut -d ' ' -f 2|sed 's/\.//g'
+		XRAY_RELEASE_LATEST_FORMAT=$(echo $XRAY_RELEASE_LATEST | sed 's/\.//g')
+		if [[ "$TMP_VERSION" == "$XRAY_RELEASE_LATEST_FORMAT" ]]; then
+			echo "Xray已更新(v$XRAY_RELEASE_LATEST)"
+			systemctl restart xray
+			xray version
+		else
+			echo "更新失败"
+			exit 1
+		fi
+	else
+		check_port "XRAY_XTLS 监听端口(默认1000)?  " 1000
+		XRAY_XTLS_PORT=$port
+		read -p "回落端口(默认 5555)?  " XRAY_DESP_PORT
+		XRAY_DESP_PORT=${XRAY_DESP_PORT:-5555}
+		check_port "GRPC 监听端口(默认 2002)?  " 2002
+		XRAY_GRPC_PORT=$port
+		check_port "WebSocks 监听端口(默认 1234)?  " 1234
+		XRAY_WS_PORT=$port
+		read -p "Grpc Name(默认 grpcforward )?  " XRAY_GRPC_NAME
+		XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
+		read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
+		XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
+		INSTALL_BINARY
+		if [[ "$(type -P /usr/local/bin/xray)" ]]; then
+			XRAY_UUID=$(/usr/local/bin/xray uuid)
+			XRAY_GRPC_UUID=$(/usr/local/bin/xray uuid)
+			XRAY_WS_UUID=$(/usr/local/bin/xray uuid)
+		else 
+			echo "XRAY安装失败！"
+			exit 1
+		fi
+		if ! [[ -d /usr/local/etc/xray ]];then
+			mkdir /usr/local/etc/xray
+		fi
+		XRAY_CONFIG=/usr/local/etc/xray/config.json
+		wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/xtls_tcp_grpc_ws.json
+		sed -i "s/XTLS_PORT/$XRAY_XTLS_PORT/" $XRAY_CONFIG
+		sed -i "s/DESP_PORT/$XRAY_DESP_PORT/" $XRAY_CONFIG
+		sed -i "s/GRPC_PORT/$XRAY_GRPC_PORT/" $XRAY_CONFIG
+		sed -i "s/GRPC_NAME/$XRAY_GRPC_NAME/" $XRAY_CONFIG
+		sed -i "s/WS_PORT/$XRAY_WS_PORT/" $XRAY_CONFIG
+		sed -i "s/WS_PATH/$XRAY_WS_PATH/" $XRAY_CONFIG
 
-	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
-	wget -P /tmp https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
-	if ! [[ "$(type -P unzip)" ]];then
-		$PKGMANAGER unzip
-	fi
-	unzip /tmp/Xray-linux-64.zip -d /tmp
-	if ! [[ -d /usr/local/share/xray ]];then
-		mkdir /usr/local/share/xray
-	fi
-	mv /tmp/geoip.dat /usr/local/share/xray/geoip.dat
-	mv /tmp/geosite.dat /usr/local/share/xray/geosite.dat
-	mv /tmp/xray /usr/local/bin/xray
+		sed -i "s/XtlsForUUID/$XRAY_UUID/" $XRAY_CONFIG
+		sed -i "s/GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
+		sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
 
-	if [[ "$(type -P /usr/local/bin/xray)" ]]; then
-		XRAY_UUID=$(/usr/local/bin/xray uuid)
-		XRAY_GRPC_UUID=$(/usr/local/bin/xray uuid)
-		XRAY_WS_UUID=$(/usr/local/bin/xray uuid)
-	else 
-		echo "XRAY安装失败！"
-		exit 1
-	fi
-	if ! [[ -d /usr/local/etc/xray ]];then
-		mkdir /usr/local/etc/xray
-	fi
-	XRAY_CONFIG=/usr/local/etc/xray/config.json
-	wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/xtls_tcp_grpc_ws.json
-	sed -i "s/XTLS_PORT/$XRAY_XTLS_PORT/" $XRAY_CONFIG
-	sed -i "s/DESP_PORT/$XRAY_DESP_PORT/" $XRAY_CONFIG
-	sed -i "s/GRPC_PORT/$XRAY_GRPC_PORT/" $XRAY_CONFIG
-	sed -i "s/GRPC_NAME/$XRAY_GRPC_NAME/" $XRAY_CONFIG
-	sed -i "s/WS_PORT/$XRAY_WS_PORT/" $XRAY_CONFIG
-	sed -i "s/WS_PATH/$XRAY_WS_PATH/" $XRAY_CONFIG
+		cat > /etc/systemd/system/xray.service <<-EOF
+		[Unit]
+		Description=Xray Service
+		Documentation=https://github.com/xtls
+		After=network.target nss-lookup.target
+		[Service]
+		User=root
+		#CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+		#AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+		#NoNewPrivileges=true
+		ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
+		Restart=on-failure
+		RestartPreventExitStatus=23
+		LimitNPROC=10000
+		LimitNOFILE=1000000
+		[Install]
+		WantedBy=multi-user.target
+		EOF
 
-	sed -i "s/XtlsForUUID/$XRAY_UUID/" $XRAY_CONFIG
-	sed -i "s/GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
-	sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
-
-	cat > /etc/systemd/system/xray.service <<-EOF
-	[Unit]
-	Description=Xray Service
-	Documentation=https://github.com/xtls
-	After=network.target nss-lookup.target
-	[Service]
-	User=root
-	#CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-	#AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-	#NoNewPrivileges=true
-	ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
-	Restart=on-failure
-	RestartPreventExitStatus=23
-	LimitNPROC=10000
-	LimitNOFILE=1000000
-	[Install]
-	WantedBy=multi-user.target
-	EOF
-
-	NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
-	if [[ -e $NGINX_CONFIG ]];then
-		if [[ "$(cat $NGINX_CONFIG | grep \#enable_SSL)" ]]; then
-			echo "检测到Nginx配置文件，是否写入xray内容(Y/n)"
-			read UPDATE_NGINX_CONFIG
-			if [[ "y" == "$UPDATE_NGINX_CONFIG" ]] || [[ "Y" == "$UPDATE_NGINX_CONFIG" ]] || [[ "" == "$UPDATE_NGINX_CONFIG" ]];then
-				sed -i 's/;#enable_SSL//' $NGINX_CONFIG
-				sed -i 's/#enable_SSL//' $NGINX_CONFIG
-				sed -i "s/grpcforwardBy2021/$XRAY_GRPC_NAME/" $NGINX_CONFIG
-				sed -i "/127.0.0.1:2002/ s/2002/$XRAY_GRPC_PORT/" $NGINX_CONFIG
-				sed -i "s/wsforwardBy2021/$XRAY_WS_PATH/" $NGINX_CONFIG
-				sed -i "/127.0.0.1:1234/ s/1234/$XRAY_WS_PORT/" $NGINX_CONFIG
-				echo "请配置好证书密钥后reload NGINX.conf"
-			else 
-				echo "配置未更改"
+		NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
+		if [[ -e $NGINX_CONFIG ]];then
+			if [[ "$(cat $NGINX_CONFIG | grep \#enable_SSL)" ]]; then
+				echo "检测到Nginx配置文件，是否写入xray内容(Y/n)"
+				read UPDATE_NGINX_CONFIG
+				if [[ "y" == "$UPDATE_NGINX_CONFIG" ]] || [[ "Y" == "$UPDATE_NGINX_CONFIG" ]] || [[ "" == "$UPDATE_NGINX_CONFIG" ]];then
+					sed -i 's/;#enable_SSL//' $NGINX_CONFIG
+					sed -i 's/#enable_SSL//' $NGINX_CONFIG
+					sed -i "s/grpcforwardBy2021/$XRAY_GRPC_NAME/" $NGINX_CONFIG
+					sed -i "/127.0.0.1:2002/ s/2002/$XRAY_GRPC_PORT/" $NGINX_CONFIG
+					sed -i "s/wsforwardBy2021/$XRAY_WS_PATH/" $NGINX_CONFIG
+					sed -i "/127.0.0.1:1234/ s/1234/$XRAY_WS_PORT/" $NGINX_CONFIG
+					echo "请配置好证书密钥后reload NGINX.conf"
+				else 
+					echo "配置未更改"
+				fi
 			fi
 		fi
+
+		echo vless://$XRAY_UUID@127.0.0.1:443?security=xtls\&sni=domain.com\&flow=xtls-rprx-direct#VLESS_xtls
+
+		echo vless://$XRAY_GRPC_UUID@domain.com:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=domain.com#GRPC
+
+		echo vless://$XRAY_WS_UUID@127.0.0.1:443?type=ws\&security=tls\&path=%2F$XRAY_WS_PATH%3Fed%3D2048\&host=domain.com\&sni=domain.com#WS
 	fi
-
-	echo vless://$XRAY_UUID@127.0.0.1:443?security=xtls\&sni=domain.com\&flow=xtls-rprx-direct#VLESS_xtls
-
-	echo vless://$XRAY_GRPC_UUID@domain.com:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=domain.com#GRPC
-
-	echo vless://$XRAY_WS_UUID@127.0.0.1:443?type=ws\&security=tls\&path=%2F$XRAY_WS_PATH%3Fed%3D2048\&host=domain.com\&sni=domain.com#WS
-
 }
 
 function trojan(){
