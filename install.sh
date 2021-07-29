@@ -222,7 +222,7 @@ function shadowsocks-libev(){
 	[Install]
 	WantedBy=multi-user.target
 	EOF
-
+	systemctl daemon-reload
 	systemctl start ssl&&systemctl enable ssl
 	### remove the file
 	cd /root && rm -fr mbedtls* shadowsocks-libev libsodium LATEST.tar.gz c-ares
@@ -342,8 +342,6 @@ function transmission(){
 			let count++
 		fi
 	done
-	echo $count
-	read -p "press any key"
 	##替换webUI
 	cd ~
 	git clone https://github.com/ronggang/transmission-web-control.git
@@ -419,7 +417,7 @@ function aria2(){
 	    dir=$dir
 	    file-allocation=prealloc
 	EOF
-
+	systemctl daemon-reload
 	systemctl enable aria2
 	systemctl start aria2
 
@@ -579,9 +577,9 @@ function XRAY(){
 	NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
 	if [[ -e $NGINX_CONFIG ]];then
 		if [[ "$(cat $NGINX_CONFIG | grep \#enable_SSL)" ]]; then
-			echo "检测到Nginx配置文件，是否写入xray内容"
+			echo "检测到Nginx配置文件，是否写入xray内容(Y/n)"
 			read UPDATE_NGINX_CONFIG
-			if [[ "y" == "$UPDATE_NGINX_CONFIG" ]];then
+			if [[ "y" == "$UPDATE_NGINX_CONFIG" ]] || [[ "Y" == "$UPDATE_NGINX_CONFIG" ]] || [[ "" == "$UPDATE_NGINX_CONFIG" ]];then
 				sed -i 's/;#enable_SSL//' $NGINX_CONFIG
 				sed -i 's/#enable_SSL//' $NGINX_CONFIG
 				sed -i "s/grpcforwardBy2021/$XRAY_GRPC_NAME/" $NGINX_CONFIG
@@ -639,7 +637,7 @@ function trojan(){
 	[Install]
 	WantedBy=multi-user.target
 	EOF
-
+	systemctl daemon-reload
 	systemctl start trojan
 	systemctl enable trojan
 
@@ -723,7 +721,7 @@ function nginx(){
 	fi
 	###nginx编译引用自博客
 	###https://www.cnblogs.com/stulzq/p/9291223.html
-
+	systemctl daemon-reload
 	systemctl start nginx
 	systemctl status nginx
 	systemctl enable nginx
