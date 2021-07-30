@@ -202,8 +202,6 @@ function acme.sh(){
 	--key-file /ssl/private.key \
 	--fullchain-file /ssl/fullchain.cer $ACME_NGINX_RELOAD	
 }
-acme.sh
-
 
 function shadowsocks-libev(){
 
