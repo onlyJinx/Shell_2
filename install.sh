@@ -129,9 +129,12 @@ function acme.sh(){
 	function ACME_HTTP(){
 		echo "ACME_HTTP"
 		if ! [[ "$(ss -lnp|grep ':80')" ]]; then
+			$PKGMANAGER socat
 			echo "80端口空闲，使用临时ACME Web服务器"
+			WEB_ROOT=""
 		fi
-		ACME_APPLY_CER="$ACME_PATH_RUN --issue --webroot /usr/local/nginx/html/ --standalone"
+		WEB_ROOT="--webroot /usr/local/nginx/html/"
+		ACME_APPLY_CER="$ACME_PATH_RUN --issue $WEB_ROOT --standalone"
 	}
 	read -p "输入域名，多个域名使用空格分开(a.com b.com) " APPLY_DOMAIN
 	APPLY_DOMAIN=$(echo $APPLY_DOMAIN | sed 's/ / -d /g')
