@@ -12,10 +12,8 @@ function check(){
 }
 function packageManager(){
 	if [[ "$(type -P apt)" ]]; then
-		apt update
 		PKGMANAGER="apt install -y --no-install-recommends"
 	elif [[ "$(type -P yum)" ]]; then
-		yum update
 		PKGMANAGER="yum install -y"
 	else
 		echo "不支持的系统"
@@ -523,6 +521,7 @@ function Up_kernel(){
 		echo "set backspace=2" >> /etc/vim/vimrc.tiny
 		sed -i '/mouse=a/ s/mouse=a/mouse-=a/' /usr/share/vim/vim81/defaults.vim
 	elif [[ "$(type -P yum)" ]]; then
+		yum update
 		###导入elrepo密钥
 		rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
 
