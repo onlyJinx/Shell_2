@@ -112,13 +112,15 @@ function acme.sh(){
 	DOMAIN_AUTH_TEMP="/root/.acme.sh/DOMAIN_AUTH_TEMP.TMP"
 	CERT_INSTALL_PATH="/ssl"
 	function ACME_DNS_API(){
-			read -p "输入DNSPod ID" DNSPOD_ID
-			export DP_Id=$DNSPOD_ID
-			read -p "输入DNSPod KEY" DNSPOD_KEY
-			export DP_Key=$DNSPOD_KEY
-			ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --dns dns_dp"
+		echo "开始API认证模式"
+		read -p "输入DNSPod ID" DNSPOD_ID
+		export DP_Id=$DNSPOD_ID
+		read -p "输入DNSPod KEY" DNSPOD_KEY
+		export DP_Key=$DNSPOD_KEY
+		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --dns dns_dp"
 	}
 	function ACME_HTTP(){
+		echo "开始http校验"
 		if [[ "$(echo $APPLY_DOMAIN | grep \*)" ]]; then
 			echo "通配符域名不支持HTTP验证，请选择其他方式"
 		fi
@@ -135,14 +137,15 @@ function acme.sh(){
 		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN $WEB_ROOT $STANDALONE"
 	}
 	function ACME_DNS_MANUAL(){
-			if [[ "$ENTER_APPLY_DOMAIN" != "$APPLY_DOMAIN" ]]; then
-				##相等即没有输入内容无空格(单个域名)
-				echo "手动DNS记录只支持单个域名校验"
-				exit 0
-			fi
-			ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --dns --yes-I-know-dns-manual-mode-enough-go-ahead-please"
-			echo "$APPLY_DOMAIN" > $DOMAIN_AUTH_TEMP
-			NEED_INSTALL_CERT=""
+		echo "开始DNS手动模式"
+		if [[ "$ENTER_APPLY_DOMAIN" != "$APPLY_DOMAIN" ]]; then
+			##相等即没有输入内容无空格(单个域名)
+			echo "手动DNS记录只支持单个域名校验"
+			exit 0
+		fi
+		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --dns --yes-I-know-dns-manual-mode-enough-go-ahead-please"
+		echo "$APPLY_DOMAIN" > $DOMAIN_AUTH_TEMP
+		NEED_INSTALL_CERT=""
 	}
 	function ACME_INSTALL_CERT(){
 		echo "开始安装证书"
