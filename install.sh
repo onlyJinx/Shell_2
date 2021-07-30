@@ -72,15 +72,6 @@ function CHECK_VERSION(){
 	fi
 }
 
-function check_fin(){
-	if [ -x "$(command -v $1)" ]; then
-		echo "编译安装完成"
-	else
-		echo "编译失败，请手动检查！！"
-		exit 1
-	fi
-}
-
 function download_dir(){
 
 	#函数 提示语 默认路劲
@@ -296,7 +287,7 @@ function shadowsocks-libev(){
 	make && make install
 
 	###尝试运行程序
-	check_fin "ss-server"
+	check "SS编译安装失败"
 	mkdir /etc/shadowsocks-libev
 	###cp /root/shadowsocks-libev/debian/config.json /etc/shadowsocks-libev/config.json
 
@@ -495,10 +486,7 @@ function aria2(){
 	make && make install
 
 	###相关编译报错引用https://weair.xyz/build-aria2/
-	check aria2
-	###尝试运行程序
-	clear
-	check_fin "aria2c"
+	check "aria2c编译安装失败"
 	cat >/etc/systemd/system/aria2.service<<-EOF
 	[Unit]
 	Description=aria2c
