@@ -104,13 +104,14 @@ function check_directory_exist(){
 }
 
 function acme.sh(){
-	ACME_PATH_RUN="/root/.acme.sh/acme.sh"
-	STANDALONE=""
 	WEB_ROOT=""
-	#手动DNS验证跳过安装证书
+	STANDALONE=""
+	#手动DNS跳过安装证书
 	NEED_INSTALL_CERT="1"
-	DOMAIN_AUTH_TEMP="/root/.acme.sh/DOMAIN_AUTH_TEMP.TMP"
 	CERT_INSTALL_PATH="/ssl"
+	ACME_PATH_RUN="/root/.acme.sh/acme.sh"
+	DEFAULT_WEB_ROOT="/usr/local/nginx/html/"
+	DOMAIN_AUTH_TEMP="/root/.acme.sh/DOMAIN_AUTH_TEMP.TMP"
 	function ACME_DNS_API(){
 		echo "开始API认证模式"
 		read -p "输入DNSPod ID" DNSPOD_ID
@@ -129,12 +130,16 @@ function acme.sh(){
 			apt install -y socat
 			STANDALONE="--standalone"
 		else
-			DEFAULT_WEB_ROOT="--webroot /usr/local/nginx/html/"
 			echo "尝试列出所有html目录。"
+			find / -name html
 			read -p "输入网站根目录: " WEB_ROOT
 			WEB_ROOT=${WEB_ROOT:-$DEFAULT_WEB_ROOT}
+			if ! [[ "$WEB_ROOT" ]]; then
+				echo "输入的非目录，退出！"
+				exit 1
+			fi
 		fi
-		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN $WEB_ROOT $STANDALONE"
+		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN--webroot  $WEB_ROOT $STANDALONE"
 	}
 	function ACME_DNS_MANUAL(){
 		echo "开始DNS手动模式"
