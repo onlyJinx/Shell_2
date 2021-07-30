@@ -105,7 +105,6 @@ function check_directory_exist(){
 
 function acme.sh(){
 	ACME_PATH_RUN="/root/.acme.sh/acme.sh"
-	ACME_NGINX_RELOAD=""
 	STANDALONE=""
 	WEB_ROOT=""
 	#手动DNS验证跳过安装证书
@@ -125,11 +124,13 @@ function acme.sh(){
 		fi
 		if ! [[ "$(ss -lnp|grep ':80 ')" ]]; then
 			echo "80端口空闲，使用临时ACME Web服务器"
-			$PKGMANAGER -y socat
+			apt install -y socat
 			STANDALONE="--standalone"
 		else
-			WEB_ROOT="--webroot /usr/local/nginx/html/"
-			ACME_NGINX_RELOAD='--reloadcmd "service nginx force-reload"'
+			DEFAULT_WEB_ROOT="--webroot /usr/local/nginx/html/"
+			echo "尝试列出所有html目录。"
+			read -p "输入网站根目录: " WEB_ROOT
+			WEB_ROOT=${WEB_ROOT:-$DEFAULT_WEB_ROOT}
 		fi
 		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN $WEB_ROOT $STANDALONE"
 	}
