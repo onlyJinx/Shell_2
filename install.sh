@@ -134,7 +134,7 @@ function acme.sh(){
 			find / -name html
 			read -p "输入网站根目录: " WEB_ROOT
 			WEB_ROOT=${WEB_ROOT:-$DEFAULT_WEB_ROOT}
-			if ! [[ "$WEB_ROOT" ]]; then
+			if ! [[ -d "$WEB_ROOT" ]]; then
 				echo "输入的非目录，退出！"
 				exit 1
 			fi
