@@ -139,7 +139,7 @@ function acme.sh(){
 				exit 1
 			fi
 		fi
-		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN--webroot  $WEB_ROOT $STANDALONE"
+		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --webroot $WEB_ROOT $STANDALONE"
 	}
 	function ACME_DNS_MANUAL(){
 		echo "开始DNS手动模式"
