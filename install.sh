@@ -114,32 +114,55 @@ function check_directory_exist(){
 
 function acme.sh(){
 	ACME_PATH_RUN="/root/.acme.sh/acme.sh"
+	ACME_NGINX_RELOAD=""
+	DOMAIN_AUTH_TEMP="/root/.acme.sh/DOMAIN_AUTH_TEMP"
+	if [[ -e $DOMAIN_AUTH_TEMP ]]; then
+		APPLY_DOMAIN=$(cat $DOMAIN_AUTH_TEMP)
+		rm -f $DOMAIN_AUTH_TEMP
+		echo  $ACME_PATH_RUN --renew -d $APPLY_DOMAIN --yes-I-know-dns-manual-mode-enough-go-ahead-please
+		$ACME_PATH_RUN --renew -d $APPLY_DOMAIN --yes-I-know-dns-manual-mode-enough-go-ahead-please
+		$ACME_PATH_RUN --installcert -d $APPLY_DOMAIN \
+		--key-file /ssl/private.key \
+		--fullchain-file /ssl/fullchain.cer
+		exit 0
+	fi
 	function ACME_DNS(){
-		read -p "直接回车使用手动DNS校验，输入API使用DNSPod API校验 " DOMAIN_AUTH_METHOD
+		read -p "直接回车使用手动DNS校验，输入任意字符使用DNSPod API校验 " DOMAIN_AUTH_METHOD
 		if [[ "" == "$DOMAIN_AUTH_METHOD" ]]; then
-			ACME_APPLY_CER="$ACME_PATH_RUN --issue --dns --yes-I-know-dns-manual-mode-enough-go-ahead-please"
- 			DNS_MANUAL_MODE=1
-		fi
+			DNS_MANUAL_MODE=1
+			ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --dns --yes-I-know-dns-manual-mode-enough-go-ahead-please"
+ 			echo "$APPLY_DOMAIN" > /root/.acme.sh/DOMAIN_AUTH_TEMP
+ 		else
 			read -p "输入DNSPod ID" DNSPOD_ID
 			export DP_Id=$DNSPOD_ID
 			read -p "输入DNSPod KEY" DNSPOD_KEY
 			export DP_Key=$DNSPOD_KEY
-			ACME_APPLY_CER="$ACME_PATH_RUN --issue --dns dns_dp"
+			ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --dns dns_dp"
+		fi
 	}
 	function ACME_HTTP(){
-		echo "ACME_HTTP"
-		if ! [[ "$(ss -lnp|grep ':80')" ]]; then
-			$PKGMANAGER socat
+		if ! [[ "$(ss -lnp|grep ':80 ')" ]]; then
 			echo "80端口空闲，使用临时ACME Web服务器"
-			WEB_ROOT=""
+			apt install -y socat
+			WEB_ROOT=" "
+		else
+			WEB_ROOT="--webroot /usr/local/nginx/html/"
+			ACME_NGINX_RELOAD='--reloadcmd "service nginx force-reload"'
 		fi
-		WEB_ROOT="--webroot /usr/local/nginx/html/"
-		ACME_APPLY_CER="$ACME_PATH_RUN --issue $WEB_ROOT --standalone"
+		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN $WEB_ROOT --standalone"
+		#acme.sh  --issue -d mydomain.com   --standalone
 	}
 	read -p "输入域名，多个域名使用空格分开(a.com b.com) " APPLY_DOMAIN
 	APPLY_DOMAIN=$(echo $APPLY_DOMAIN | sed 's/ / -d /g')
+	# read -p "enter " enter1
+	# arr=($enter1)
+	# for s in ${arr[@]}
+	# do
+	# echo "$s"
+	# done
 	if [[ "$(echo $APPLY_DOMAIN | grep \*)" ]]; then
 		echo "申请的是泛域名证书，必须使用DNS验证"
+		CER_INSTALL_PATH="Wildcard"
 		ACME_DNS
 	else
 		echo "选择校验方式"
@@ -154,7 +177,7 @@ function acme.sh(){
 					break;;
 				*)
 					echo "nothink to do"
-					break;;
+					exit;;
 			esac
 		done
 	fi
@@ -163,19 +186,24 @@ function acme.sh(){
 	if ! [[ -e /ssl ]]; then
 		mkdir /ssl
 	fi
-	curl  https://get.acme.sh | sh -s email=$ACME_EMAIL
+	if ! [[ -e $ACME_PATH_RUN ]]; then
+		curl  https://get.acme.sh | sh -s email=$ACME_EMAIL
+	fi
+	$ACME_PATH_RUN --upgrade --auto-upgrade
 	$ACME_PATH_RUN --set-default-ca --server letsencrypt
-	$ACME_APPLY_CER -d $APPLY_DOMAIN
+	$ACME_APPLY_CER
 	if [[ "$DNS_MANUAL_MODE" ]]; then
-		echo "休眠30秒"
+		echo "休眠30秒,添加完解析记录之后重新运行脚本！"
 		sleep 30
-		acme.sh --renew -d $APPLY_DOMAIN --yes-I-know-dns-manual-mode-enough-go-ahead-please
+		exit 0
+		#ACME_PATH_RUN --renew -d $APPLY_DOMAIN --yes-I-know-dns-manual-mode-enough-go-ahead-please
 	fi
 	$ACME_PATH_RUN --installcert -d $APPLY_DOMAIN \
 	--key-file /ssl/private.key \
-	--fullchain-file /ssl/fullchain.cer \
-	--reloadcmd "service nginx force-reload"
+	--fullchain-file /ssl/fullchain.cer $ACME_NGINX_RELOAD	
 }
+acme.sh
+
 
 function shadowsocks-libev(){
 
