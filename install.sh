@@ -504,6 +504,43 @@ function transmission(){
 	echo -e username:"      ""\e[31m\e[1m$uname\e[0m"
 	echo -e DOWNLOAD_PTAH:"      ""\e[31m\e[1m$dir\e[0m"
 	echo -e config.json:"   ""\e[31m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
+
+	NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
+	if [[ -e $NGINX_CONFIG ]];then
+		echo "检测到NGINX配置文件，是否开启https反代?(Y/n)"
+		read ENABLE_HTTPS_TS
+		if [[ "" == "$ENABLE_HTTPS_TS" ]] || [[ "y" == "$ENABLE_HTTPS_TS" ]]; then
+			while [[ true ]]; do
+				read -p "输入域名(ctrl+c强制终止)" TRANSMISSION_DOMAIN
+				if [[ "$TRANSMISSION_DOMAIN" ]]; then
+					cat >/usr/local/nginx/conf/sites-enabled/${TRANSMISSION_DOMAIN}<<-EOF
+					server {
+						listen       4433 http2 ssl;
+						server_name  ${TRANSMISSION_DOMAIN};
+						ssl_certificate      /ssl/${TRANSMISSION_DOMAIN}.cer;
+						ssl_certificate_key  /ssl/${TRANSMISSION_DOMAIN}.key;
+						ssl_session_cache    shared:SSL:1m;
+						ssl_session_timeout  5m;
+						ssl_protocols TLSv1.2 TLSv1.3;
+						ssl_prefer_server_ciphers  on;
+						ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+						location /${port} {
+							proxy_redirect off;
+							proxy_pass http://127.0.0.1:${port};
+							proxy_http_version 1.1;
+							proxy_set_header Upgrade \$http_upgrade;
+							proxy_set_header Connection "upgrade";
+							proxy_set_header Host \$http_host;
+						}
+					}
+					EOF
+					acme.sh $TRANSMISSION_DOMAIN
+					break
+				fi
+			done
+
+		fi
+	fi
 }
 
 #脚本开始安装aria2
