@@ -31,8 +31,8 @@
                     ],
                     "certificates": [
                         {
-                            "certificateFile": "/ssl/fullchain.cer",
-                            "keyFile": "/ssl/private.key"
+                            "certificateFile": "/ssl/SSL_XRAY_CER.cer",
+                            "keyFile": "/ssl/SSL_XRAY_KEY.key"
                         }
                     ]
                 }
