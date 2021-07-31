@@ -104,7 +104,7 @@ function CKECK_FILE_EXIST(){
 		fi
 	fi
 }
-
+#脚本开始安装
 function acme.sh(){
 	WEB_ROOT=""
 	STANDALONE=""
@@ -245,7 +245,7 @@ function acme.sh(){
 		ACME_INSTALL_CERT "$ENTER_APPLY_DOMAIN"
 	fi
 }
-
+#脚本开始安装
 function shadowsocks-libev(){
 
 	CKECK_FILE_EXIST /root/shadowsocks-libev
@@ -374,7 +374,7 @@ function shadowsocks-libev(){
 	echo -e use \""\e[31m\e[1msystemctl status ssl\e[0m"\" run the shadowsocks-libev in background
 	echo -e "\e[31m\e[1mhttps://github.com/shadowsocks\e[0m"
 }
-
+#脚本开始安装
 function transmission(){
 	function MODIFY_CONFIG(){
 		sed -i '/rpc-whitelist-enabled/ s/true/false/' $1
@@ -496,7 +496,7 @@ function transmission(){
 	echo -e config.json:"   ""\e[31m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
 }
 
-
+#脚本开始安装
 function aria2(){
 
 	CKECK_FILE_EXIST aria2
@@ -606,7 +606,7 @@ function aria2(){
 
 }
 
-
+#脚本开始安装
 function Up_kernel(){
 	if [[ "$(type -P apt)" ]]; then
 		if ! [[ "$(cat /etc/apt/sources.list | grep buster-backports)" ]]; then
@@ -666,7 +666,7 @@ function Up_kernel(){
 	fi
 
 }
-
+#脚本开始安装
 function Projext_X(){
 	function INSTALL_BINARY(){
 		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
@@ -787,7 +787,7 @@ function Projext_X(){
 		echo vless://$XRAY_WS_UUID@127.0.0.1:443?type=ws\&security=tls\&path=%2F$XRAY_WS_PATH%3Fed%3D2048\&host=$XRAY_DOMAIN\&sni=$XRAY_DOMAIN#WS
 	fi
 }
-
+#脚本开始安装
 function trojan(){
 	clear
 	echo ""
@@ -829,7 +829,7 @@ function trojan(){
 	systemctl enable trojan
 
 }
-
+#脚本开始安装
 function nginx(){
 	CHECK_PORT "NOINPUT" 443
 	CHECK_PORT "NOINPUT" 80
@@ -914,6 +914,7 @@ function nginx(){
 	systemctl enable nginx
 
 }
+#脚本开始安装
 function caddy(){
 	CHECK_PORT "NOINPUT" 443
 	CHECK_PORT "NOINPUT" 80
