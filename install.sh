@@ -13,8 +13,10 @@ function check(){
 function packageManager(){
 	if [[ "$(type -P apt)" ]]; then
 		PKGMANAGER="apt install -y --no-install-recommends"
+		RUNNING_SYSTEM=debian
 	elif [[ "$(type -P yum)" ]]; then
 		PKGMANAGER="yum install -y"
+		RUNNING_SYSTEM=centOS
 	else
 		echo "不支持的系统"
 		exit 1
@@ -130,9 +132,10 @@ function acme.sh(){
 			echo "80端口空闲，使用临时ACME Web服务器"
 			if ! [[ "$(command -v socat)" ]]; then
 				echo "socat未安装，是否安装socat完成HTTP认证(Y/n)"
-				read -p INSTALL_SOCAT
+				read INSTALL_SOCAT
 				if [[ "" == "$INSTALL_SOCAT" ]] || [[ "y" == "$INSTALL_SOCAT" ]]; then
 					$PKGMANAGER socat
+					check "socat安装失败"
 				else 
 					echo "已取消安装"
 					exit 0
@@ -219,7 +222,7 @@ function acme.sh(){
 		esac
 	done
 	
-	read -p "email(回车跳过)? " ACME_EMAIL
+	read -p "输入email(回车跳过)? " ACME_EMAIL
 	ACME_EMAIL=${ACME_EMAIL:-no_email@gmail.com}
 	if ! [[ -e "$CERT_INSTALL_PATH" ]]; then
 		mkdir $CERT_INSTALL_PATH
@@ -491,19 +494,32 @@ function aria2(){
 	CKECK_FILE_EXIST aria2
 	CHECK_VERSION aria2c aria2
 	clear
-	DOWNLOAD_PTAH "文件保存路径(默认/usr/downloads): " "/usr/downloads"
+	DOWNLOAD_PTAH "文件保存路径(/usr/downloads): " "/usr/downloads"
 	clear
-	read -p "输入密码(默认密码crazy_0)： " key
+	read -p "输入密码(默认密码crazy_0): " key
 	key=${key:-crazy_0}
 
-	$PKGMANAGER gcc-c++ make libtool automake bison autoconf git intltool libssh2-devel expat-devel gmp-devel nettle-devel libssh2-devel zlib-devel c-ares-devel gnutls-devel libgcrypt-devel libxml2-devel sqlite-devel gettext xz-devel gperftools gperftools-devel gperftools-libs trousers-devel
+	if [[ "debian" == "$RUNNING_SYSTEM" ]]; then
+		$PKGMANAGER git libxml2-dev libcppunit-dev \
+		autoconf automake autotools-dev autopoint libtool \
+		build-essential libtool pkg-config
+		ARIA2_AUTOCONF="autoreconf -i -I /usr/share/aclocal/"
+	else
+		$PKGMANAGER gcc-c++ make libtool automake bison \
+		autoconf git intltool libssh2-devel expat-devel \
+		gmp-devel nettle-devel libssh2-devel zlib-devel \
+		c-ares-devel gnutls-devel libgcrypt-devel libxml2-devel \
+		sqlite-devel gettext xz-devel gperftools gperftools-devel \
+		gperftools-libs trousers-devel
+		ARIA2_AUTOCONF="autoreconf -i"
+	fi
 
 	git clone https://github.com/aria2/aria2.git && cd aria2
 
 	##静态编译
 	##autoreconf -i && ./configure ARIA2_STATIC=yes
 	
-	autoreconf -i && ./configure
+	$ARIA2_AUTOCONF && ./configure
 	make && make install
 
 	###相关编译报错引用https://weair.xyz/build-aria2/
@@ -513,16 +529,19 @@ function aria2(){
 	Description=aria2c
 	After=network.target
 	[Service]
-	ExecStart=/usr/local/bin/aria2c --conf-path=/aria2.conf
+	ExecStart=/usr/local/bin/aria2c --conf-path=$ARIA2_CONFIG_DIR/aria2.conf
 	User=root
 	[Install]
 	WantedBy=multi-user.target
 	EOF
 
-
+	ARIA2_CONFIG_DIR="/etc/aria2"
+	if ! [[ -d "$ARIA2_CONFIG_DIR" ]]; then
+		mkdir $ARIA2_CONFIG_DIR
+	fi
 	##aria2 config file
 
-	cat >/aria2.conf<<-EOF
+	cat >$ARIA2_CONFIG_DIR/aria2.conf<<-EOF
 	    rpc-secret=$key
 	    enable-rpc=true
 	    rpc-allow-origin-all=true
@@ -544,20 +563,33 @@ function aria2(){
 	systemctl start aria2
 
 	clear
-
-	while [[ true ]]; do
-		echo "是否安装webUI (Y/n)?"
-		read ins
-		if [ "$ins" == "y" ] || [ "$ins" == "" ];then
-			httpd
-			clear
-			echo -e port:"          ""\e[31m\e[1m$port\e[0m"
-			break
-		elif [ "$ins" == "n" ] || [ "$ins" == "N" ];then
-			clear
-			break
+	if [[ "$(command -v nginx)" ]]; then
+		echo "already installed nginx, download WEBUI?(Y/n) "
+		read ARIA2_WEBUI
+		if [[ "$ARIA2_WEBUI" == "y" ]] || [[ "$ARIA2_WEBUI" == "" ]]; then
+			find / -name html
+			echo "full your web root" ARIA2_WEBUI_ROOT
+			if ! [[ -d "$ARIA2_WEBUI_ROOT" ]]; then
+				echo "your full path no exist"
+				exit 0
+			else
+				if [[ "$(ls $ARIA2_WEBUI_ROOT)" ]]; then
+					echo "注意！输入的文件夹里发现文件，输入yes确定强制覆盖"
+					read overwrite
+					if ! [[ "yes" == "$overwrite" ]]; then
+						echo "已取消覆盖，退出！"
+						exit 0
+					fi
+				fi
+			fi
+			ce /tmp
+			git clone https://github.com/ziahamza/webui-aria2.git
+			mv /tmp/webui-aria2/docs/* $ARIA2_WEBUI_ROOT
 		fi
-	done
+	fi
+	# while [[ true ]]; do
+
+	# done
 
 	echo -e token:"      ""\e[31m\e[1m$key\e[0m"
 	echo -e DOWNLOAD_PTAH:"      ""\e[31m\e[1m$dir\e[0m"
