@@ -244,7 +244,8 @@ function acme.sh(){
 		mkdir $CERT_INSTALL_PATH
 	fi
 	if ! [[ -e $ACME_PATH_RUN ]]; then
-		curl  https://get.acme.sh | sh -s email=$ACME_EMAIL
+		cd /tmp
+		curl https://get.acme.sh | sh -s email=$ACME_EMAIL
 	fi
 	$ACME_PATH_RUN --upgrade --auto-upgrade
 	$ACME_PATH_RUN --set-default-ca --server buypass
@@ -976,6 +977,7 @@ function nginx(){
 			read APPLY_SSL_CER
 			if [[ "" == "$APPLY_SSL_CER" ]] || [[ "y" == "$APPLY_SSL_CER" ]] ; then
 				acme.sh "$NGINX_DOMAIN"
+				systemctl start nginx
 			fi
 		fi
 	else 
