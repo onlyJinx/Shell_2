@@ -929,7 +929,8 @@ function nginx(){
 		exit 1
 	fi
 	#创建配置文件夹
-	mkdir /usr/local/nginx/sites-enabled
+	NGINX_SITE_ENABLED="/usr/local/nginx/conf/sites-enabled"
+	mkdir $NGINX_SITE_ENABLED
 	###nginx编译引用自博客
 	###https://www.cnblogs.com/stulzq/p/9291223.html
 	systemctl daemon-reload
@@ -945,7 +946,7 @@ function nginx(){
 		if [[ "" == "$NGINX_DOMAIN" ]]; then
 			echo "空域名！退出。"
 		else 
-			cat >/usr/local/nginx/conf/sites-enabled/$NGINX_DOMAIN<<-EOF
+			cat >${NGINX_SITE_ENABLED}/${NGINX_DOMAIN}<<-EOF
 			server {
 			    listen       4433 http2 ssl;
 			    server_name  ${NGINX_DOMAIN};
