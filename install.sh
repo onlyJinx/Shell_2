@@ -800,7 +800,7 @@ function Projext_X(){
 		#         }
 	 #    	}
 	 #    	EOF
-		fi
+		# fi
 
 		echo vless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls\&sni=$XRAY_DOMAIN\&flow=xtls-rprx-direct#VLESS_xtls
 
