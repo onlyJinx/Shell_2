@@ -114,7 +114,7 @@ function acme.sh(){
 	ACME_PATH_RUN="/root/.acme.sh/acme.sh"
 	DEFAULT_WEB_ROOT="/usr/local/nginx/html/"
 	#第一次手动DNS校验时保存的文件，用于第二次renew
-	DOMAIN_AUTH_TEMP="/root/.acme.sh/DOMAIN_AUTH_TEMP.TMP"
+	DOMAIN_AUTH_TEMP="/tmp/DOMAIN_AUTH_TEMP.TMP.5884748"
 	function ACME_DNS_API(){
 		echo "开始API认证模式"
 		read -p "输入DNSPod ID" DNSPOD_ID
@@ -125,8 +125,9 @@ function acme.sh(){
 	}
 	function ACME_HTTP(){
 		echo "开始http校验"
-		if [[ "$(echo $APPLY_DOMAIN | grep \*)" ]]; then
+		if [[ "$Wildcard" ]]; then
 			echo "通配符域名不支持HTTP验证，请选择其他方式"
+			exit 0
 		fi
 		if ! [[ "$(ss -lnp|grep ':80 ')" ]]; then
 			echo "80端口空闲，使用临时ACME Web服务器"
@@ -173,9 +174,15 @@ function acme.sh(){
 		DOMAIN_LISTS=($1)
 		for SINGLE_DOMAIN in ${DOMAIN_LISTS[@]}
 		do
+			echo "开始安装"$SINGLE_DOMAIN"证书"
+			if [[ $Wildcard ]]; then
+				KEY_DST_PATH="/ssl/Wildcard.key"
+				CER_DST_PATH="/ssl/Wildcard.cer"
+			else
+				KEY_DST_PATH="/ssl/$SINGLE_DOMAIN.key"
+				CER_DST_PATH="/ssl/$SINGLE_DOMAIN.cer"
+			fi
 			CERT_FILE="/root/.acme.sh/"$SINGLE_DOMAIN"/fullchain.cer"
-			KEY_DST_PATH="/ssl/$SINGLE_DOMAIN.key"
-			CER_DST_PATH="/ssl/$SINGLE_DOMAIN.cer"
 			if [[ -e "$CERT_FILE" ]]; then
 				$ACME_PATH_RUN --installcert -d $SINGLE_DOMAIN \
 				--key-file $KEY_DST_PATH \
@@ -203,7 +210,8 @@ function acme.sh(){
 
 	read -p "输入域名，多个域名使用空格分开(a.com b.com) " ENTER_APPLY_DOMAIN
 	APPLY_DOMAIN=$(echo $ENTER_APPLY_DOMAIN | sed 's/ / -d /g')
-
+	#通配符检测
+	Wildcard="$(echo $APPLY_DOMAIN | grep \*)"
 	select option in "HTTP" "DNS_MANUAL" "DNS_API"
 	do
 		case $option in
