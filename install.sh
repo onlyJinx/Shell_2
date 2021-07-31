@@ -148,6 +148,7 @@ function acme.sh(){
 			find / -name html
 			read -p "输入网站根目录: " WEB_ROOT
 			WEB_ROOT=${WEB_ROOT:-$DEFAULT_WEB_ROOT}
+			WEB_ROOT="--webroot "$WEB_ROOT
 			if ! [[ -d "$WEB_ROOT" ]]; then
 				echo "输入的非目录，退出！"
 				echo "如不确定，手动关闭80端口监听程序后"
@@ -155,7 +156,7 @@ function acme.sh(){
 				exit 1
 			fi
 		fi
-		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --webroot $WEB_ROOT $STANDALONE"
+		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN $WEB_ROOT $STANDALONE"
 	}
 	function ACME_DNS_MANUAL(){
 		echo "开始DNS手动模式"
