@@ -184,7 +184,7 @@ function acme.sh(){
 			fi
 			CERT_FILE="/root/.acme.sh/"$SINGLE_DOMAIN"/fullchain.cer"
 			if [[ -e "$CERT_FILE" ]]; then
-				$ACME_PATH_RUN --installcert -d $SINGLE_DOMAIN \
+				$ACME_PATH_RUN --install-cert -d $SINGLE_DOMAIN \
 				--key-file $KEY_DST_PATH \
 				--fullchain-file $CER_DST_PATH
 				if [[ "$CER_DST_PATH" ]]; then
@@ -204,7 +204,7 @@ function acme.sh(){
  		sleep 5
  		$ACME_PATH_RUN --renew -d $GET_APPLY_DOMAIN --yes-I-know-dns-manual-mode-enough-go-ahead-please
 		rm -f $DOMAIN_AUTH_TEMP
-		ACME_INSTALL_CERT $GET_APPLY_DOMAIN
+		ACME_INSTALL_CERT "$GET_APPLY_DOMAIN"
 		exit 0
 	fi
 
@@ -242,7 +242,7 @@ function acme.sh(){
 	$ACME_PATH_RUN --set-default-ca --server letsencrypt
 	$ACME_APPLY_CER
 	if [[ "$NEED_INSTALL_CERT" ]]; then
-		ACME_INSTALL_CERT $ENTER_APPLY_DOMAIN
+		ACME_INSTALL_CERT "$ENTER_APPLY_DOMAIN"
 	fi
 }
 
