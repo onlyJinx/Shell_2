@@ -146,10 +146,10 @@ function acme.sh(){
 		else
 			echo "尝试列出所有html目录。"
 			find / -name html
-			read -p "输入网站根目录: " WEB_ROOT
-			WEB_ROOT=${WEB_ROOT:-$DEFAULT_WEB_ROOT}
-			WEB_ROOT="--webroot "$WEB_ROOT
-			if ! [[ -d "$WEB_ROOT" ]]; then
+			read -p "输入网站根目录: " ENTER_NGINX_PTAH
+			ENTER_NGINX_PTAH=${ENTER_NGINX_PTAH:-$DEFAULT_WEB_ROOT}
+			WEB_ROOT="--webroot "$ENTER_NGINX_PTAH
+			if ! [[ -d "$ENTER_NGINX_PTAH" ]]; then
 				echo "输入的非目录，退出！"
 				echo "如不确定，手动关闭80端口监听程序后"
 				echo "重新运行脚本让acme.sh临时监听80端口完成验证"
