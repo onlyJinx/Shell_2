@@ -21,7 +21,7 @@ function packageManager(){
 	fi
 }
 packageManager
-function check_port(){
+function CHECK_PORT(){
 	#提示语 默认端口
 	#带NOINPUT参数时不跳过端口输入，直接调用默认端口
 	while [[ true ]]; do
@@ -72,7 +72,7 @@ function CHECK_VERSION(){
 	fi
 }
 
-function download_dir(){
+function DOWNLOAD_PTAH(){
 
 	#函数 提示语 默认路劲
 	read -p "$1" dir
@@ -83,7 +83,7 @@ function download_dir(){
 	 fi
 }
 
-function check_directory_exist(){
+function CKECK_FILE_EXIST(){
 	##a_dir=$1
 	if [[ -d $1 ]]; then
 		echo 文件夹 $1 存在，是否删除\(y/n\)?
@@ -111,6 +111,7 @@ function acme.sh(){
 	CERT_INSTALL_PATH="/ssl"
 	ACME_PATH_RUN="/root/.acme.sh/acme.sh"
 	DEFAULT_WEB_ROOT="/usr/local/nginx/html/"
+	#第一次手动DNS校验时保存的文件，用于第二次renew
 	DOMAIN_AUTH_TEMP="/root/.acme.sh/DOMAIN_AUTH_TEMP.TMP"
 	function ACME_DNS_API(){
 		echo "开始API认证模式"
@@ -136,6 +137,8 @@ function acme.sh(){
 			WEB_ROOT=${WEB_ROOT:-$DEFAULT_WEB_ROOT}
 			if ! [[ -d "$WEB_ROOT" ]]; then
 				echo "输入的非目录，退出！"
+				echo "如不确定，手动关闭80端口监听程序后"
+				echo "重新运行脚本让acme.sh临时监听80端口完成验证"
 				exit 1
 			fi
 		fi
@@ -225,12 +228,12 @@ function acme.sh(){
 
 function shadowsocks-libev(){
 
-	check_directory_exist /root/shadowsocks-libev
+	CKECK_FILE_EXIST /root/shadowsocks-libev
 	#CHECK_VERSION ss-server shadowsocks
 	read -t 60 -p "请输入密码，直接回车则设置为默认密码: nPB4bF5K8+apre." passwd
 	passwd=${passwd:-nPB4bF5K8+apre.}
 
-	check_port "请输入端口号(默认443)" 443
+	CHECK_PORT "请输入端口号(默认443)" 443
 
 	###echo "passwd=$passwd"
 	###搬瓦工默认禁用epel
@@ -375,10 +378,10 @@ function transmission(){
 		sed -i "/\"ratio-limit\"/ s/:.*/: 4,/" $1
 	}
 
-	check_directory_exist transmission-3.00+
+	CKECK_FILE_EXIST transmission-3.00+
 	CHECK_VERSION transmission-daemon transmission
 	clear
-	check_port "请输入端口号(9091)" 9091
+	CHECK_PORT "请输入端口号(9091)" 9091
 	clear
 	read -p "请输入用户名(transmission):  " uname
 	uname=${uname:-transmission}
@@ -386,7 +389,7 @@ function transmission(){
 	read -p "请输入密码(transmission2020):  " passwd
 	passwd=${passwd:-transmission2020}
 	clear
-	download_dir "文件保存路径(默认/usr/downloads): " "/usr/downloads"
+	DOWNLOAD_PTAH "文件保存路径(默认/usr/downloads): " "/usr/downloads"
 	check "downloads文件夹创建失败！"
 
 	if [[ "$(type -P apt)" ]]; then
@@ -469,17 +472,17 @@ function transmission(){
 	echo -e port:"          ""\e[31m\e[1m$port\e[0m"
 	echo -e password:"      ""\e[31m\e[1m$passwd\e[0m"
 	echo -e username:"      ""\e[31m\e[1m$uname\e[0m"
-	echo -e download_dir:"      ""\e[31m\e[1m$dir\e[0m"
+	echo -e DOWNLOAD_PTAH:"      ""\e[31m\e[1m$dir\e[0m"
 	echo -e config.json:"   ""\e[31m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
 }
 
 
 function aria2(){
 
-	check_directory_exist aria2
+	CKECK_FILE_EXIST aria2
 	CHECK_VERSION aria2c aria2
 	clear
-	download_dir "输入下载文件保存路径(默认/usr/downloads): " "/usr/downloads"
+	DOWNLOAD_PTAH "文件保存路径(默认/usr/downloads): " "/usr/downloads"
 	clear
 	read -p "输入密码(默认密码crazy_0)： " key
 	key=${key:-crazy_0}
@@ -534,9 +537,9 @@ function aria2(){
 	clear
 
 	while [[ true ]]; do
-		echo "是否安装webUI (y/n)?"
+		echo "是否安装webUI (Y/n)?"
 		read ins
-		if [ "$ins" == "y" ] || [ "$ins" == "Y" ];then
+		if [ "$ins" == "y" ] || [ "$ins" == "" ];then
 			httpd
 			clear
 			echo -e port:"          ""\e[31m\e[1m$port\e[0m"
@@ -548,7 +551,7 @@ function aria2(){
 	done
 
 	echo -e token:"      ""\e[31m\e[1m$key\e[0m"
-	echo -e download_dir:"      ""\e[31m\e[1m$dir\e[0m"
+	echo -e DOWNLOAD_PTAH:"      ""\e[31m\e[1m$dir\e[0m"
 	echo -e config.json:"   ""\e[31m\e[1m/aria2.conf\n\n\e[0m"
 
 }
@@ -650,13 +653,13 @@ function Projext_X(){
 			exit 1
 		fi
 	else
-		check_port "XRAY_XTLS 监听端口(1000)?  " 1000
+		CHECK_PORT "XRAY_XTLS 监听端口(1000)?  " 1000
 		XRAY_XTLS_PORT=$port
 		read -p "回落端口(5555)?  " XRAY_DESP_PORT
 		XRAY_DESP_PORT=${XRAY_DESP_PORT:-5555}
-		check_port "GRPC 监听端口(2002)?  " 2002
+		CHECK_PORT "GRPC 监听端口(2002)?  " 2002
 		XRAY_GRPC_PORT=$port
-		check_port "WebSocks 监听端口(1234)?  " 1234
+		CHECK_PORT "WebSocks 监听端口(1234)?  " 1234
 		XRAY_WS_PORT=$port
 		read -p "Grpc Name(grpcforward)?  " XRAY_GRPC_NAME
 		XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
@@ -738,9 +741,9 @@ function Projext_X(){
 function trojan(){
 	clear
 	echo ""
-	check_port "请输入Trojan HTTPS端口: " 443
+	CHECK_PORT "请输入Trojan HTTPS端口: " 443
 	TROJAN_HTTPS_PORT=$port
-	check_port "Trojan 回落端口: " 80
+	CHECK_PORT "Trojan 回落端口: " 80
 	TROJAN_HTTP_PORT=$port
 	clear
 
@@ -778,8 +781,8 @@ function trojan(){
 }
 
 function nginx(){
-	check_port "NOINPUT" 443
-	check_port "NOINPUT" 80
+	CHECK_PORT "NOINPUT" 443
+	CHECK_PORT "NOINPUT" 80
 	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
 	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
 	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
@@ -862,8 +865,8 @@ function nginx(){
 
 }
 function caddy(){
-	check_port "NOINPUT" 443
-	check_port "NOINPUT" 80
+	CHECK_PORT "NOINPUT" 443
+	CHECK_PORT "NOINPUT" 80
 	while [[ true ]]; do
 		read -p "输入域名(不能为空)： " CADDY_DOMAIN
 		if ! [[ "$CADDY_DOMAIN" ]]; then
