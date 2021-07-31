@@ -128,7 +128,16 @@ function acme.sh(){
 		fi
 		if ! [[ "$(ss -lnp|grep ':80 ')" ]]; then
 			echo "80端口空闲，使用临时ACME Web服务器"
-			apt install -y socat
+			if ! [[ "$(command -v socat)" ]]; then
+				echo "socat未安装，是否安装socat完成HTTP认证(Y/n)"
+				read -p INSTALL_SOCAT
+				if [[ "" == "$INSTALL_SOCAT" ]] || [[ "y" == "$INSTALL_SOCAT" ]]; then
+					$PKGMANAGER socat
+				else 
+					echo "已取消安装"
+					exit 0
+				fi
+			fi
 			STANDALONE="--standalone"
 		else
 			echo "尝试列出所有html目录。"
