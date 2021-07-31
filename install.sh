@@ -108,6 +108,8 @@ function CKECK_FILE_EXIST(){
 function acme.sh(){
 	WEB_ROOT=""
 	STANDALONE=""
+	#被调用传入域名
+	CALL_FUNCTION="$1"
 	#手动DNS跳过安装证书
 	NEED_INSTALL_CERT="1"
 	CERT_INSTALL_PATH="/ssl"
@@ -208,29 +210,34 @@ function acme.sh(){
 		ACME_INSTALL_CERT "$GET_APPLY_DOMAIN"
 		exit 0
 	fi
-
-	read -p "输入域名，多个域名使用空格分开(a.com b.com) " ENTER_APPLY_DOMAIN
-	APPLY_DOMAIN=$(echo $ENTER_APPLY_DOMAIN | sed 's/ / -d /g')
-	#通配符检测
-	Wildcard="$(echo $APPLY_DOMAIN | grep \*)"
-	select option in "HTTP" "DNS_MANUAL" "DNS_API"
-	do
-		case $option in
-			"HTTP")
-				ACME_HTTP
-				break;;
-			"DNS_MANUAL")
-				ACME_DNS_MANUAL
-				break;;
-			"DNS_API")
-				ACME_DNS_API
-				break;;
-			*)
-				echo "nothink to do"
-				exit;;
-		esac
-	done
-	
+	if [[ "$CALL_FUNCTION" ]]; then
+		ENTER_APPLY_DOMAIN=$CALL_FUNCTION
+		APPLY_DOMAIN=$CALL_FUNCTION
+		Wildcard=""
+		ACME_HTTP
+	else
+		read -p "输入域名，多个域名使用空格分开(a.com b.com) " ENTER_APPLY_DOMAIN
+		APPLY_DOMAIN=$(echo $ENTER_APPLY_DOMAIN | sed 's/ / -d /g')
+		#通配符检测
+		Wildcard="$(echo $APPLY_DOMAIN | grep \*)"
+		select option in "HTTP" "DNS_MANUAL" "DNS_API"
+		do
+			case $option in
+				"HTTP")
+					ACME_HTTP
+					break;;
+				"DNS_MANUAL")
+					ACME_DNS_MANUAL
+					break;;
+				"DNS_API")
+					ACME_DNS_API
+					break;;
+				*)
+					echo "nothink to do"
+					exit;;
+			esac
+		done
+	fi
 	read -p "输入email(回车跳过)? " ACME_EMAIL
 	ACME_EMAIL=${ACME_EMAIL:-no_email@gmail.com}
 	if ! [[ -e "$CERT_INSTALL_PATH" ]]; then
@@ -898,7 +905,7 @@ function nginx(){
 	###crate service
 	#单双引号不转义，反单引号 $ 要转
 
-	if [[ "$(type -P apt)" ]]; then
+	if [[ "$RUNNING_SYSTEM"="debian" ]]; then
 		###crate service
 		cat >/etc/systemd/system/nginx.service<<-EOF
 			[Unit]
@@ -918,7 +925,7 @@ function nginx(){
 			[Install]
 			WantedBy=multi-user.target
 		EOF
-	elif [[ "$(type -P yum)" ]]; then
+	elif [[ "$RUNNING_SYSTEM"="centOS" ]]; then
 		wget -P /etc/init.d https://raw.githubusercontent.com/onlyJinx/shell_CentOS7/master/nginx
 		chmod a+x /etc/init.d/nginx
 		chkconfig --add /etc/init.d/nginx
@@ -934,39 +941,45 @@ function nginx(){
 	###nginx编译引用自博客
 	###https://www.cnblogs.com/stulzq/p/9291223.html
 	systemctl daemon-reload
-	systemctl start nginx
-	###systemctl status nginx
 	systemctl enable nginx
+	###systemctl status nginx
 
 	echo "是否开启SSL配置?(Y/n) "
 	read ENAGLE_NGINX_SSL
-
 	if [[ "" == "$ENAGLE_NGINX_SSL" ]] || [[ "y" == "$ENAGLE_NGINX_SSL" ]]; then
 		read -p "输入域名" NGINX_DOMAIN
 		if [[ "" == "$NGINX_DOMAIN" ]]; then
 			echo "空域名！退出。"
+			systemctl start nginx
 		else 
 			cat >${NGINX_SITE_ENABLED}/${NGINX_DOMAIN}<<-EOF
 			server {
-			    listen       4433 http2 ssl;
-			    server_name  ${NGINX_DOMAIN};
+				listen       4433 http2 ssl;
+				server_name  ${NGINX_DOMAIN};
 
-			    ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
-			    ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
+				ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
+				ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
 
-			    ssl_session_cache    shared:SSL:1m;
-			    ssl_session_timeout  5m;
-			    ssl_protocols TLSv1.2 TLSv1.3;
-			    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+				ssl_session_cache    shared:SSL:1m;
+				ssl_session_timeout  5m;
+				ssl_protocols TLSv1.2 TLSv1.3;
+				ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
 				ssl_prefer_server_ciphers  on;
-
-			    location / {
-			        root   html;
-			        index  index.html index.htm;
-			    }
+				location / {
+					root   html;
+					index  index.html index.htm;
+				}
 			}
 			EOF
+			###NGINX安装正常结束
+			echo "是否开始申请SSL证书?(Y/n)"
+			read APPLY_SSL_CER
+			if [[ "" == "$APPLY_SSL_CER" ]] || [[ "y" == "$APPLY_SSL_CER" ]] ; then
+				acme.sh "$NGINX_DOMAIN"
+			fi
 		fi
+	else 
+		systemctl start nginx
 	fi
 }
 #脚本开始安装caddy
