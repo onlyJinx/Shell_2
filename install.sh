@@ -529,9 +529,14 @@ function aria2(){
 	
 	$ARIA2_AUTOCONF && ./configure
 	make && make install
+	rm -fr aria2
 
 	###相关编译报错引用https://weair.xyz/build-aria2/
 	check "aria2c编译安装失败"
+	ARIA2_CONFIG_DIR="/etc/aria2"
+	if ! [[ -d "$ARIA2_CONFIG_DIR" ]]; then
+		mkdir $ARIA2_CONFIG_DIR
+	fi
 	cat >/etc/systemd/system/aria2.service<<-EOF
 	[Unit]
 	Description=aria2c
@@ -542,29 +547,24 @@ function aria2(){
 	[Install]
 	WantedBy=multi-user.target
 	EOF
-
-	ARIA2_CONFIG_DIR="/etc/aria2"
-	if ! [[ -d "$ARIA2_CONFIG_DIR" ]]; then
-		mkdir $ARIA2_CONFIG_DIR
-	fi
 	##aria2 config file
 
 	cat >$ARIA2_CONFIG_DIR/aria2.conf<<-EOF
-	    rpc-secret=$key
-	    enable-rpc=true
-	    rpc-allow-origin-all=true
-	    rpc-listen-all=true
-	    max-concurrent-downloads=5
-	    continue=true
-	    max-connection-per-server=5
-	    min-split-size=10M
-	    split=16
-	    max-overall-download-limit=0
-	    max-download-limit=0
-	    max-overall-upload-limit=0
-	    max-upload-limit=0
-	    dir=$dir
-	    file-allocation=prealloc
+    rpc-secret=$key
+    enable-rpc=true
+    rpc-allow-origin-all=true
+    rpc-listen-all=true
+    max-concurrent-downloads=5
+    continue=true
+    max-connection-per-server=5
+    min-split-size=10M
+    split=16
+    max-overall-download-limit=0
+    max-download-limit=0
+    max-overall-upload-limit=0
+    max-upload-limit=0
+    dir=$dir
+    file-allocation=prealloc
 	EOF
 	systemctl daemon-reload
 	systemctl enable aria2
@@ -576,7 +576,7 @@ function aria2(){
 		read ARIA2_WEBUI
 		if [[ "$ARIA2_WEBUI" == "y" ]] || [[ "$ARIA2_WEBUI" == "" ]]; then
 			find / -name html
-			echo "full your web root" ARIA2_WEBUI_ROOT
+			read -p "full your web root  " ARIA2_WEBUI_ROOT
 			if ! [[ -d "$ARIA2_WEBUI_ROOT" ]]; then
 				echo "your full path no exist"
 				exit 0
@@ -590,9 +590,10 @@ function aria2(){
 					fi
 				fi
 			fi
-			ce /tmp
+			cd /tmp
 			git clone https://github.com/ziahamza/webui-aria2.git
 			mv /tmp/webui-aria2/docs/* $ARIA2_WEBUI_ROOT
+			rm -fr /tmp/webui-aria2
 		fi
 	fi
 	# while [[ true ]]; do
