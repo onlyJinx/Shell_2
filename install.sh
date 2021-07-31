@@ -940,33 +940,33 @@ function nginx(){
 	echo "是否开启SSL配置?(Y/n) "
 	read ENAGLE_NGINX_SSL
 
-	# if [[ "" == "$ENAGLE_NGINX_SSL" ]] || [[ "y" == "$ENAGLE_NGINX_SSL" ]]; then
-	# 	read -p "输入域名" NGINX_DOMAIN
-	# 	if [[ "" == "$NGINX_DOMAIN" ]]; then
-	# 		echo "空域名！退出。"
-	# 	else 
-	# 		cat >/usr/local/nginx/conf/sites-enabled/$NGINX_DOMAIN<<-EOF
-	# 		server {
-	# 		    listen       4433 http2 ssl;
-	# 		    server_name  ${NGINX_DOMAIN};
+	if [[ "" == "$ENAGLE_NGINX_SSL" ]] || [[ "y" == "$ENAGLE_NGINX_SSL" ]]; then
+		read -p "输入域名" NGINX_DOMAIN
+		if [[ "" == "$NGINX_DOMAIN" ]]; then
+			echo "空域名！退出。"
+		else 
+			cat >/usr/local/nginx/conf/sites-enabled/$NGINX_DOMAIN<<-EOF
+			server {
+			    listen       4433 http2 ssl;
+			    server_name  ${NGINX_DOMAIN};
 
-	# 		    ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
-	# 		    ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
+			    ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
+			    ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
 
-	# 		    ssl_session_cache    shared:SSL:1m;
-	# 		    ssl_session_timeout  5m;
-	# 		    ssl_protocols TLSv1.2 TLSv1.3;
-	# 		    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-	# 			ssl_prefer_server_ciphers  on;
+			    ssl_session_cache    shared:SSL:1m;
+			    ssl_session_timeout  5m;
+			    ssl_protocols TLSv1.2 TLSv1.3;
+			    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+				ssl_prefer_server_ciphers  on;
 
-	# 		    location / {
-	# 		        root   html;
-	# 		        index  index.html index.htm;
-	# 		    }
-	# 		}
-	# 		EOF
-	# 	fi
-	# fi
+			    location / {
+			        root   html;
+			        index  index.html index.htm;
+			    }
+			}
+			EOF
+		fi
+	fi
 }
 #脚本开始安装caddy
 function caddy(){
