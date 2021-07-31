@@ -768,39 +768,39 @@ function Projext_X(){
 		EOF
 
 		NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
-		# if [[ -e $NGINX_CONFIG ]];then
-		# 	cat >/usr/local/nginx/conf/sites-enabled/$XRAY_DOMAIN<<-EOF
-		# 	server {
-		#         listen       4433 http2 ssl;
-		#         server_name  ${XRAY_DOMAIN};
-		#         ssl_certificate      /ssl/${XRAY_DOMAIN}.cer;
-		#         ssl_certificate_key  /ssl/${XRAY_DOMAIN}.key;
-		#         ssl_session_cache    shared:SSL:1m;
-		#         ssl_session_timeout  5m;
-		#         ssl_protocols TLSv1.2 TLSv1.3;
-		#         ssl_prefer_server_ciphers  on;
-		# 	    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+		if [[ -e $NGINX_CONFIG ]];then
+			cat >/usr/local/nginx/conf/sites-enabled/$XRAY_DOMAIN<<-EOF
+			server {
+		        listen       4433 http2 ssl;
+		        server_name  ${XRAY_DOMAIN};
+		        ssl_certificate      /ssl/${XRAY_DOMAIN}.cer;
+		        ssl_certificate_key  /ssl/${XRAY_DOMAIN}.key;
+		        ssl_session_cache    shared:SSL:1m;
+		        ssl_session_timeout  5m;
+		        ssl_protocols TLSv1.2 TLSv1.3;
+		        ssl_prefer_server_ciphers  on;
+			    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
 
-		#         location /$XRAY_GRPC_NAME {
-		# 			if (\$content_type !~ "application/grpc") {
-		# 				return 404;
-		# 			}
-		# 			client_max_body_size 0;
-		# 			client_body_timeout 1071906480m;
-		# 			grpc_read_timeout 1071906480m;
-		# 			grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
-		# 		}
-		#         location /$XRAY_WS_PATH {
-		#             proxy_redirect off;
-		#             proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
-		#             proxy_http_version 1.1;
-		#             proxy_set_header Upgrade \$http_upgrade;
-		#             proxy_set_header Connection "upgrade";
-		#             proxy_set_header Host \$http_host;
-		#         }
-	 #    	}
-	 #    	EOF
-		# fi
+		        location /$XRAY_GRPC_NAME {
+					if (\$content_type !~ "application/grpc") {
+						return 404;
+					}
+					client_max_body_size 0;
+					client_body_timeout 1071906480m;
+					grpc_read_timeout 1071906480m;
+					grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
+				}
+		        location /$XRAY_WS_PATH {
+		            proxy_redirect off;
+		            proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
+		            proxy_http_version 1.1;
+		            proxy_set_header Upgrade \$http_upgrade;
+		            proxy_set_header Connection "upgrade";
+		            proxy_set_header Host \$http_host;
+		        }
+	    	}
+	    	EOF
+		fi
 
 		echo vless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls\&sni=$XRAY_DOMAIN\&flow=xtls-rprx-direct#VLESS_xtls
 
