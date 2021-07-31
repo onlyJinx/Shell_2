@@ -144,7 +144,7 @@ function acme.sh(){
 			fi
 			STANDALONE="--standalone"
 		else
-			echo "尝试列出所有html目录。"
+			echo "检测到80端口占用，尝试列出所有html目录。"
 			find / -name html
 			read -p "输入网站根目录: " ENTER_NGINX_PTAH
 			ENTER_NGINX_PTAH=${ENTER_NGINX_PTAH:-$DEFAULT_WEB_ROOT}
