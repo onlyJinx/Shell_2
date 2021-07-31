@@ -104,7 +104,7 @@ function CKECK_FILE_EXIST(){
 		fi
 	fi
 }
-#脚本开始安装
+#脚本开始安装acme.sh
 function acme.sh(){
 	WEB_ROOT=""
 	STANDALONE=""
@@ -247,7 +247,7 @@ function acme.sh(){
 		ACME_INSTALL_CERT "$ENTER_APPLY_DOMAIN"
 	fi
 }
-#脚本开始安装
+#脚本开始安装SS
 function shadowsocks-libev(){
 
 	CKECK_FILE_EXIST /root/shadowsocks-libev
@@ -376,7 +376,7 @@ function shadowsocks-libev(){
 	echo -e use \""\e[31m\e[1msystemctl status ssl\e[0m"\" run the shadowsocks-libev in background
 	echo -e "\e[31m\e[1mhttps://github.com/shadowsocks\e[0m"
 }
-#脚本开始安装
+#脚本开始安装transmission
 function transmission(){
 	function MODIFY_CONFIG(){
 		sed -i '/rpc-whitelist-enabled/ s/true/false/' $1
@@ -498,7 +498,7 @@ function transmission(){
 	echo -e config.json:"   ""\e[31m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
 }
 
-#脚本开始安装
+#脚本开始安装aria2
 function aria2(){
 
 	CKECK_FILE_EXIST aria2
@@ -608,7 +608,7 @@ function aria2(){
 
 }
 
-#脚本开始安装
+#脚本开始安装内核更新
 function Up_kernel(){
 	if [[ "$(type -P apt)" ]]; then
 		if ! [[ "$(cat /etc/apt/sources.list | grep buster-backports)" ]]; then
@@ -668,7 +668,7 @@ function Up_kernel(){
 	fi
 
 }
-#脚本开始安装
+#脚本开始安装xray
 function Projext_X(){
 	function INSTALL_BINARY(){
 		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
@@ -717,7 +717,9 @@ function Projext_X(){
 		XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
 		read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
 		XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
-		read -p "请输入域名(project_x.com): " XRAY_DOMAIN
+		echo "请输入域名(project_x.com)"
+		echo "稍后配合acme.sh申请SSL证书"
+		read  XRAY_DOMAIN
 		XRAY_DOMAIN=${XRAY_DOMAIN:-project_x.com}
 		INSTALL_BINARY
 		if [[ "$(type -P /usr/local/bin/xray)" ]]; then
@@ -739,6 +741,8 @@ function Projext_X(){
 		sed -i "s/GRPC_NAME/$XRAY_GRPC_NAME/" $XRAY_CONFIG
 		sed -i "s/WS_PORT/$XRAY_WS_PORT/" $XRAY_CONFIG
 		sed -i "s/WS_PATH/$XRAY_WS_PATH/" $XRAY_CONFIG
+		sed -i "s/SSL_XRAY_CER/$XRAY_DOMAIN/" $XRAY_CONFIG
+		sed -i "s/SSL_XRAY_KEY/$XRAY_DOMAIN/" $XRAY_CONFIG
 
 		sed -i "s/XtlsForUUID/$XRAY_UUID/" $XRAY_CONFIG
 		sed -i "s/GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
@@ -789,7 +793,7 @@ function Projext_X(){
 		echo vless://$XRAY_WS_UUID@127.0.0.1:443?type=ws\&security=tls\&path=%2F$XRAY_WS_PATH%3Fed%3D2048\&host=$XRAY_DOMAIN\&sni=$XRAY_DOMAIN#WS
 	fi
 }
-#脚本开始安装
+#脚本开始安装trojan
 function trojan(){
 	clear
 	echo ""
@@ -831,7 +835,7 @@ function trojan(){
 	systemctl enable trojan
 
 }
-#脚本开始安装
+#脚本开始安装nginx
 function nginx(){
 	CHECK_PORT "NOINPUT" 443
 	CHECK_PORT "NOINPUT" 80
@@ -916,7 +920,7 @@ function nginx(){
 	systemctl enable nginx
 
 }
-#脚本开始安装
+#脚本开始安装caddy
 function caddy(){
 	CHECK_PORT "NOINPUT" 443
 	CHECK_PORT "NOINPUT" 80
