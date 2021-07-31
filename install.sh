@@ -240,6 +240,7 @@ function acme.sh(){
 	fi
 	$ACME_PATH_RUN --upgrade --auto-upgrade
 	$ACME_PATH_RUN --set-default-ca --server letsencrypt
+	echo $ACME_APPLY_CER
 	$ACME_APPLY_CER
 	if [[ "$NEED_INSTALL_CERT" ]]; then
 		ACME_INSTALL_CERT "$ENTER_APPLY_DOMAIN"
