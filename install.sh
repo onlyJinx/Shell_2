@@ -240,7 +240,7 @@ function acme.sh(){
 		curl  https://get.acme.sh | sh -s email=$ACME_EMAIL
 	fi
 	$ACME_PATH_RUN --upgrade --auto-upgrade
-	$ACME_PATH_RUN --set-default-ca --server letsencrypt
+	$ACME_PATH_RUN --set-default-ca --server buypass
 	echo $ACME_APPLY_CER
 	$ACME_APPLY_CER
 	if [[ "$NEED_INSTALL_CERT" ]]; then
@@ -767,30 +767,78 @@ function Projext_X(){
 		WantedBy=multi-user.target
 		EOF
 
+		cat >/usr/local/nginx/conf/sites-enabled/$XRAY_DOMAIN<<-EOF
+		server {
+	        listen       4433 http2 ssl;
+	        server_name  ${XRAY_DOMAIN};
+	        ssl_certificate      /ssl/${XRAY_DOMAIN}.cer;
+	        ssl_certificate_key  /ssl/${XRAY_DOMAIN}.key;
+	        ssl_session_cache    shared:SSL:1m;
+	        ssl_session_timeout  5m;
+	        ssl_protocols TLSv1.2 TLSv1.3;
+	        ssl_prefer_server_ciphers  on;
+		    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+
+	        location /$XRAY_GRPC_NAME {
+				if (\$content_type !~ "application/grpc") {
+					return 404;
+				}
+				client_max_body_size 0;
+				client_body_timeout 1071906480m;
+				grpc_read_timeout 1071906480m;
+				grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
+			}
+	        location /$XRAY_WS_PATH {
+	            proxy_redirect off;
+	            proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
+	            proxy_http_version 1.1;
+	            proxy_set_header Upgrade \$http_upgrade;
+	            proxy_set_header Connection "upgrade";
+	            proxy_set_header Host \$http_host;
+	        }
+    	}
+    	EOF
+
 		NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
 		if [[ -e $NGINX_CONFIG ]];then
-			if [[ "$(cat $NGINX_CONFIG | grep \#enable_SSL)" ]]; then
-				echo "检测到Nginx配置文件，是否写入xray内容(Y/n)"
-				read UPDATE_NGINX_CONFIG
-				if [[ "y" == "$UPDATE_NGINX_CONFIG" ]] || [[ "Y" == "$UPDATE_NGINX_CONFIG" ]] || [[ "" == "$UPDATE_NGINX_CONFIG" ]];then
-					sed -i 's/;#enable_SSL//' $NGINX_CONFIG
-					sed -i 's/#enable_SSL//' $NGINX_CONFIG
-					sed -i "s/grpcforwardBy2021/$XRAY_GRPC_NAME/" $NGINX_CONFIG
-					sed -i "/127.0.0.1:2002/ s/2002/$XRAY_GRPC_PORT/" $NGINX_CONFIG
-					sed -i "s/wsforwardBy2021/$XRAY_WS_PATH/" $NGINX_CONFIG
-					sed -i "/127.0.0.1:1234/ s/1234/$XRAY_WS_PORT/" $NGINX_CONFIG
-					echo "请配置好证书密钥后手动重载nginx配置"
-				else 
-					echo "配置未更改"
-				fi
-			fi
+			cat >/usr/local/nginx/conf/sites-enabled/$XRAY_DOMAIN<<-EOF
+			server {
+		        listen       4433 http2 ssl;
+		        server_name  ${XRAY_DOMAIN};
+		        ssl_certificate      /ssl/${XRAY_DOMAIN}.cer;
+		        ssl_certificate_key  /ssl/${XRAY_DOMAIN}.key;
+		        ssl_session_cache    shared:SSL:1m;
+		        ssl_session_timeout  5m;
+		        ssl_protocols TLSv1.2 TLSv1.3;
+		        ssl_prefer_server_ciphers  on;
+			    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+
+		        location /$XRAY_GRPC_NAME {
+					if (\$content_type !~ "application/grpc") {
+						return 404;
+					}
+					client_max_body_size 0;
+					client_body_timeout 1071906480m;
+					grpc_read_timeout 1071906480m;
+					grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
+				}
+		        location /$XRAY_WS_PATH {
+		            proxy_redirect off;
+		            proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
+		            proxy_http_version 1.1;
+		            proxy_set_header Upgrade \$http_upgrade;
+		            proxy_set_header Connection "upgrade";
+		            proxy_set_header Host \$http_host;
+		        }
+	    	}
+	    	EOF
 		fi
 
-		echo vless://$XRAY_UUID@127.0.0.1:443?security=xtls\&sni=$XRAY_DOMAIN\&flow=xtls-rprx-direct#VLESS_xtls
+		echo vless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls\&sni=$XRAY_DOMAIN\&flow=xtls-rprx-direct#VLESS_xtls
 
 		echo vless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=$XRAY_DOMAIN#GRPC
 
-		echo vless://$XRAY_WS_UUID@127.0.0.1:443?type=ws\&security=tls\&path=%2F$XRAY_WS_PATH%3Fed%3D2048\&host=$XRAY_DOMAIN\&sni=$XRAY_DOMAIN#WS
+		echo vless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws\&security=tls\&path=%2F$XRAY_WS_PATH%3Fed%3D2048\&host=$XRAY_DOMAIN\&sni=$XRAY_DOMAIN#WS
 	fi
 }
 #脚本开始安装trojan
@@ -929,10 +977,10 @@ function nginx(){
 		if [[ "" == "$NGINX_DOMAIN" ]]; then
 			echo "空域名！退出。"
 		else 
-			cat >/usr/local/nginx/sites-enabled/<<-EOF
+			cat >/usr/local/nginx/conf/sites-enabled/$NGINX_DOMAIN<<-EOF
 			server {
 			    listen       4433 http2 ssl;
-			    server_name  $NGINX_DOMAIN;
+			    server_name  ${NGINX_DOMAIN};
 
 			    ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
 			    ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
@@ -940,8 +988,6 @@ function nginx(){
 			    ssl_session_cache    shared:SSL:1m;
 			    ssl_session_timeout  5m;
 			    ssl_protocols TLSv1.2 TLSv1.3;
-			    ssl_ciphers  HIGH:!aNULL:!MD5;
-			    ssl_prefer_server_ciphers  on;
 			    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
 				ssl_prefer_server_ciphers  on;
 
