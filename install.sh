@@ -12,7 +12,7 @@ function check(){
 }
 function RESTART_NGINX(){
 	/usr/local/nginx/sbin/nginx -s stop
-	nginx
+	/usr/local/nginx/sbin/nginx
 }
 function packageManager(){
 	SYSTEMD_SERVICES="/etc/systemd/system"
@@ -518,10 +518,10 @@ function transmission(){
 		read ENABLE_HTTPS_TS
 		if [[ "" == "$ENABLE_HTTPS_TS" ]] || [[ "y" == "$ENABLE_HTTPS_TS" ]]; then
 			while [[ true ]]; do
-				read -p "输入域名(ctrl+c强制终止)" TRANSMISSION_DOMAIN
+				read -p "输入域名(ctrl+c强制终止) " TRANSMISSION_DOMAIN
 				if [[ "$TRANSMISSION_DOMAIN" ]]; then
 					while [[ true ]]; do
-						echo "输入文件下载服务器路径(不能为空)"
+						echo "输入文件下载服务器路径(不能为空,不带斜杠)"
 						read TRRNA_FILE_SERVER_PATH
 						if [[ $"TRRNA_FILE_SERVER_PATH" ]]; then
 							break
@@ -554,8 +554,8 @@ function transmission(){
 					EOF
 					acme.sh $TRANSMISSION_DOMAIN
 					RESTART_NGINX
-					echo "\e[32m\e[1m打开网址${TRANSMISSION_DOMAIN}测试登录\e[0m"
-					echo "\e[32m\e[1m文件下载服务器地址${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/ \e[0m"
+					echo "\e[32m\e[1m打开网址https://${TRANSMISSION_DOMAIN}测试登录\e[0m"
+					echo "\e[32m\e[1m文件下载服务器地址https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/ \e[0m"
 					break
 				fi
 			done
@@ -938,7 +938,7 @@ function trojan(){
 
 }
 #脚本开始安装nginx
-function nginx(){
+function INSTALL_NGINX(){
 	CHECK_PORT "NOINPUT" 443
 	CHECK_PORT "NOINPUT" 80
 	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
@@ -1176,7 +1176,7 @@ do
 			trojan
 			break;;
 		"nginx")
-			nginx
+			INSTALL_NGINX
 			break;;
 		"Projext_X")
 			Projext_X
