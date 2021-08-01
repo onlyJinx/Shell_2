@@ -203,8 +203,7 @@ function acme.sh(){
 
 	if [[ -e $DOMAIN_AUTH_TEMP ]]; then
 		GET_APPLY_DOMAIN="$(cat $DOMAIN_AUTH_TEMP)"
- 		$ACME_PATH_RUN --renew -d $GET_APPLY_DOMAIN --yes-I-know-dns-manual-mode-enough-go-ahead-please
- 		sleep 5
+		$ACME_PATH_RUN --upgrade -b dev
  		$ACME_PATH_RUN --renew -d $GET_APPLY_DOMAIN --yes-I-know-dns-manual-mode-enough-go-ahead-please
 		rm -f $DOMAIN_AUTH_TEMP
 		ACME_INSTALL_CERT "$GET_APPLY_DOMAIN"
