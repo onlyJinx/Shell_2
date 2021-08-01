@@ -10,6 +10,10 @@ function check(){
 		echo "$2"
 	fi
 }
+function RESTART_NGINX(){
+	/usr/local/nginx/sbin/nginx -s stop
+	nginx
+}
 function packageManager(){
 	SYSTEMD_SERVICES="/etc/systemd/system"
 	if [[ "$(type -P apt)" ]]; then
@@ -511,7 +515,7 @@ function transmission(){
 
 	NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
 	if [[ -e $NGINX_CONFIG ]];then
-		echo "检测到NGINX配置文件，是否开启https反代?(Y/n)"
+		echo "检测到NGINX配置文件，是否开启https反代?(Y/n) "
 		read ENABLE_HTTPS_TS
 		if [[ "" == "$ENABLE_HTTPS_TS" ]] || [[ "y" == "$ENABLE_HTTPS_TS" ]]; then
 			while [[ true ]]; do
@@ -539,6 +543,7 @@ function transmission(){
 					}
 					EOF
 					acme.sh $TRANSMISSION_DOMAIN
+					RESTART_NGINX
 					break
 				fi
 			done
@@ -645,6 +650,7 @@ function aria2(){
 			git clone https://github.com/ziahamza/webui-aria2.git
 			mv /tmp/webui-aria2/docs/* $ARIA2_WEBUI_ROOT
 			rm -fr /tmp/webui-aria2
+			RESTART_NGINX
 		fi
 	fi
 	# while [[ true ]]; do
@@ -741,8 +747,10 @@ function Projext_X(){
 	fi
 	XRAY_RELEASE_LATEST=`wget -q -O - https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
 	CHECK_VERSION xray Xray $XTLS_INSTALLED_VERSION $XRAY_RELEASE_LATEST
+
 	if [[ "$NEED_UPDATE" == "1" ]]; then
 		INSTALL_BINARY
+		##格式化版本号，去掉小数点
 		TMP_VERSION=$(xray version|sed -n 1p|cut -d ' ' -f 2|sed 's/\.//g')
 		XRAY_RELEASE_LATEST_FORMAT=$(echo $XRAY_RELEASE_LATEST | sed 's/\.//g')
 		if [[ "$TMP_VERSION" == "$XRAY_RELEASE_LATEST_FORMAT" ]]; then
@@ -851,6 +859,9 @@ function Projext_X(){
 			EOF
 		fi
 
+		acme.sh "$XRAY_DOMAIN"
+		RESTART_NGINX
+
 		echo vless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls\&sni=$XRAY_DOMAIN\&flow=xtls-rprx-direct#VLESS_xtls
 
 		echo vless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=$XRAY_DOMAIN#GRPC
@@ -916,6 +927,7 @@ function nginx(){
 	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
 	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
 	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
+	NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
 
 	##安装依赖
 	if [[ "$(type -P apt)" ]]; then
@@ -948,9 +960,9 @@ function nginx(){
 	rm -fr /tmp/nginx-$NGINX_VERSION
 
 	ln -s /usr/local/nginx/sbin/nginx /usr/bin/nginx
-	mv /usr/local/nginx/conf/nginx.conf /usr/local/nginx/conf/nginx.conf_backup
+	mv $NGINX_CONFIG ${NGINX_CONFIG}_backup
 	wget -O /usr/local/nginx/conf/nginx.conf https://raw.githubusercontent.com/onlyJinx/Shell_2/main/nginxForFsGrpc.conf
-	echo "export ngp=/usr/local/nginx/conf/nginx.conf" >> /etc/profile
+	echo "export ngp=$NGINX_CONFIG" >> /etc/profile
 	source /etc/profile
 	
 	###crate service
@@ -968,8 +980,8 @@ function nginx(){
 			[Service]
 			Type=forking
 			PIDFile=/run/nginx.pid
-			ExecStartPre=/usr/local/nginx/sbin/nginx -t -c /usr/local/nginx/conf/nginx.conf
-			ExecStart=/usr/local/nginx/sbin/nginx -c /usr/local/nginx/conf/nginx.conf
+			ExecStartPre=/usr/local/nginx/sbin/nginx -t -c $NGINX_CONFIG
+			ExecStart=/usr/local/nginx/sbin/nginx -c $NGINX_CONFIG
 			ExecReload=/bin/kill -s HUP \$MAINPID
 			ExecStop=/bin/kill -s TERM \$MAINPID
 
@@ -994,11 +1006,12 @@ function nginx(){
 	systemctl daemon-reload
 	systemctl enable nginx
 	###systemctl status nginx
-
+	clear
+	echo "编译nginx成功"
 	echo "是否开启SSL配置?(Y/n) "
 	read ENAGLE_NGINX_SSL
 	if [[ "" == "$ENAGLE_NGINX_SSL" ]] || [[ "y" == "$ENAGLE_NGINX_SSL" ]]; then
-		read -p "输入域名" NGINX_DOMAIN
+		read -p "输入域名: " NGINX_DOMAIN
 		if [[ "" == "$NGINX_DOMAIN" ]]; then
 			echo "空域名！退出。"
 			systemctl start nginx
@@ -1022,13 +1035,11 @@ function nginx(){
 				}
 			}
 			EOF
-			###NGINX安装正常结束
-			echo "是否开始申请SSL证书?(Y/n)"
-			read APPLY_SSL_CER
-			if [[ "" == "$APPLY_SSL_CER" ]] || [[ "y" == "$APPLY_SSL_CER" ]] ; then
-				acme.sh "$NGINX_DOMAIN"
-				systemctl start nginx
-			fi
+			#开启80端口强制重定向443
+			sed -i 's/#ENABLE_REDIRECT//' $NGINX_CONFIG
+			#开始申请SSL证书
+			acme.sh "$NGINX_DOMAIN"
+			systemctl start nginx
 		fi
 	else 
 		systemctl start nginx
