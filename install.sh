@@ -876,8 +876,9 @@ function trojan(){
 	clear
 	CHECK_PORT "请输入Trojan HTTPS端口: " 443
 	TROJAN_HTTPS_PORT=$port
-	CHECK_PORT "Trojan 回落端口: " 80
-	TROJAN_HTTP_PORT=$port
+	echo "Trojan 回落端口: "
+	read TROJAN_CALLBACK_PORT
+	TROJAN_HTTP_PORT=${TROJAN_CALLBACK_PORT:-5555}
 	while [[ true ]]; do
 		echo "输入Trojan域名"
 		read ENTER_TROJAN_DOMAIN
