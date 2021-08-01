@@ -86,7 +86,7 @@ function DOWNLOAD_PTAH(){
 	dir=${dir:-$2}
 	 if [ ! -d $dir ]; then
 	 	echo "文件夹不存在，已创建文件夹 $dir"
-	 	mkdir $dir
+	 	mkdir -p $dir
 	 fi
 }
 
@@ -401,19 +401,18 @@ function transmission(){
 		##取消未完成文件自动添加 .part后缀
 		sed -i '/rename-partial-files/ s/true/false/' $1
 		##单引号里特殊符号都不起作用$ or /\，使用双引号替代单引号
-		##sed -i "/rpc-username/ s/\"\"/\"$uname\"/" $TRANSMISSION_CONFIG
-		sed -i "/rpc-username/ s/: \".*/: \"$uname\",/" $1
+		sed -i "/rpc-username/ s/: \".*/: \"$TRANSMISSION_USER_NAME\",/" $1
 		sed -i "/rpc-port/ s/9091/$port/" $1
 		##sed分隔符/和路径分隔符混淆，用:代替/
 		sed -i ":download-dir: s:\/root\/Downloads:$dir:" $1
-		sed -i "/rpc-password/ s/\"{.*/\"$passwd\",/" $1
+		sed -i "/rpc-password/ s/\"{.*/\"$TRANSMISSION_PASSWD\",/" $1
 		##开启限速
 		sed -i "/speed-limit-up-enabled/ s/false/true/" $1
 		##限速1M/s
-		sed -i "/\"speed-limit-up\"/ s/:.*/: 1024,/" $1
+		sed -i "/\"speed-limit-up\"/ s/:.*/: 10240,/" $1
 		##limit rate
 		sed -i "/ratio-limit-enabled/ s/false/true/" $1
-		sed -i "/\"ratio-limit\"/ s/:.*/: 4,/" $1
+		sed -i "/\"ratio-limit\"/ s/:.*/: 10,/" $1
 	}
 
 	CKECK_FILE_EXIST transmission-3.00+
@@ -421,11 +420,11 @@ function transmission(){
 	clear
 	CHECK_PORT "请输入端口号(9091)" 9091
 	clear
-	read -p "请输入用户名(transmission):  " uname
-	uname=${uname:-transmission}
+	read -p "请输入用户名(transmission):  " TRANSMISSION_USER_NAME
+	TRANSMISSION_USER_NAME=${TRANSMISSION_USER_NAME:-transmission}
 	clear
-	read -p "请输入密码(transmission2020):  " passwd
-	passwd=${passwd:-transmission2020}
+	read -p "请输入密码(transmission2020):  " TRANSMISSION_PASSWD
+	TRANSMISSION_PASSWD=${TRANSMISSION_PASSWD:-transmission2020}
 	clear
 	DOWNLOAD_PTAH "文件保存路径(默认/usr/downloads): " "/usr/downloads"
 	check "downloads文件夹创建失败！"
@@ -508,43 +507,55 @@ function transmission(){
 	systemctl enable transmission.service > /dev/nul 2>&1&
 
 	echo -e port:"          ""\e[31m\e[1m$port\e[0m"
-	echo -e password:"      ""\e[31m\e[1m$passwd\e[0m"
-	echo -e username:"      ""\e[31m\e[1m$uname\e[0m"
+	echo -e password:"      ""\e[31m\e[1m$TRANSMISSION_PASSWD\e[0m"
+	echo -e username:"      ""\e[31m\e[1m$TRANSMISSION_USER_NAME\e[0m"
 	echo -e DOWNLOAD_PTAH:"      ""\e[31m\e[1m$dir\e[0m"
 	echo -e config.json:"   ""\e[31m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
 
 	NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
 	if [[ -e $NGINX_CONFIG ]];then
-		echo "检测到NGINX配置文件，是否开启https反代?(Y/n) "
+		echo "检测到NGINX配置文件，是否开启https WEBUI反代?(Y/n) "
 		read ENABLE_HTTPS_TS
 		if [[ "" == "$ENABLE_HTTPS_TS" ]] || [[ "y" == "$ENABLE_HTTPS_TS" ]]; then
 			while [[ true ]]; do
 				read -p "输入域名(ctrl+c强制终止)" TRANSMISSION_DOMAIN
 				if [[ "$TRANSMISSION_DOMAIN" ]]; then
+					while [[ true ]]; do
+						echo "输入文件下载服务器路径(不能为空)"
+						read TRRNA_FILE_SERVER_PATH
+						if [[ $"TRRNA_FILE_SERVER_PATH" ]]; then
+							break
+						fi
+					done
 					cat >/usr/local/nginx/conf/sites-enabled/${TRANSMISSION_DOMAIN}<<-EOF
 					server {
-						listen       4433 http2 ssl;
-						server_name  ${TRANSMISSION_DOMAIN};
-						ssl_certificate      /ssl/${TRANSMISSION_DOMAIN}.cer;
-						ssl_certificate_key  /ssl/${TRANSMISSION_DOMAIN}.key;
-						ssl_session_cache    shared:SSL:1m;
-						ssl_session_timeout  5m;
-						ssl_protocols TLSv1.2 TLSv1.3;
-						ssl_prefer_server_ciphers  on;
-						ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-						location / {
-							proxy_redirect off;
-							proxy_pass http://127.0.0.1:${port};
-							proxy_http_version 1.1;
-							proxy_set_header Upgrade \$http_upgrade;
-							proxy_set_header Connection "upgrade";
-							proxy_set_header Host \$http_host;
-						}
+					    listen       4433 http2 ssl;
+					    server_name  ${TRANSMISSION_DOMAIN};
+					    ssl_certificate      /ssl/${TRANSMISSION_DOMAIN}.cer;
+					    ssl_certificate_key  /ssl/${TRANSMISSION_DOMAIN}.key;
+					    ssl_session_cache    shared:SSL:1m;
+					    ssl_session_timeout  5m;
+					    ssl_protocols TLSv1.2 TLSv1.3;
+					    ssl_prefer_server_ciphers  on;
+					    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+					    location / {
+					        proxy_redirect off;
+					        proxy_pass http://127.0.0.1:${port};
+					        proxy_http_version 1.1;
+					        proxy_set_header Upgrade \$http_upgrade;
+					        proxy_set_header Connection "upgrade";
+					        proxy_set_header Host \$http_host;
+					    }
+					    location /${TRRNA_FILE_SERVER_PATH}/ {
+					        alias ${dir}/;
+					        autoindex on;
+					    }
 					}
 					EOF
 					acme.sh $TRANSMISSION_DOMAIN
 					RESTART_NGINX
 					echo "\e[32m\e[1m打开网址${TRANSMISSION_DOMAIN}测试登录\e[0m"
+					echo "\e[32m\e[1m文件下载服务器地址${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/ \e[0m"
 					break
 				fi
 			done
