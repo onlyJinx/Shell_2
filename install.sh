@@ -206,7 +206,7 @@ function acme.sh(){
 	}
 
 	if [[ -e $DOMAIN_AUTH_TEMP ]]; then
-		echo "\e[32m\e[1m已检测到手动DNS第二次校验，尝试直接RENEW\e[0m"
+		echo -e "\e[32m\e[1m已检测到手动DNS第二次校验，尝试直接RENEW\e[0m"
 		GET_APPLY_DOMAIN="$(cat $DOMAIN_AUTH_TEMP)"
 		#手动DNS在脚本环境运行有bug，dev分支已修复
 		$ACME_PATH_RUN --upgrade -b dev
@@ -259,8 +259,8 @@ function acme.sh(){
 	if [[ "$NEED_INSTALL_CERT" ]]; then
 		ACME_INSTALL_CERT "$ENTER_APPLY_DOMAIN"
 	else 
-		echo "\e[32m\e[1m将上面的txt解析到对应的域名上再重新运行脚本\e[0m"
-		echo "\e[32m\e[1m第二次运行时自动校验解析\e[0m"
+		echo -e "\e[32m\e[1m将上面的txt解析到对应的域名上再重新运行脚本\e[0m"
+		echo -e "\e[32m\e[1m第二次运行时自动校验解析\e[0m"
 		echo "休眠30秒"
 		sleep 30
 	fi
@@ -556,8 +556,8 @@ function transmission(){
 					EOF
 					acme.sh $TRANSMISSION_DOMAIN
 					RESTART_NGINX
-					echo "\e[32m\e[1m打开网址https://${TRANSMISSION_DOMAIN}测试登录\e[0m"
-					echo "\e[32m\e[1m文件下载服务器地址https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/ \e[0m"
+					echo -e "\e[32m\e[1m打开网址https://${TRANSMISSION_DOMAIN}测试登录\e[0m"
+					echo -e "\e[32m\e[1m文件下载服务器地址https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/ \e[0m"
 					break
 				fi
 			done
