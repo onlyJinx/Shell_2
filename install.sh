@@ -544,6 +544,7 @@ function transmission(){
 					EOF
 					acme.sh $TRANSMISSION_DOMAIN
 					RESTART_NGINX
+					echo "\e[32m\e[1m打开网址${TRANSMISSION_DOMAIN}测试登录\e[0m"
 					break
 				fi
 			done
@@ -657,9 +658,9 @@ function aria2(){
 
 	# done
 
-	echo -e token:"      ""\e[31m\e[1m$key\e[0m"
-	echo -e DOWNLOAD_PTAH:"      ""\e[31m\e[1m$dir\e[0m"
-	echo -e config.json:"   ""\e[31m\e[1m/aria2.conf\n\n\e[0m"
+	echo -e "\e[32m\e[1mTONKE:        ${key}\e[0m"
+	echo -e "\e[32m\e[1mDOWNLOAD_PTAH:${dir}\e[0m"
+	echo -e "\e[32m\e[1mCONFIG_JSON:  /etc/aria2/aria2.conf\e[0m"
 
 }
 
@@ -717,7 +718,8 @@ function Up_kernel(){
 	###使修改的内核配置生效
 	echo net.core.default_qdisc=fq >> /etc/sysctl.conf
 	echo net.ipv4.tcp_congestion_control=bbr >> /etc/sysctl.conf
-	read -p "重启电脑生效，是否现在重启? (y/N): " sureReboot
+	echo -e "\e[32m\e[1m重启电脑生效，是否现在重启? (y/N): \e[0m"
+	read sureReboot
 	if [[ "y" == "$sureReboot" ]]; then
 		reboot
 	fi
@@ -862,11 +864,11 @@ function Projext_X(){
 		acme.sh "$XRAY_DOMAIN"
 		RESTART_NGINX
 
-		echo vless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls\&sni=$XRAY_DOMAIN\&flow=xtls-rprx-direct#VLESS_xtls
+		echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls\&sni=$XRAY_DOMAIN\&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
 
-		echo vless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=$XRAY_DOMAIN#GRPC
+		echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=$XRAY_DOMAIN#GRPC\e[0m"
 
-		echo vless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws\&security=tls\&path=%2F$XRAY_WS_PATH%3Fed%3D2048\&host=$XRAY_DOMAIN\&sni=$XRAY_DOMAIN#WS
+		echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws\&security=tls\&path=%2F$XRAY_WS_PATH%3Fed%3D2048\&host=$XRAY_DOMAIN\&sni=$XRAY_DOMAIN#WS\e[0m"
 	fi
 }
 #脚本开始安装trojan
@@ -917,7 +919,7 @@ function trojan(){
 	systemctl daemon-reload
 	systemctl start trojan
 	systemctl enable trojan
-	echo "trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:${TROJAN_HTTPS_PORT}?sni=${TROJAN_DOMAIN}#Trojan"
+	echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:${TROJAN_HTTPS_PORT}?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
 
 }
 #脚本开始安装nginx
@@ -1134,8 +1136,7 @@ function caddy(){
 	rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
 	clear
 	systemctl status caddy
-	echo -e username:"      ""\e[31m\e[1m$CADDY_USER\e[0m"
-	echo -e password:"      ""\e[31m\e[1m$CADDY_PASSWD\e[0m"
+	echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
 }
 
 select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Projext_X" "caddy"
