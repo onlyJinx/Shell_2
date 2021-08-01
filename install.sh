@@ -248,10 +248,12 @@ function acme.sh(){
 	fi
 	$ACME_PATH_RUN --upgrade --auto-upgrade
 	$ACME_PATH_RUN --set-default-ca --server buypass
-	echo $ACME_APPLY_CER
 	$ACME_APPLY_CER
 	if [[ "$NEED_INSTALL_CERT" ]]; then
 		ACME_INSTALL_CERT "$ENTER_APPLY_DOMAIN"
+	else 
+		echo "将上面的txt解析到对应的域名上再重新运行脚本"
+		echo "第二次运行时自动校验解析"
 	fi
 }
 #脚本开始安装SS
