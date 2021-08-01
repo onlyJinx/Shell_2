@@ -1076,9 +1076,9 @@ function caddy(){
 	done
 	read -p "输入邮箱(回车不设置)： " CADDY_EMAIL
 	CADDY_EMAIL=${CADDY_EMAIL:-noemail@qq.com}
-	read -p "设置用户名： " CADDY_USER
+	read -p "设置用户名(禁止@:): " CADDY_USER
 	CADDY_USER=${CADDY_USER:-Oieu!ji330}
-	read -p "设置密码： " CADDY_PASSWD
+	read -p "设置密码(禁止@:): " CADDY_PASSWD
 	CADDY_PASSWD=${CADDY_PASSWD:-5eele9P!il_}
 	if ! [[ $(type -P go) ]]; then
 		$PKGMANAGER wget
