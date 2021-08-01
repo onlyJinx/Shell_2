@@ -137,7 +137,7 @@ function acme.sh(){
 			exit 0
 		fi
 		if ! [[ "$(ss -lnp|grep ':80 ')" ]]; then
-			echo "80端口空闲，使用临时ACME Web服务器"
+			echo -e "\e[32m\e[1m80端口空闲，使用临时ACME Web服务器\e[0m"
 			if ! [[ "$(command -v socat)" ]]; then
 				echo "socat未安装，是否安装socat完成HTTP认证(Y/n)"
 				read INSTALL_SOCAT
@@ -151,14 +151,14 @@ function acme.sh(){
 			fi
 			STANDALONE="--standalone"
 		else
-			echo "检测到80端口占用，尝试列出所有html目录。"
+			echo -e "\e[32m\e[1m检测到80端口占用，尝试列出所有html目录。\e[0m"
 			find / -name html
 			read -p "输入网站根目录: " ENTER_NGINX_PTAH
 			ENTER_NGINX_PTAH=${ENTER_NGINX_PTAH:-$DEFAULT_WEB_ROOT}
 			WEB_ROOT="--webroot "$ENTER_NGINX_PTAH
 			if ! [[ -d "$ENTER_NGINX_PTAH" ]]; then
 				echo "输入的非目录，退出！"
-				echo "如不确定，手动关闭80端口监听程序后"
+				echo -e "\e[32m\e[1m如不确定，手动关闭80端口监听程序后\e[0m"
 				echo "重新运行脚本让acme.sh临时监听80端口完成验证"
 				exit 1
 			fi
@@ -169,7 +169,7 @@ function acme.sh(){
 		echo "开始DNS手动模式"
 		if [[ "$ENTER_APPLY_DOMAIN" != "$APPLY_DOMAIN" ]]; then
 			##相等即没有输入内容无空格(单个域名)
-			echo "手动DNS记录只支持单个域名校验"
+			echo -e "\e[32m\e[1m手动DNS记录只支持单个域名校验\e[0m"
 			exit 0
 		fi
 		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --dns --yes-I-know-dns-manual-mode-enough-go-ahead-please"
@@ -177,12 +177,11 @@ function acme.sh(){
 		NEED_INSTALL_CERT=""
 	}
 	function ACME_INSTALL_CERT(){
-		echo "开始安装证书"
 		#传入一个以空格为分隔符的域名字符串
 		DOMAIN_LISTS=($1)
 		for SINGLE_DOMAIN in ${DOMAIN_LISTS[@]}
 		do
-			echo "开始安装"$SINGLE_DOMAIN"证书"
+			echo -e "\e[32m\e[1m开始安装${SINGLE_DOMAIN}证书\e[0m"
 			if [[ $Wildcard ]]; then
 				KEY_DST_PATH="/ssl/Wildcard.key"
 				CER_DST_PATH="/ssl/Wildcard.cer"
@@ -196,9 +195,9 @@ function acme.sh(){
 				--key-file $KEY_DST_PATH \
 				--fullchain-file $CER_DST_PATH
 				if [[ "$CER_DST_PATH" ]]; then
-					echo $SINGLE_DOMAIN" 证书已安装！"
+					echo -e "\e[32m\e[1m${SINGLE_DOMAIN} 证书已安装！\e[0m"
 				else
-					echo $SINGLE_DOMAIN" 证书安装失败！"
+					echo "${SINGLE_DOMAIN} 证书安装失败！"
 				fi
 			else
 				echo "安装未启动，找不到证书文件！"
@@ -207,7 +206,7 @@ function acme.sh(){
 	}
 
 	if [[ -e $DOMAIN_AUTH_TEMP ]]; then
-		echo "已检测到手动DNS第二次校验，尝试直接RENEW"
+		echo "\e[32m\e[1m已检测到手动DNS第二次校验，尝试直接RENEW\e[0m"
 		GET_APPLY_DOMAIN="$(cat $DOMAIN_AUTH_TEMP)"
 		#手动DNS在脚本环境运行有bug，dev分支已修复
 		$ACME_PATH_RUN --upgrade -b dev
@@ -222,7 +221,8 @@ function acme.sh(){
 		Wildcard=""
 		ACME_HTTP
 	else
-		read -p "输入域名，多个域名使用空格分开(a.com b.com) " ENTER_APPLY_DOMAIN
+		echo -e "\e[32m\e[1m输入域名，多个域名使用空格分开(a.com b.com)\e[0m"
+		read ENTER_APPLY_DOMAIN
 		APPLY_DOMAIN=$(echo $ENTER_APPLY_DOMAIN | sed 's/ / -d /g')
 		#通配符检测
 		Wildcard="$(echo $APPLY_DOMAIN | grep \*)"
@@ -259,8 +259,10 @@ function acme.sh(){
 	if [[ "$NEED_INSTALL_CERT" ]]; then
 		ACME_INSTALL_CERT "$ENTER_APPLY_DOMAIN"
 	else 
-		echo "将上面的txt解析到对应的域名上再重新运行脚本"
-		echo "第二次运行时自动校验解析"
+		echo "\e[32m\e[1m将上面的txt解析到对应的域名上再重新运行脚本\e[0m"
+		echo "\e[32m\e[1m第二次运行时自动校验解析\e[0m"
+		echo "休眠30秒"
+		sleep 30
 	fi
 }
 #脚本开始安装SS
@@ -1154,6 +1156,7 @@ function caddy(){
 	echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
 }
 
+echo "current time: `date +%T`"
 select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Projext_X" "caddy"
 do
 	case $option in
