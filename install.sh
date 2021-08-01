@@ -11,6 +11,7 @@ function check(){
 	fi
 }
 function packageManager(){
+	SYSTEMD_SERVICES="/etc/systemd/system"
 	if [[ "$(type -P apt)" ]]; then
 		PKGMANAGER="apt install -y --no-install-recommends"
 		RUNNING_SYSTEM="debian"
@@ -202,6 +203,7 @@ function acme.sh(){
 	}
 
 	if [[ -e $DOMAIN_AUTH_TEMP ]]; then
+		echo "已检测到手动DNS第二次校验，尝试直接RENEW"
 		GET_APPLY_DOMAIN="$(cat $DOMAIN_AUTH_TEMP)"
 		#手动DNS在脚本环境运行有bug，dev分支已修复
 		$ACME_PATH_RUN --upgrade -b dev
@@ -360,7 +362,7 @@ function shadowsocks-libev(){
 
 
 	###crate service
-	cat >/etc/systemd/system/ssl.service<<-EOF
+	cat >$SYSTEMD_SERVICES/ssl.service<<-EOF
 	[Unit]
 	Description=Shadowsocks Server
 	After=network.target
@@ -444,7 +446,7 @@ function transmission(){
 	check "transmission编译失败！"
 
 	##crate service
-	cat >/etc/systemd/system/transmission.service<<-EOF
+	cat >$SYSTEMD_SERVICES/transmission.service<<-EOF
 	[Unit]
 	Description=Transmission BitTorrent Daemon
 	After=network.target
@@ -586,7 +588,7 @@ function aria2(){
 	if ! [[ -d "$ARIA2_CONFIG_DIR" ]]; then
 		mkdir $ARIA2_CONFIG_DIR
 	fi
-	cat >/etc/systemd/system/aria2.service<<-EOF
+	cat >$SYSTEMD_SERVICES/aria2.service<<-EOF
 	[Unit]
 	Description=aria2c
 	After=network.target
@@ -795,7 +797,7 @@ function Projext_X(){
 		sed -i "s/GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
 		sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
 
-		cat > /etc/systemd/system/xray.service <<-EOF
+		cat > $SYSTEMD_SERVICES/xray.service <<-EOF
 		[Unit]
 		Description=Xray Service
 		Documentation=https://github.com/xtls
@@ -878,6 +880,7 @@ function trojan(){
 
 	wget https://github.com/trojan-gfw/trojan/releases/download/v${trojan_version}/trojan-${trojan_version}-linux-amd64.tar.xz && tar xvJf trojan-${trojan_version}-linux-amd64.tar.xz -C /etc
 	ln -s /etc/trojan/trojan /usr/bin/trojan
+	rm -f trojan-${trojan_version}-linux-amd64.tar.xz
 	TROJAN_CONFIG=/etc/trojan/config.json
 	sed -i '/password2/ d' $TROJAN_CONFIG
 	sed -i "/local_port/ s/443/$TROJAN_HTTPS_PORT/" $TROJAN_CONFIG
@@ -887,7 +890,7 @@ function trojan(){
 	sed -i ":private: s:/path/to/private.key:/ssl/${TROJAN_DOMAIN}.key:" $TROJAN_CONFIG
 
 	###crate service
-	cat >/etc/systemd/system/trojan.service<<-EOF
+	cat >$SYSTEMD_SERVICES/trojan.service<<-EOF
 	[Unit]
 	Description=trojan Server
 	After=network.target
@@ -955,7 +958,7 @@ function nginx(){
 
 	if [[ "$RUNNING_SYSTEM"="debian" ]]; then
 		###crate service
-		cat >/etc/systemd/system/nginx.service<<-EOF
+		cat >$SYSTEMD_SERVICES/nginx.service<<-EOF
 			[Unit]
 			Description=nginx - high performance web server
 			Documentation=https://nginx.org/en/docs/
@@ -1081,7 +1084,7 @@ function caddy(){
 				}
 			EOF
 
-			cat >/etc/systemd/system/caddy.service<<-EOF
+			cat >$SYSTEMD_SERVICES/caddy.service<<-EOF
 				[Unit]
 				Description=Caddy
 				Documentation=https://caddyserver.com/docs/
