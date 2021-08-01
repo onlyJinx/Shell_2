@@ -13,10 +13,10 @@ function check(){
 function packageManager(){
 	if [[ "$(type -P apt)" ]]; then
 		PKGMANAGER="apt install -y --no-install-recommends"
-		RUNNING_SYSTEM=debian
+		RUNNING_SYSTEM="debian"
 	elif [[ "$(type -P yum)" ]]; then
 		PKGMANAGER="yum install -y"
-		RUNNING_SYSTEM=centOS
+		RUNNING_SYSTEM="centOS"
 	else
 		echo "不支持的系统"
 		exit 1
@@ -863,13 +863,13 @@ function trojan(){
 	while [[ true ]]; do
 		echo "输入Trojan域名"
 		read ENTER_TROJAN_DOMAIN
-		if ! [[ "$ENTER_TROJAN_DOMAIN" ]]; then
+		if [[ "$ENTER_TROJAN_DOMAIN" ]]; then
 			TROJAN_DOMAIN="$ENTER_TROJAN_DOMAIN"
 			break
 		fi
 	done
-	read -p "设置一个trojan密码(默认trojanWdai1)： " PW
-	PW=${PW:-trojanWdai1}
+	read -p "设置一个trojan密码(默认trojanWdai1)： " TROJAN_PASSWD
+	TROJAN_PASSWD=${TROJAN_PASSWD:-trojanWdai1}
 	trojan_version=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
 	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 
@@ -879,7 +879,7 @@ function trojan(){
 	sed -i '/password2/ d' $TROJAN_CONFIG
 	sed -i "/local_port/ s/443/$TROJAN_HTTPS_PORT/" $TROJAN_CONFIG
 	sed -i "/remote_port/ s/80/$TROJAN_HTTP_PORT/" $TROJAN_CONFIG
-	sed -i "/\"password1\",/ s/\"password1\",/\"$PW\"/" $TROJAN_CONFIG
+	sed -i "/\"password1\",/ s/\"password1\",/\"$TROJAN_PASSWD\"/" $TROJAN_CONFIG
 	sed -i ":certificate: s:/path/to/certificate.crt:/ssl/${TROJAN_DOMAIN}.cer:" $TROJAN_CONFIG
 	sed -i ":private: s:/path/to/private.key:/ssl/${TROJAN_DOMAIN}.key:" $TROJAN_CONFIG
 
@@ -894,10 +894,13 @@ function trojan(){
 	[Install]
 	WantedBy=multi-user.target
 	EOF
+	##申请SSL证书
 	acme.sh $TROJAN_DOMAIN
+
 	systemctl daemon-reload
 	systemctl start trojan
 	systemctl enable trojan
+	echo "trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:${TROJAN_HTTPS_PORT}?sni=${TROJAN_DOMAIN}#Trojan"
 
 }
 #脚本开始安装nginx
