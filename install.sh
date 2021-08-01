@@ -857,13 +857,18 @@ function Projext_X(){
 #脚本开始安装trojan
 function trojan(){
 	clear
-	echo ""
 	CHECK_PORT "请输入Trojan HTTPS端口: " 443
 	TROJAN_HTTPS_PORT=$port
 	CHECK_PORT "Trojan 回落端口: " 80
 	TROJAN_HTTP_PORT=$port
-	clear
-
+	while [[ true ]]; do
+		echo "输入Trojan域名"
+		read ENTER_TROJAN_DOMAIN
+		if ! [[ "$ENTER_TROJAN_DOMAIN" ]]; then
+			TROJAN_DOMAIN="$ENTER_TROJAN_DOMAIN"
+			break
+		fi
+	done
 	read -p "设置一个trojan密码(默认trojanWdai1)： " PW
 	PW=${PW:-trojanWdai1}
 	trojan_version=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
@@ -873,12 +878,11 @@ function trojan(){
 	ln -s /etc/trojan/trojan /usr/bin/trojan
 	TROJAN_CONFIG=/etc/trojan/config.json
 	sed -i '/password2/ d' $TROJAN_CONFIG
-	sed -i "/certificate.crt/ s/.crt/.$cert/" $TROJAN_CONFIG
 	sed -i "/local_port/ s/443/$TROJAN_HTTPS_PORT/" $TROJAN_CONFIG
 	sed -i "/remote_port/ s/80/$TROJAN_HTTP_PORT/" $TROJAN_CONFIG
 	sed -i "/\"password1\",/ s/\"password1\",/\"$PW\"/" $TROJAN_CONFIG
-	sed -i ":\"cert\": s:path\/to:etc\/trojan:" $TROJAN_CONFIG
-	sed -i ":\"key\": s:path\/to:etc\/trojan:" $TROJAN_CONFIG
+	sed -i ":certificate: s:/path/to/certificate.crt:/ssl/${TROJAN_DOMAIN}.cer:" $TROJAN_CONFIG
+	sed -i ":private: s:/path/to/private.key:/ssl/${TROJAN_DOMAIN}.key:" $TROJAN_CONFIG
 
 	###crate service
 	cat >/etc/systemd/system/trojan.service<<-EOF
@@ -891,6 +895,7 @@ function trojan(){
 	[Install]
 	WantedBy=multi-user.target
 	EOF
+	acme.sh $TROJAN_DOMAIN
 	systemctl daemon-reload
 	systemctl start trojan
 	systemctl enable trojan
