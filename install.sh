@@ -887,7 +887,9 @@ function trojan(){
 			break
 		fi
 	done
-	read -p "设置一个trojan密码(默认trojanWdai1)： " TROJAN_PASSWD
+	echo "设置trojan密码(默认trojanWdai1)"
+	echo "不可以包含#@?"
+	read TROJAN_PASSWD
 	TROJAN_PASSWD=${TROJAN_PASSWD:-trojanWdai1}
 	trojan_version=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
 	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
@@ -920,6 +922,7 @@ function trojan(){
 	systemctl daemon-reload
 	systemctl start trojan
 	systemctl enable trojan
+	echo "."
 	echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:${TROJAN_HTTPS_PORT}?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
 
 }
