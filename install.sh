@@ -19,10 +19,12 @@ function RESTART_NGINX(){
 function packageManager(){
 	SYSTEMD_SERVICES="/etc/systemd/system"
 	if [[ "$(type -P apt)" ]]; then
-		PKGMANAGER="apt install -y --no-install-recommends"
+		PKGMANAGER_INSTALL="apt install -y --no-install-recommends"
+		PKGMANAGER_UNINSTALL="apt remove -y"
 		RUNNING_SYSTEM="debian"
 	elif [[ "$(type -P yum)" ]]; then
-		PKGMANAGER="yum install -y"
+		PKGMANAGER_INSTALL="yum install -y"
+		PKGMANAGER_UNINSTALL="yum remove -y"
 		RUNNING_SYSTEM="centOS"
 	else
 		echo "不支持的系统"
@@ -112,13 +114,18 @@ function CKECK_FILE_EXIST(){
 	fi
 }
 #脚本开始安装acme.sh
-##acme.sh "域名(直接调用http)" "[CA]"
+##acme.sh "域名(直接调用http)"
 function acme.sh(){
 	WEB_ROOT=""
-	SET_CA="$2"
 	STANDALONE=""
+	#当前CA
+	CURRENT_ACME_CA=""
 	#被调用传入域名
 	CALL_FUNCTION="$1"
+	#卸载Socat残留
+	UNINSTALL_SOCAT=""
+	#设置CA机构
+	SET_ACME_SERVER=""
 	#http退出函数
 	ACME_HTTP_RETURN=""
 	#手动DNS跳过安装证书
@@ -128,11 +135,6 @@ function acme.sh(){
 	DEFAULT_WEB_ROOT="/usr/local/nginx/html/"
 	#第一次手动DNS校验时保存的文件，用于第二次renew
 	DOMAIN_AUTH_TEMP="/tmp/DOMAIN_AUTH_TEMP.TMP.5884748"
-	if [[ "$SET_CA" ]]; then
-		SET_ACME_SERVER="--server $SET_CA"
-	else 
-		SET_ACME_SERVER=""
-	fi
 	function ACME_DNS_API(){
 		echo "开始API认证模式"
 		read -p "输入DNSPod ID" DNSPOD_ID
@@ -153,8 +155,9 @@ function acme.sh(){
 				echo "socat未安装,安装socat完成HTTP认证(Y/n),否则直接退出"
 				read INSTALL_SOCAT
 				if [[ "" == "$INSTALL_SOCAT" ]] || [[ "y" == "$INSTALL_SOCAT" ]]; then
-					$PKGMANAGER socat
-					check "socat安装失败"
+					$PKGMANAGER_INSTALL socat
+					UNINSTALL_SOCAT="$PKGMANAGER_UNINSTALL socat"
+					check "socat安装失败" "socat已安装"
 				else 
 					echo "已取消安装socat"
 					ACME_HTTP_RETURN="1"
@@ -216,6 +219,78 @@ function acme.sh(){
 			fi
 		done
 	}
+	function SET_ACME_CA(){
+		echo "选择CA机构"
+		select option in "letsencrypt" "letsencrypt_test" "buypass" "buypass_test" "zerossl" "sslcom"
+		do
+			case $option in
+				"letsencrypt")
+					ACME_SERVER="letsencrypt"
+					break;;
+				"letsencrypt_test")
+					ACME_SERVER="letsencrypt_test"
+					break;;
+				"buypass")
+					ACME_SERVER="buypass"
+					break;;
+				"buypass_test")
+					ACME_SERVER="buypass_test"
+					break;;
+				"zerossl")
+					ACME_SERVER="zerossl"
+					break;;
+				"sslcom")
+					ACME_SERVER="sslcom"
+					break;;
+				*)
+					echo "Nothink to do"
+					return 0
+					break;;
+			esac
+		done
+		SET_ACME_SERVER="--server $ACME_SERVER"
+		CURRENT_ACME_CA="$ACME_SERVER"
+		echo "已选择证书颁发机构${ACME_SERVER}"
+	}
+
+
+	#选择认证方式
+	function SELECT_AUTH_MOTHOD(){
+		##其他函数直接调用acme HTTP验证
+		if [[ "$CALL_FUNCTION" ]]; then
+			ENTER_APPLY_DOMAIN=$CALL_FUNCTION
+			APPLY_DOMAIN=$CALL_FUNCTION
+			Wildcard=""
+			ACME_HTTP
+		else
+			echo -e "\e[32m\e[1m输入域名，多个域名使用空格分开(a.com b.com)\e[0m"
+			read ENTER_APPLY_DOMAIN
+			APPLY_DOMAIN=$(echo $ENTER_APPLY_DOMAIN | sed 's/ / -d /g')
+			#通配符检测
+			Wildcard="$(echo $APPLY_DOMAIN | grep \*)"
+			select option in "HTTP" "DNS_MANUAL" "DNS_API" "SET_ACME_CA"
+			do
+				case $option in
+					"HTTP")
+						ACME_HTTP
+						break;;
+					"DNS_MANUAL")
+						ACME_DNS_MANUAL
+						break;;
+					"DNS_API")
+						ACME_DNS_API
+						break;;
+					"SET_ACME_CA")
+						SET_ACME_CA
+						SELECT_AUTH_MOTHOD
+						break;;
+					*)
+						echo "nothink to do"
+						exit;;
+				esac
+			done
+		fi
+	}
 
 	if [[ -e $DOMAIN_AUTH_TEMP ]]; then
 		echo -e "\e[32m\e[1m已检测到手动DNS第二次校验，尝试直接RENEW\e[0m"
@@ -227,36 +302,8 @@ function acme.sh(){
 		ACME_INSTALL_CERT "$GET_APPLY_DOMAIN"
 		exit 0
 	fi
-	##其他函数直接调用acme HTTP验证
-	if [[ "$CALL_FUNCTION" ]]; then
-		ENTER_APPLY_DOMAIN=$CALL_FUNCTION
-		APPLY_DOMAIN=$CALL_FUNCTION
-		Wildcard=""
-		ACME_HTTP
-	else
-		echo -e "\e[32m\e[1m输入域名，多个域名使用空格分开(a.com b.com)\e[0m"
-		read ENTER_APPLY_DOMAIN
-		APPLY_DOMAIN=$(echo $ENTER_APPLY_DOMAIN | sed 's/ / -d /g')
-		#通配符检测
-		Wildcard="$(echo $APPLY_DOMAIN | grep \*)"
-		select option in "HTTP" "DNS_MANUAL" "DNS_API"
-		do
-			case $option in
-				"HTTP")
-					ACME_HTTP
-					break;;
-				"DNS_MANUAL")
-					ACME_DNS_MANUAL
-					break;;
-				"DNS_API")
-					ACME_DNS_API
-					break;;
-				*)
-					echo "nothink to do"
-					exit;;
-			esac
-		done
-	fi
+
+	SELECT_AUTH_MOTHOD
 
 	if [[ "$ACME_HTTP_RETURN" ]]; then
 		echo "已被拒绝安装socat,取消证书申请"
@@ -274,6 +321,7 @@ function acme.sh(){
 		fi
 		$ACME_PATH_RUN --upgrade --auto-upgrade
 		echo "$ACME_APPLY_CER"
+		echo "当前CA机构:${CURRENT_ACME_CA}"
 		$ACME_APPLY_CER
 		if [[ "$NEED_INSTALL_CERT" ]]; then
 			ACME_INSTALL_CERT "$ENTER_APPLY_DOMAIN"
@@ -284,40 +332,11 @@ function acme.sh(){
 			sleep 30
 		fi
 	fi
+	#卸载Socat残留
+	UNINSTALL_SOCAT
 
 }
-function ACME_CA(){
-	echo "选择CA机构"
-	select option in "letsencrypt" "letsencrypt_test" "buypass" "buypass_test" "zerossl" "sslcom"
-	do
-		case $option in
-			"letsencrypt")
-				ACME_SERVER="letsencrypt"
-				break;;
-			"letsencrypt_test")
-				ACME_SERVER="letsencrypt_test"
-				break;;
-			"buypass")
-				ACME_SERVER="buypass"
-				break;;
-			"buypass_test")
-				ACME_SERVER="buypass_test"
-				break;;
-			"zerossl")
-				ACME_SERVER="zerossl"
-				break;;
-			"sslcom")
-				ACME_SERVER="sslcom"
-				break;;
-			*)
-				echo "Nothink to do"
-				return 0
-				break;;
-		esac
-	done
-	echo "已选择证书颁发机构${ACME_SERVER}"
-	acme.sh "" "$ACME_SERVER"
-}
+
 #脚本开始安装SS
 function shadowsocks-libev(){
 
@@ -486,10 +505,10 @@ function transmission(){
 
 	if [[ "$(type -P apt)" ]]; then
 		echo "Debian"
-		$PKGMANAGER ca-certificates libcurl4-openssl-dev libssl-dev pkg-config build-essential autoconf libtool zlib1g-dev intltool libevent-dev wget git
+		$PKGMANAGER_INSTALL ca-certificates libcurl4-openssl-dev libssl-dev pkg-config build-essential autoconf libtool zlib1g-dev intltool libevent-dev wget git
 		check "transmission依赖安装失败"
 	elif [[ "$(type -P yum)" ]]; then
-		$PKGMANAGER gcc gcc-c++ make automake libtool gettext openssl-devel libevent-devel intltool libiconv curl-devel systemd-devel wget git
+		$PKGMANAGER_INSTALL gcc gcc-c++ make automake libtool gettext openssl-devel libevent-devel intltool libiconv curl-devel systemd-devel wget git
 	else
 		echo "error: The script does not support the package manager in this operating system."
 		exit 1
@@ -631,12 +650,12 @@ function aria2(){
 	key=${key:-crazy_0}
 
 	if [[ "debian" == "$RUNNING_SYSTEM" ]]; then
-		$PKGMANAGER git libxml2-dev libcppunit-dev \
+		$PKGMANAGER_INSTALL git libxml2-dev libcppunit-dev \
 		autoconf automake autotools-dev autopoint libtool \
 		build-essential libtool pkg-config
 		ARIA2_AUTOCONF="autoreconf -i -I /usr/share/aclocal/"
 	else
-		$PKGMANAGER gcc-c++ make libtool automake bison \
+		$PKGMANAGER_INSTALL gcc-c++ make libtool automake bison \
 		autoconf git intltool libssh2-devel expat-devel \
 		gmp-devel nettle-devel libssh2-devel zlib-devel \
 		c-ares-devel gnutls-devel libgcrypt-devel libxml2-devel \
@@ -738,7 +757,7 @@ function Up_kernel(){
 		fi
 		apt update
 		apt upgrade -y
-		$PKGMANAGER -t buster-backports linux-image-cloud-amd64 linux-headers-cloud-amd64 vim
+		$PKGMANAGER_INSTALL -t buster-backports linux-image-cloud-amd64 linux-headers-cloud-amd64 vim
 		check "内核安装失败"
 		echo "set nocompatible" >> /etc/vim/vimrc.tiny
 		echo "set backspace=2" >> /etc/vim/vimrc.tiny
@@ -797,7 +816,7 @@ function Project_X(){
 		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 		wget -P /tmp https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
 		if ! [[ "$(type -P unzip)" ]];then
-			$PKGMANAGER unzip
+			$PKGMANAGER_INSTALL unzip
 		fi
 		unzip -o /tmp/Xray-linux-64.zip -d /tmp
 		if ! [[ -d /usr/local/share/xray ]];then
@@ -1003,9 +1022,9 @@ function INSTALL_NGINX(){
 
 	##安装依赖
 	if [[ "$(type -P apt)" ]]; then
-		$PKGMANAGER build-essential libpcre3 libpcre3-dev zlib1g-dev git openssl wget libssl-dev
+		$PKGMANAGER_INSTALL build-essential libpcre3 libpcre3-dev zlib1g-dev git openssl wget libssl-dev
 	elif [[ "$(type -P yum)" ]]; then
-		$PKGMANAGER gcc gcc-c++ pcre pcre-devel zlib zlib-devel openssl openssl-devel wget
+		$PKGMANAGER_INSTALL gcc gcc-c++ pcre pcre-devel zlib zlib-devel openssl openssl-devel wget
 	else
 		echo "error: The script does not support the package manager in this operating system."
 		exit 1
@@ -1136,7 +1155,7 @@ function caddy(){
 	read -p "设置密码(禁止@:): " CADDY_PASSWD
 	CADDY_PASSWD=${CADDY_PASSWD:-5eele9P!il_}
 	if ! [[ $(type -P go) ]]; then
-		$PKGMANAGER wget
+		$PKGMANAGER_INSTALL wget
 		wget -P /tmp https://golang.google.cn/dl/go1.16.6.linux-amd64.tar.gz
 		tar zxvf /tmp/go1.16.6.linux-amd64.tar.gz -C /tmp/
 		export PATH=$PATH:/tmp/go/bin
@@ -1209,9 +1228,9 @@ function caddy(){
 	echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
 }
 
-echo "current time: `date +%T`"
-echo ""
-select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy" "ACME_CA"
+echo -e "\e[32m\e[1mcurrent time: `date +%T`\e[0m"
+echo " "
+select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy"
 do
 	case $option in
 		"acme.sh")
@@ -1240,9 +1259,6 @@ do
 			break;;
 		"caddy")
 			caddy
-			break;;
-		"ACME_CA")
-			ACME_CA
 			break;;
 		*)
 			echo "nothink to do"
