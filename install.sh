@@ -1011,8 +1011,8 @@ function trojan(){
 	systemctl daemon-reload
 	systemctl start trojan
 	systemctl enable trojan
-	echo "."
-	echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:${TROJAN_HTTPS_PORT}?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
+	echo "Trojan设置非443端口需配合NGINX SNI将${TROJAN_DOMAIN}分流${TROJAN_HTTPS_PORT}端口"
+	echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
 
 }
 #脚本开始安装nginx
