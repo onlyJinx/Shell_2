@@ -251,6 +251,8 @@ function acme.sh(){
 		SET_ACME_SERVER="--server $ACME_SERVER"
 		CURRENT_ACME_CA="$ACME_SERVER"
 		echo "已选择证书颁发机构${ACME_SERVER}"
+		echo "输入acme.sh --set-default-ca --server ServerName"
+		echo -e "\e[32m\e[1m可以更改默认CA，下次运行无需重新指定CA\e[0m"
 	}
 
 
@@ -321,7 +323,7 @@ function acme.sh(){
 		fi
 		$ACME_PATH_RUN --upgrade --auto-upgrade
 		echo "$ACME_APPLY_CER"
-		echo "\e[32m\e[1m当前CA机构:${CURRENT_ACME_CA}\e[0m"
+		echo -e "\e[32m\e[1m当前CA机构:${CURRENT_ACME_CA}\e[0m"
 		$ACME_APPLY_CER
 		if [[ "$NEED_INSTALL_CERT" ]]; then
 			ACME_INSTALL_CERT "$ENTER_APPLY_DOMAIN"
