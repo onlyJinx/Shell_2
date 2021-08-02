@@ -321,7 +321,7 @@ function acme.sh(){
 		fi
 		$ACME_PATH_RUN --upgrade --auto-upgrade
 		echo "$ACME_APPLY_CER"
-		echo "当前CA机构:${CURRENT_ACME_CA}"
+		echo "\e[32m\e[1m当前CA机构:${CURRENT_ACME_CA}\e[0m"
 		$ACME_APPLY_CER
 		if [[ "$NEED_INSTALL_CERT" ]]; then
 			ACME_INSTALL_CERT "$ENTER_APPLY_DOMAIN"
@@ -333,7 +333,7 @@ function acme.sh(){
 		fi
 	fi
 	#卸载Socat残留
-	UNINSTALL_SOCAT
+	$UNINSTALL_SOCAT
 
 }
 
@@ -1228,8 +1228,7 @@ function caddy(){
 	echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
 }
 
-echo -e "\e[32m\e[1mcurrent time: `date +%T`\e[0m"
-echo " "
+echo "输入对应的数字选项:"
 select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy"
 do
 	case $option in
