@@ -11,8 +11,10 @@ function check(){
 	fi
 }
 function RESTART_NGINX(){
+	if [[ "$(command -v nginx)" ]]; then
 	/usr/local/nginx/sbin/nginx -s stop
 	/usr/local/nginx/sbin/nginx
+	fi
 }
 function packageManager(){
 	SYSTEMD_SERVICES="/etc/systemd/system"
@@ -110,11 +112,15 @@ function CKECK_FILE_EXIST(){
 	fi
 }
 #脚本开始安装acme.sh
+##acme.sh "域名(直接调用http)" "[CA]"
 function acme.sh(){
 	WEB_ROOT=""
+	SET_CA="$2"
 	STANDALONE=""
 	#被调用传入域名
 	CALL_FUNCTION="$1"
+	#http退出函数
+	ACME_HTTP_RETURN=""
 	#手动DNS跳过安装证书
 	NEED_INSTALL_CERT="1"
 	CERT_INSTALL_PATH="/ssl"
@@ -122,13 +128,18 @@ function acme.sh(){
 	DEFAULT_WEB_ROOT="/usr/local/nginx/html/"
 	#第一次手动DNS校验时保存的文件，用于第二次renew
 	DOMAIN_AUTH_TEMP="/tmp/DOMAIN_AUTH_TEMP.TMP.5884748"
+	if [[ "$SET_CA" ]]; then
+		SET_ACME_SERVER="--server $SET_CA"
+	else 
+		SET_ACME_SERVER=""
+	fi
 	function ACME_DNS_API(){
 		echo "开始API认证模式"
 		read -p "输入DNSPod ID" DNSPOD_ID
 		export DP_Id=$DNSPOD_ID
 		read -p "输入DNSPod KEY" DNSPOD_KEY
 		export DP_Key=$DNSPOD_KEY
-		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --dns dns_dp"
+		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --dns dns_dp $SET_ACME_SERVER"
 	}
 	function ACME_HTTP(){
 		echo "开始http校验"
@@ -139,14 +150,15 @@ function acme.sh(){
 		if ! [[ "$(ss -lnp|grep ':80 ')" ]]; then
 			echo -e "\e[32m\e[1m80端口空闲，使用临时ACME Web服务器\e[0m"
 			if ! [[ "$(command -v socat)" ]]; then
-				echo "socat未安装，是否安装socat完成HTTP认证(Y/n)"
+				echo "socat未安装,安装socat完成HTTP认证(Y/n),否则直接退出"
 				read INSTALL_SOCAT
 				if [[ "" == "$INSTALL_SOCAT" ]] || [[ "y" == "$INSTALL_SOCAT" ]]; then
 					$PKGMANAGER socat
 					check "socat安装失败"
 				else 
-					echo "已取消安装"
-					exit 0
+					echo "已取消安装socat"
+					ACME_HTTP_RETURN="1"
+					return 0
 				fi
 			fi
 			STANDALONE="--standalone"
@@ -163,7 +175,7 @@ function acme.sh(){
 				exit 1
 			fi
 		fi
-		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN $WEB_ROOT $STANDALONE"
+		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN $WEB_ROOT $STANDALONE $SET_ACME_SERVER"
 	}
 	function ACME_DNS_MANUAL(){
 		echo "开始DNS手动模式"
@@ -172,7 +184,7 @@ function acme.sh(){
 			echo -e "\e[32m\e[1m手动DNS记录只支持单个域名校验\e[0m"
 			exit 0
 		fi
-		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --dns --yes-I-know-dns-manual-mode-enough-go-ahead-please"
+		ACME_APPLY_CER="$ACME_PATH_RUN --issue -d $APPLY_DOMAIN --dns --yes-I-know-dns-manual-mode-enough-go-ahead-please $SET_ACME_SERVER"
 		echo "$APPLY_DOMAIN" > $DOMAIN_AUTH_TEMP
 		NEED_INSTALL_CERT=""
 	}
@@ -208,13 +220,14 @@ function acme.sh(){
 	if [[ -e $DOMAIN_AUTH_TEMP ]]; then
 		echo -e "\e[32m\e[1m已检测到手动DNS第二次校验，尝试直接RENEW\e[0m"
 		GET_APPLY_DOMAIN="$(cat $DOMAIN_AUTH_TEMP)"
+		rm -f $DOMAIN_AUTH_TEMP
 		#手动DNS在脚本环境运行有bug，dev分支已修复
 		$ACME_PATH_RUN --upgrade -b dev
  		$ACME_PATH_RUN --renew -d $GET_APPLY_DOMAIN --yes-I-know-dns-manual-mode-enough-go-ahead-please
-		rm -f $DOMAIN_AUTH_TEMP
 		ACME_INSTALL_CERT "$GET_APPLY_DOMAIN"
 		exit 0
 	fi
+	##其他函数直接调用acme HTTP验证
 	if [[ "$CALL_FUNCTION" ]]; then
 		ENTER_APPLY_DOMAIN=$CALL_FUNCTION
 		APPLY_DOMAIN=$CALL_FUNCTION
@@ -244,26 +257,66 @@ function acme.sh(){
 			esac
 		done
 	fi
-	read -p "输入email(回车跳过)? " ACME_EMAIL
-	ACME_EMAIL=${ACME_EMAIL:-no_email@gmail.com}
-	if ! [[ -e "$CERT_INSTALL_PATH" ]]; then
-		mkdir $CERT_INSTALL_PATH
-	fi
-	if ! [[ -e $ACME_PATH_RUN ]]; then
-		cd /tmp
-		curl https://get.acme.sh | sh -s email=$ACME_EMAIL
-	fi
-	$ACME_PATH_RUN --upgrade --auto-upgrade
-	$ACME_PATH_RUN --set-default-ca --server buypass
-	$ACME_APPLY_CER
-	if [[ "$NEED_INSTALL_CERT" ]]; then
-		ACME_INSTALL_CERT "$ENTER_APPLY_DOMAIN"
+
+	if [[ "$ACME_HTTP_RETURN" ]]; then
+		echo "已被拒绝安装socat,取消证书申请"
+		return 0
 	else 
-		echo -e "\e[32m\e[1m将上面的txt解析到对应的域名上再重新运行脚本\e[0m"
-		echo -e "\e[32m\e[1m第二次运行时自动校验解析\e[0m"
-		echo "休眠30秒"
-		sleep 30
+		if ! [[ -e "$CERT_INSTALL_PATH" ]]; then
+			mkdir $CERT_INSTALL_PATH
+		fi
+		if ! [[ -e $ACME_PATH_RUN ]]; then
+			echo "未找到acme.sh脚本，尝试在线安装"
+			cd /tmp
+			read -p "输入email(回车跳过)? " ACME_EMAIL
+			ACME_EMAIL=${ACME_EMAIL:-no_email@gmail.com}
+			curl https://get.acme.sh | sh -s email=$ACME_EMAIL
+		fi
+		$ACME_PATH_RUN --upgrade --auto-upgrade
+		echo "$ACME_APPLY_CER"
+		$ACME_APPLY_CER
+		if [[ "$NEED_INSTALL_CERT" ]]; then
+			ACME_INSTALL_CERT "$ENTER_APPLY_DOMAIN"
+		else 
+			echo -e "\e[32m\e[1m将上面的txt解析到对应的域名上再重新运行脚本\e[0m"
+			echo -e "\e[32m\e[1m第二次运行时自动校验解析\e[0m"
+			echo "休眠30秒"
+			sleep 30
+		fi
 	fi
+
+}
+function ACME_CA(){
+	echo "选择CA机构"
+	select option in "letsencrypt" "letsencrypt_test" "buypass" "buypass_test" "zerossl" "sslcom"
+	do
+		case $option in
+			"letsencrypt")
+				ACME_SERVER="letsencrypt"
+				break;;
+			"letsencrypt_test")
+				ACME_SERVER="letsencrypt_test"
+				break;;
+			"buypass")
+				ACME_SERVER="buypass"
+				break;;
+			"buypass_test")
+				ACME_SERVER="buypass_test"
+				break;;
+			"zerossl")
+				ACME_SERVER="zerossl"
+				break;;
+			"sslcom")
+				ACME_SERVER="sslcom"
+				break;;
+			*)
+				echo "Nothink to do"
+				return 0
+				break;;
+		esac
+	done
+	echo "已选择证书颁发机构${ACME_SERVER}"
+	acme.sh "" "$ACME_SERVER"
 }
 #脚本开始安装SS
 function shadowsocks-libev(){
@@ -739,7 +792,7 @@ function Up_kernel(){
 
 }
 #脚本开始安装xray
-function Projext_X(){
+function Project_X(){
 	function INSTALL_BINARY(){
 		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 		wget -P /tmp https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
@@ -877,11 +930,11 @@ function Projext_X(){
 		acme.sh "$XRAY_DOMAIN"
 		RESTART_NGINX
 
-		echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls\&sni=$XRAY_DOMAIN\&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
+		echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls&sni=$XRAY_DOMAIN&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
 
-		echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443/?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=$XRAY_DOMAIN#GRPC\e[0m"
+		echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
 
-		echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws\&security=tls\&path=%2F$XRAY_WS_PATH%3Fed%3D2048\&host=$XRAY_DOMAIN\&sni=$XRAY_DOMAIN#WS\e[0m"
+		echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
 	fi
 }
 #脚本开始安装trojan
@@ -1157,7 +1210,8 @@ function caddy(){
 }
 
 echo "current time: `date +%T`"
-select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Projext_X" "caddy"
+echo ""
+select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy" "ACME_CA"
 do
 	case $option in
 		"acme.sh")
@@ -1181,11 +1235,14 @@ do
 		"nginx")
 			INSTALL_NGINX
 			break;;
-		"Projext_X")
-			Projext_X
+		"Project_X")
+			Project_X
 			break;;
 		"caddy")
 			caddy
+			break;;
+		"ACME_CA")
+			ACME_CA
 			break;;
 		*)
 			echo "nothink to do"
