@@ -251,8 +251,8 @@ function acme.sh(){
 		SET_ACME_SERVER="--server $ACME_SERVER"
 		CURRENT_ACME_CA="$ACME_SERVER"
 		echo "已选择证书颁发机构${ACME_SERVER}"
-		echo "输入acme.sh --set-default-ca --server ServerName"
-		echo -e "\e[32m\e[1m可以更改默认CA，下次运行无需重新指定CA\e[0m"
+		echo -e "\e[32m\e[1m输入acme.sh --set-default-ca --server ServerName\e[0m"
+		echo "可以更改默认CA，下次运行无需重新指定CA"
 	}
 
 
