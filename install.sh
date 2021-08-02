@@ -917,38 +917,40 @@ function Project_X(){
 		if [[ -e $NGINX_CONFIG ]];then
 			cat >/usr/local/nginx/conf/sites-enabled/${XRAY_DOMAIN}<<-EOF
 			server {
-				listen       4433 http2 ssl;
-				server_name  ${XRAY_DOMAIN};
-				ssl_certificate      /ssl/${XRAY_DOMAIN}.cer;
-				ssl_certificate_key  /ssl/${XRAY_DOMAIN}.key;
-				ssl_session_cache    shared:SSL:1m;
-				ssl_session_timeout  5m;
-				ssl_protocols TLSv1.2 TLSv1.3;
-				ssl_prefer_server_ciphers  on;
-				ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-
-				location /${XRAY_GRPC_NAME} {
-					if (\$content_type !~ "application/grpc") {
-						return 404;
-					}
-					client_max_body_size 0;
-					client_body_timeout 1071906480m;
-					grpc_read_timeout 1071906480m;
-					grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
-				}
-				location /${XRAY_WS_PATH} {
-					proxy_redirect off;
-					proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
-					proxy_http_version 1.1;
-					proxy_set_header Upgrade \$http_upgrade;
-					proxy_set_header Connection "upgrade";
-					proxy_set_header Host \$http_host;
-				}
+			    listen       4433 http2 ssl;
+			    server_name  ${XRAY_DOMAIN};
+			    ssl_certificate      /ssl/${XRAY_DOMAIN}.cer;
+			    ssl_certificate_key  /ssl/${XRAY_DOMAIN}.key;
+			    ssl_session_cache    shared:SSL:1m;
+			    ssl_session_timeout  5m;
+			    ssl_protocols TLSv1.2 TLSv1.3;
+			    ssl_prefer_server_ciphers  on;
+			    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+			    location /${XRAY_GRPC_NAME} {
+			        if (\$content_type !~ "application/grpc") {
+			            return 404;
+			        }
+			        client_max_body_size 0;
+			        client_body_timeout 1071906480m;
+			        grpc_read_timeout 1071906480m;
+			        grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
+			    }
+			    location /${XRAY_WS_PATH} {
+			        proxy_redirect off;
+			        proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
+			        proxy_http_version 1.1;
+			        proxy_set_header Upgrade \$http_upgrade;
+			        proxy_set_header Connection "upgrade";
+			        proxy_set_header Host \$http_host;
+			    }
 			}
 			EOF
 		fi
 
 		acme.sh "$XRAY_DOMAIN"
+		systemctl daemon-reload
+		systemctl start xray
+		systemctl enable xray
 		RESTART_NGINX
 
 		echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls&sni=$XRAY_DOMAIN&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
@@ -1111,21 +1113,19 @@ function INSTALL_NGINX(){
 		else 
 			cat >${NGINX_SITE_ENABLED}/${NGINX_DOMAIN}<<-EOF
 			server {
-				listen       4433 http2 ssl;
-				server_name  ${NGINX_DOMAIN};
-
-				ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
-				ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
-
-				ssl_session_cache    shared:SSL:1m;
-				ssl_session_timeout  5m;
-				ssl_protocols TLSv1.2 TLSv1.3;
-				ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-				ssl_prefer_server_ciphers  on;
-				location / {
-					root   html;
-					index  index.html index.htm;
-				}
+			    listen       4433 http2 ssl;
+			    server_name  ${NGINX_DOMAIN};
+			    ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
+			    ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
+			    ssl_session_cache    shared:SSL:1m;
+			    ssl_session_timeout  5m;
+			    ssl_protocols TLSv1.2 TLSv1.3;
+			    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+			    ssl_prefer_server_ciphers  on;
+			    location / {
+			        root   html;
+			        index  index.html index.htm;
+			    }
 			}
 			EOF
 			#开启80端口强制重定向443
