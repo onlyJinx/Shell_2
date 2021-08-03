@@ -22,7 +22,6 @@ function NGINX_SNI(){
 		if [[ `cat $NGINX_SNI_CONFIG | grep ssl_preread_server_name` ]];then
 			echo "检测到NGINX_SNI配置"
 			sed -i "/ssl_preread_server_name/a\ \ \ \ \ \ \ \ $1 127.0.0.1:$2;" $NGINX_SNI_CONFIG
-			RESTART_NGINX
 			echo "SNI已配置"
 			return 0
 		else 
@@ -1031,6 +1030,7 @@ function trojan(){
 	EOF
 	##申请SSL证书
 	acme.sh $TROJAN_DOMAIN
+	RESTART_NGINX
 	systemctl daemon-reload
 	systemctl start trojan
 	systemctl enable trojan
@@ -1167,8 +1167,6 @@ function INSTALL_NGINX(){
 }
 #脚本开始安装caddy
 function caddy(){
-	# CHECK_PORT "NOINPUT" 443
-	# CHECK_PORT "NOINPUT" 80
 	while [[ true ]]; do
 		read -p "输入域名(不能为空)： " CADDY_DOMAIN
 		if ! [[ "$CADDY_DOMAIN" ]]; then
@@ -1177,6 +1175,10 @@ function caddy(){
 			break
 		fi		
 	done
+	read -p "设置用户名(禁止@:): " CADDY_USER
+	CADDY_USER=${CADDY_USER:-Oieu!ji330}
+	read -p "设置密码(禁止@:): " CADDY_PASSWD
+	CADDY_PASSWD=${CADDY_PASSWD:-5eele9P!il_}
 	CHECK_NGINX_443=`ss -lnp|grep ":443 "|grep nginx`
 	if [[ "$CHECK_NGINX_443" ]]; then
 		echo "NGINX正在监听443端口，检查SNI配置"
@@ -1186,11 +1188,16 @@ function caddy(){
 		CADDY_HTTPS_PORT=$port
 		CHECK_PORT "NOINPUT" 81
 		CADDY_HTTP_PORT=$port
-		NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
+		#证书申请完之后再重启NGINX使SNI分流生效
+		#否则会因分流回落端口无响应导致申请证书失败
 		acme.sh "$CADDY_DOMAIN"
+		RESTART_NGINX
 		CADDY_TLS="tls /ssl/${CADDY_DOMAIN}.cer /ssl/${CADDY_DOMAIN}.key"
 		if [[ -e "/ssl/${CADDY_DOMAIN}.key" ]]; then
-			echo "证书申请失败，请手动申请"
+			NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
+		else 
+			echo "证书申请失败，退出安装！"
+			return -1
 		fi
 	else 
 		CHECK_PORT "NOINPUT" 443
@@ -1200,10 +1207,6 @@ function caddy(){
 		CADDY_TLS="tls noemail@qq.com"
 	fi
 
-	read -p "设置用户名(禁止@:): " CADDY_USER
-	CADDY_USER=${CADDY_USER:-Oieu!ji330}
-	read -p "设置密码(禁止@:): " CADDY_PASSWD
-	CADDY_PASSWD=${CADDY_PASSWD:-5eele9P!il_}
 	if ! [[ $(type -P go) ]]; then
 		echo "未配置GO环境，开始配置环境"
 		$PKGMANAGER_INSTALL wget
@@ -1224,7 +1227,7 @@ function caddy(){
 				    http_port  $CADDY_HTTP_PORT
 				    https_port $CADDY_HTTPS_PORT
 				}
-				:${CADDY_HTTPS_PORT}, $CADDY_DOMAIN{
+				:${CADDY_HTTPS_PORT}, $CADDY_DOMAIN {
 				    $CADDY_TLS
 				    route {
 				        forward_proxy {
