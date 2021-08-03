@@ -1132,28 +1132,34 @@ function INSTALL_NGINX(){
 			echo "空域名！退出。"
 			systemctl start nginx
 		else 
-			cat >${NGINX_SITE_ENABLED}/${NGINX_DOMAIN}<<-EOF
-			server {
-			    listen       4433 http2 ssl;
-			    server_name  ${NGINX_DOMAIN};
-			    ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
-			    ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
-			    ssl_session_cache    shared:SSL:1m;
-			    ssl_session_timeout  5m;
-			    ssl_protocols TLSv1.2 TLSv1.3;
-			    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-			    ssl_prefer_server_ciphers  on;
-			    location / {
-			        root   html;
-			        index  index.html index.htm;
-			    }
-			}
-			EOF
-			#开启80端口强制重定向443
-			sed -i 's/#ENABLE_REDIRECT//' $NGINX_CONFIG
+			systemctl start nginx
 			#开始申请SSL证书
 			acme.sh "$NGINX_DOMAIN"
-			systemctl start nginx
+			if [[ -e "/ssl/${NGINX_DOMAIN}".key ]]; then
+				echo "证书申请成功，开始写入ssl配置"
+				cat >${NGINX_SITE_ENABLED}/${NGINX_DOMAIN}<<-EOF
+				server {
+				    listen       4433 http2 ssl;
+				    server_name  ${NGINX_DOMAIN};
+				    ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
+				    ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
+				    ssl_session_cache    shared:SSL:1m;
+				    ssl_session_timeout  5m;
+				    ssl_protocols TLSv1.2 TLSv1.3;
+				    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+				    ssl_prefer_server_ciphers  on;
+				    location / {
+					root   html;
+					index  index.html index.htm;
+				    }
+				}
+				EOF
+				#开启80端口强制重定向443
+				sed -i 's/#ENABLE_REDIRECT//' $NGINX_CONFIG
+				RESTART_NGINX
+			else
+				echo "证书申请失败，ssl配置未写入"
+			fi
 		fi
 	else 
 		systemctl start nginx
