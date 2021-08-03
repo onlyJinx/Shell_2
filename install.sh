@@ -1,6 +1,4 @@
 #!/bin/bash
-##CDN 104.16.160.3|104.16.192.155|104.20.157.6
-##ss -lnp|grep :$port|awk -F "pid=" '{print $2}'|sed s/,.*//xargs kill -9
 function check(){
 	###函数名 参数1 参数2
 	if [ "0" != "$?" ]; then
@@ -14,6 +12,26 @@ function RESTART_NGINX(){
 	if [[ "$(command -v nginx)" ]]; then
 	/usr/local/nginx/sbin/nginx -s stop
 	/usr/local/nginx/sbin/nginx
+	fi
+}
+function NGINX_SNI(){
+	#域名 端口
+	NGINX_BIN="$(command -v nginx)"
+	if [[ "$NGINX_BIN" ]]; then
+		NGINX_SNI_CONFIG="/usr/local/nginx/conf/nginx.conf"
+		if [[ `cat $NGINX_SNI_CONFIG | grep ssl_preread_server_name` ]];then
+			echo "检测到NGINX_SNI配置"
+			sed -i "/ssl_preread_server_name/a\ \ \ \ \ \ \ \ $1 127.0.0.1:$2;" $NGINX_SNI_CONFIG
+			RESTART_NGINX
+			echo "SNI已配置"
+			return 0
+		else 
+			echo "找不到SNI配置"
+			return -1
+		fi
+	else 
+		echo "找不到NGINX配置文件"
+		return -1
 	fi
 }
 function packageManager(){
@@ -255,7 +273,6 @@ function acme.sh(){
 		echo "可以更改默认CA，下次运行无需重新指定CA"
 	}
 
-
 	#选择认证方式
 	function SELECT_AUTH_MOTHOD(){
 		##其他函数直接调用acme HTTP验证
@@ -323,7 +340,7 @@ function acme.sh(){
 		fi
 		$ACME_PATH_RUN --upgrade --auto-upgrade
 		echo "$ACME_APPLY_CER"
-		echo -e "\e[32m\e[1m当前CA机构:${CURRENT_ACME_CA}\e[0m"
+		echo -e "\e[32m\e[1m当前CA机构:${CURRENT_ACME_CA:-Default}\e[0m"
 		$ACME_APPLY_CER
 		if [[ "$NEED_INSTALL_CERT" ]]; then
 			ACME_INSTALL_CERT "$ENTER_APPLY_DOMAIN"
@@ -336,7 +353,6 @@ function acme.sh(){
 	fi
 	#卸载Socat残留
 	$UNINSTALL_SOCAT
-
 }
 
 #脚本开始安装SS
@@ -434,7 +450,6 @@ function shadowsocks-libev(){
 	    "mode": "tcp_and_udp"
 	}
 	EOF
-
 
 	###下载V2ray插件
 	wget https://github.com/shadowsocks/v2ray-plugin/releases/download/v1.3.0/v2ray-plugin-linux-amd64-v1.3.0.tar.gz
@@ -588,8 +603,8 @@ function transmission(){
 	echo -e DOWNLOAD_PTAH:"      ""\e[31m\e[1m$dir\e[0m"
 	echo -e config.json:"   ""\e[31m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
 
-	NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
-	if [[ -e $NGINX_CONFIG ]];then
+	TRANSMISSION_NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
+	if [[ -e $TRANSMISSION_NGINX_CONFIG ]];then
 		echo "检测到NGINX配置文件，是否开启https WEBUI反代?(Y/n) "
 		read ENABLE_HTTPS_TS
 		if [[ "" == "$ENABLE_HTTPS_TS" ]] || [[ "y" == "$ENABLE_HTTPS_TS" ]]; then
@@ -913,8 +928,8 @@ function Project_X(){
 		WantedBy=multi-user.target
 		EOF
 
-		NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
-		if [[ -e $NGINX_CONFIG ]];then
+		XRAY_NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
+		if [[ -e $XRAY_NGINX_CONFIG ]];then
 			cat >/usr/local/nginx/conf/sites-enabled/${XRAY_DOMAIN}<<-EOF
 			server {
 			    listen       4433 http2 ssl;
@@ -960,14 +975,8 @@ function Project_X(){
 		echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
 	fi
 }
-#脚本开始安装trojan
+#trojan
 function trojan(){
-	clear
-	CHECK_PORT "请输入Trojan HTTPS端口: " 443
-	TROJAN_HTTPS_PORT=$port
-	echo "Trojan 回落端口: "
-	read TROJAN_CALLBACK_PORT
-	TROJAN_HTTP_PORT=${TROJAN_CALLBACK_PORT:-5555}
 	while [[ true ]]; do
 		echo "输入Trojan域名"
 		read ENTER_TROJAN_DOMAIN
@@ -976,6 +985,21 @@ function trojan(){
 			break
 		fi
 	done
+	CHECK_NGINX_443=`ss -lnp|grep ":443 "|grep nginx`
+	if [[ "$CHECK_NGINX_443" ]]; then
+		echo "NGINX正在监听443端口，检查SNI配置"
+		echo "输入Trojan分流端口(非443)"
+		read TROJAN_HTTPS_PORT
+		CHECK_PORT "NOINPUT" $TROJAN_HTTPS_PORT
+		TROJAN_HTTPS_PORT=$port
+		NGINX_SNI $TROJAN_DOMAIN $TROJAN_HTTPS_PORT
+	else 
+		CHECK_PORT "NOINPUT" 443
+		TROJAN_HTTPS_PORT="443"
+	fi
+	echo "Trojan 回落端口: "
+	read TROJAN_CALLBACK_PORT
+	TROJAN_HTTP_PORT=${TROJAN_CALLBACK_PORT:-5555}
 	echo "设置trojan密码(默认trojanWdai1)"
 	echo "不可以包含#@?"
 	read TROJAN_PASSWD
@@ -988,8 +1012,8 @@ function trojan(){
 	rm -f trojan-${trojan_version}-linux-amd64.tar.xz
 	TROJAN_CONFIG=/etc/trojan/config.json
 	sed -i '/password2/ d' $TROJAN_CONFIG
-	sed -i "/local_port/ s/443/$TROJAN_HTTPS_PORT/" $TROJAN_CONFIG
 	sed -i "/remote_port/ s/80/$TROJAN_HTTP_PORT/" $TROJAN_CONFIG
+	sed -i "/local_port/ s/443/$TROJAN_HTTPS_PORT/" $TROJAN_CONFIG
 	sed -i "/\"password1\",/ s/\"password1\",/\"$TROJAN_PASSWD\"/" $TROJAN_CONFIG
 	sed -i ":certificate: s:/path/to/certificate.crt:/ssl/${TROJAN_DOMAIN}.cer:" $TROJAN_CONFIG
 	sed -i ":private: s:/path/to/private.key:/ssl/${TROJAN_DOMAIN}.key:" $TROJAN_CONFIG
@@ -1007,13 +1031,10 @@ function trojan(){
 	EOF
 	##申请SSL证书
 	acme.sh $TROJAN_DOMAIN
-
 	systemctl daemon-reload
 	systemctl start trojan
 	systemctl enable trojan
-	echo "Trojan设置非443端口需配合NGINX SNI将${TROJAN_DOMAIN}分流${TROJAN_HTTPS_PORT}端口"
 	echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
-
 }
 #脚本开始安装nginx
 function INSTALL_NGINX(){
@@ -1140,8 +1161,8 @@ function INSTALL_NGINX(){
 }
 #脚本开始安装caddy
 function caddy(){
-	CHECK_PORT "NOINPUT" 443
-	CHECK_PORT "NOINPUT" 80
+	# CHECK_PORT "NOINPUT" 443
+	# CHECK_PORT "NOINPUT" 80
 	while [[ true ]]; do
 		read -p "输入域名(不能为空)： " CADDY_DOMAIN
 		if ! [[ "$CADDY_DOMAIN" ]]; then
@@ -1150,13 +1171,35 @@ function caddy(){
 			break
 		fi		
 	done
-	read -p "输入邮箱(回车不设置)： " CADDY_EMAIL
-	CADDY_EMAIL=${CADDY_EMAIL:-noemail@qq.com}
+	CHECK_NGINX_443=`ss -lnp|grep ":443 "|grep nginx`
+	if [[ "$CHECK_NGINX_443" ]]; then
+		echo "NGINX正在监听443端口，检查SNI配置"
+		echo "输入Caddy分流端口(非443)"
+		read CADDY_HTTPS_PORT
+		CHECK_PORT "NOINPUT" $CADDY_HTTPS_PORT
+		CADDY_HTTPS_PORT=$port
+		CHECK_PORT "NOINPUT" 81
+		CADDY_HTTP_PORT=$port
+		NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
+		acme.sh "$CADDY_DOMAIN"
+		CADDY_TLS="tls /ssl/${CADDY_DOMAIN}.cer /ssl/${CADDY_DOMAIN}.key"
+		if [[ -e "/ssl/${CADDY_DOMAIN}.key" ]]; then
+			echo "证书申请失败，请手动申请"
+		fi
+	else 
+		CHECK_PORT "NOINPUT" 443
+		CADDY_HTTPS_PORT=$port
+		CHECK_PORT "NOINPUT" 80
+		CADDY_HTTP_PORT=$port
+		CADDY_TLS="tls noemail@qq.com"
+	fi
+
 	read -p "设置用户名(禁止@:): " CADDY_USER
 	CADDY_USER=${CADDY_USER:-Oieu!ji330}
 	read -p "设置密码(禁止@:): " CADDY_PASSWD
 	CADDY_PASSWD=${CADDY_PASSWD:-5eele9P!il_}
 	if ! [[ $(type -P go) ]]; then
+		echo "未配置GO环境，开始配置环境"
 		$PKGMANAGER_INSTALL wget
 		wget -P /tmp https://golang.google.cn/dl/go1.16.6.linux-amd64.tar.gz
 		tar zxvf /tmp/go1.16.6.linux-amd64.tar.gz -C /tmp/
@@ -1172,19 +1215,22 @@ function caddy(){
 			chmod +x /etc/caddy/caddy
 			cat >/etc/caddy/Caddyfile<<-EOF
 				{
-					http_port  80
-					https_port 443
+				    http_port  $CADDY_HTTP_PORT
+				    https_port $CADDY_HTTPS_PORT
 				}
-				:443, $CADDY_DOMAIN
-				tls $CADDY_EMAIL
-				route {
-					forward_proxy {
-						basic_auth $CADDY_USER $CADDY_PASSWD
-						hide_ip
-						hide_via
-						probe_resistance
-					}
-					file_server { root /usr/local/nginx/html }
+				:${CADDY_HTTPS_PORT}, $CADDY_DOMAIN{
+				    $CADDY_TLS
+				    route {
+				        forward_proxy {
+				            basic_auth $CADDY_USER $CADDY_PASSWD
+				            hide_ip
+				            hide_via
+				            probe_resistance
+				        }
+				        file_server { 
+				            root /usr/local/nginx/html
+				        }
+				    }
 				}
 			EOF
 
