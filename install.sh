@@ -1267,7 +1267,7 @@ function caddy(){
 			CHECK_CADDY_LIFE=`systemctl is-active caddy`
 			#active返回状态码0，其余返回非0
 			if [[ "active" == "$CHECK_CADDY_LIFE" ]]; then
-				echo "Caddy运行正常，开始写入SNI分流配置"
+				echo -e "\e[32m\e[1mCaddy运行正常\e[0m"
 				systemctl enable caddy
 				NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
 				systemctl restart nginx
