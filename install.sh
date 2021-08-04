@@ -999,7 +999,7 @@ function trojan(){
 	done
 	CHECK_NGINX_443=`ss -lnp|grep ":443 "|grep nginx`
 	if [[ "$CHECK_NGINX_443" ]]; then
-		echo "NGINX正在监听443端口，检查SNI配置"
+		echo -e "\e[32m\e[1mNGINX正在监听443端口，检查SNI配置\e[0m"
 		echo "输入Trojan分流端口(非443)"
 		read TROJAN_HTTPS_PORT
 		CHECK_PORT "NOINPUT" $TROJAN_HTTPS_PORT
@@ -1019,7 +1019,7 @@ function trojan(){
 	##申请SSL证书
 	acme.sh $TROJAN_DOMAIN
 	if [[ -e "/ssl/${TROJAN_DOMAIN}.key" ]]; then
-		echo "已检测到证书"
+		echo -e "\e[32m\e[1m已检测到证书\e[0m"
 		trojan_version=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
 		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 
