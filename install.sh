@@ -1268,6 +1268,7 @@ function caddy(){
 			systemctl daemon-reload
 			systemctl start caddy
 			systemctl enable caddy 
+			systemctl restart nginx
 			check "caddy启动失败"
 
 		else
