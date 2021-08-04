@@ -643,7 +643,7 @@ function transmission(){
 					}
 					EOF
 					acme.sh $TRANSMISSION_DOMAIN
-					RESTART_NGINX
+					systemctl restart nginx
 					echo -e "\e[32m\e[1m打开网址https://${TRANSMISSION_DOMAIN}测试登录\e[0m"
 					echo -e "\e[32m\e[1m文件下载服务器地址https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/ \e[0m"
 					break
@@ -752,7 +752,7 @@ function aria2(){
 			git clone https://github.com/ziahamza/webui-aria2.git
 			mv /tmp/webui-aria2/docs/* $ARIA2_WEBUI_ROOT
 			rm -fr /tmp/webui-aria2
-			RESTART_NGINX
+			systemctl restart nginx
 		fi
 	fi
 	# while [[ true ]]; do
@@ -965,7 +965,7 @@ function Project_X(){
 		systemctl daemon-reload
 		systemctl start xray
 		systemctl enable xray
-		RESTART_NGINX
+		systemctl restart nginxf
 
 		echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls&sni=$XRAY_DOMAIN&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
 
@@ -1030,7 +1030,7 @@ function trojan(){
 	EOF
 	##申请SSL证书
 	acme.sh $TROJAN_DOMAIN
-	RESTART_NGINX
+	systemctl restart nginx
 	systemctl daemon-reload
 	systemctl start trojan
 	systemctl enable trojan
@@ -1156,7 +1156,7 @@ function INSTALL_NGINX(){
 				EOF
 				#开启80端口强制重定向443
 				sed -i 's/#ENABLE_REDIRECT//' $NGINX_CONFIG
-				RESTART_NGINX
+				systemctl restart nginx
 			else
 				echo "证书申请失败，ssl配置未写入"
 			fi
@@ -1191,7 +1191,7 @@ function caddy(){
 		#证书申请完之后再重启NGINX使SNI分流生效
 		#否则会因分流回落端口无响应导致申请证书失败
 		acme.sh "$CADDY_DOMAIN"
-		RESTART_NGINX
+		systemctl restart nginx
 		CADDY_TLS="tls /ssl/${CADDY_DOMAIN}.cer /ssl/${CADDY_DOMAIN}.key"
 		if [[ -e "/ssl/${CADDY_DOMAIN}.key" ]]; then
 			NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
@@ -1281,7 +1281,7 @@ function caddy(){
 	fi
 	rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
 	clear
-	systemctl status caddy
+	##systemctl status caddy
 	echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
 }
 
