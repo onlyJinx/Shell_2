@@ -965,7 +965,7 @@ function Project_X(){
 		systemctl daemon-reload
 		systemctl start xray
 		systemctl enable xray
-		systemctl restart nginxf
+		systemctl restart nginx
 
 		echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls&sni=$XRAY_DOMAIN&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
 
