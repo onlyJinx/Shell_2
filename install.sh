@@ -179,7 +179,7 @@ function acme.sh(){
 		else
 			echo -e "\e[32m\e[1m检测到80端口占用，尝试列出所有html目录。\e[0m"
 			find / -name html
-			read -p "输入网站根目录: " ENTER_NGINX_PTAH
+			read -p "输入网站根目录(/usr/local/nginx/html): " ENTER_NGINX_PTAH
 			ENTER_NGINX_PTAH=${ENTER_NGINX_PTAH:-$DEFAULT_WEB_ROOT}
 			WEB_ROOT="--webroot "$ENTER_NGINX_PTAH
 			if ! [[ -d "$ENTER_NGINX_PTAH" ]]; then
@@ -476,7 +476,7 @@ function shadowsocks-libev(){
 	echo -e use \""\e[31m\e[1msystemctl status ssl\e[0m"\" run the shadowsocks-libev in background
 	echo -e "\e[31m\e[1mhttps://github.com/shadowsocks\e[0m"
 }
-#脚本开始安装transmission
+#transmission
 function transmission(){
 	function MODIFY_CONFIG(){
 		sed -i '/rpc-whitelist-enabled/ s/true/false/' $1
@@ -499,6 +499,33 @@ function transmission(){
 		sed -i "/\"ratio-limit\"/ s/:.*/: 10,/" $1
 	}
 
+	function TRANSMISSION_CREATE_NGINX_SITE(){
+		cat >/usr/local/nginx/conf/sites-enabled/${TRANSMISSION_DOMAIN}<<-EOF
+		server {
+		    listen       4433 http2 ssl;
+		    server_name  ${TRANSMISSION_DOMAIN};
+		    ssl_certificate      /ssl/${TRANSMISSION_DOMAIN}.cer;
+		    ssl_certificate_key  /ssl/${TRANSMISSION_DOMAIN}.key;
+		    ssl_session_cache    shared:SSL:1m;
+		    ssl_session_timeout  5m;
+		    ssl_protocols TLSv1.2 TLSv1.3;
+		    ssl_prefer_server_ciphers  on;
+		    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+		    location / {
+		        proxy_redirect off;
+		        proxy_pass http://127.0.0.1:${port};
+		        proxy_http_version 1.1;
+		        proxy_set_header Upgrade \$http_upgrade;
+		        proxy_set_header Connection "upgrade";
+		        proxy_set_header Host \$http_host;
+		    }
+		    location /${TRRNA_FILE_SERVER_PATH}/ {
+		        alias ${dir}/;
+		        autoindex on;
+		    }
+		}
+		EOF
+	}
 	CKECK_FILE_EXIST transmission-3.00+
 	CHECK_VERSION transmission-daemon transmission
 	clear
@@ -512,6 +539,37 @@ function transmission(){
 	clear
 	DOWNLOAD_PTAH "文件保存路径(默认/usr/downloads): " "/usr/downloads"
 	check "downloads文件夹创建失败！"
+
+	TRANSMISSION_NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
+	if [[ -e $TRANSMISSION_NGINX_CONFIG ]];then
+		echo "检测到NGINX配置文件，是否开启https WEBUI反代?(Y/n) "
+		read ENABLE_HTTPS_TS
+		if [[ "" == "$ENABLE_HTTPS_TS" ]] || [[ "y" == "$ENABLE_HTTPS_TS" ]]; then
+			while [[ true ]]; do
+				read -p "输入域名(ctrl+c强制终止) " TRANSMISSION_DOMAIN
+				if [[ "$TRANSMISSION_DOMAIN" ]]; then
+					while [[ true ]]; do
+						echo "输入文件下载服务器路径(不能为空,不带斜杠)"
+						read TRRNA_FILE_SERVER_PATH
+						if [[ $"TRRNA_FILE_SERVER_PATH" ]]; then
+							break
+						fi
+					done
+					acme.sh $TRANSMISSION_DOMAIN
+					if [[ -e "/ssl/${TRANSMISSION_DOMAIN}.key" ]]; then
+						echo "已检测到证书"
+						TRANSMISSION_CREATE_NGINX_SITE
+						ENABLE_HTTPS_TS="true"
+					else 
+						echo "找不到证书，取消配置WEBUI HTTPS"
+						ENABLE_HTTPS_TS=""
+					fi
+					break
+				fi
+			done
+		fi
+		
+	fi
 
 	if [[ "$(type -P apt)" ]]; then
 		echo "Debian"
@@ -558,93 +616,37 @@ function transmission(){
 	fi
 	##首次启动，生成配置文件
 	systemctl start transmission.service
-	check "transmission启动失败！"
-	sleep 2
-	systemctl stop transmission.service
-	sleep 2
-	TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
-	## change config  sed引用 https://segmentfault.com/a/1190000020613397
-	count=0
-	for((i=1;i<3;i++))
-	do
-		if [[ -e $TRANSMISSION_CONFIG ]]; then
-			MODIFY_CONFIG $TRANSMISSION_CONFIG
-			break
-		else
-			systemctl daemon-reload	
+	TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
+	if [[ "active" == "$TRANSMISSION_SERVICE_LIFE" ]]; then
+		echo "transmission服务已启动"
+		systemctl stop transmission.service
+		TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
+		if [[ "inactive" == "$TRANSMISSION_SERVICE_LIFE" ]]; then
+			TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
+			MODIFY_CONFIG "$TRANSMISSION_CONFIG"
+			## change config  sed引用 https://segmentfault.com/a/1190000020613397
+			##替换webUI
+			cd ~
+			git clone https://github.com/ronggang/transmission-web-control.git
+			mv /usr/local/share/transmission/web/index.html /usr/local/share/transmission/web/index.original.html
+			mv /root/transmission-web-control/src/* /usr/local/share/transmission/web/
+			rm -fr transmission-web-control
 			systemctl start transmission.service
-			sleep 2
-			systemctl stop transmission.service
-			sleep 2
-			let count++
+			systemctl enable transmission.service
+			if [[ "$ENABLE_HTTPS_TS" ]]; then
+				systemctl restart nginx
+				echo -e "\e[32m\e[1m打开网址https://${TRANSMISSION_DOMAIN}测试登录\e[0m"
+				echo -e "\e[32m\e[1m文件下载服务器地址https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/ \e[0m"
+			else 
+				echo -e port:"          ""\e[32m\e[1m$port\e[0m"
+			fi
+			echo -e password:"      ""\e[32m\e[1m$TRANSMISSION_PASSWD\e[0m"
+			echo -e username:"      ""\e[32m\e[1m$TRANSMISSION_USER_NAME\e[0m"
+			echo -e DOWNLOAD_PTAH:"      ""\e[32m\e[1m$dir\e[0m"
+			echo -e config.json:"   ""\e[32m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
 		fi
-	done
-	##替换webUI
-	cd ~
-	git clone https://github.com/ronggang/transmission-web-control.git
-	mv /usr/local/share/transmission/web/index.html /usr/local/share/transmission/web/index.original.html
-	mv /root/transmission-web-control/src/* /usr/local/share/transmission/web/
-	rm -fr transmission-web-control
-	systemctl start transmission.service
-	clear
-	check "transmission-daemon 运行失败" "transmission-daemon 运行正常"
-	systemctl enable transmission.service > /dev/nul 2>&1&
-
-	echo -e port:"          ""\e[31m\e[1m$port\e[0m"
-	echo -e password:"      ""\e[31m\e[1m$TRANSMISSION_PASSWD\e[0m"
-	echo -e username:"      ""\e[31m\e[1m$TRANSMISSION_USER_NAME\e[0m"
-	echo -e DOWNLOAD_PTAH:"      ""\e[31m\e[1m$dir\e[0m"
-	echo -e config.json:"   ""\e[31m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
-
-	TRANSMISSION_NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
-	if [[ -e $TRANSMISSION_NGINX_CONFIG ]];then
-		echo "检测到NGINX配置文件，是否开启https WEBUI反代?(Y/n) "
-		read ENABLE_HTTPS_TS
-		if [[ "" == "$ENABLE_HTTPS_TS" ]] || [[ "y" == "$ENABLE_HTTPS_TS" ]]; then
-			while [[ true ]]; do
-				read -p "输入域名(ctrl+c强制终止) " TRANSMISSION_DOMAIN
-				if [[ "$TRANSMISSION_DOMAIN" ]]; then
-					while [[ true ]]; do
-						echo "输入文件下载服务器路径(不能为空,不带斜杠)"
-						read TRRNA_FILE_SERVER_PATH
-						if [[ $"TRRNA_FILE_SERVER_PATH" ]]; then
-							break
-						fi
-					done
-					cat >/usr/local/nginx/conf/sites-enabled/${TRANSMISSION_DOMAIN}<<-EOF
-					server {
-					    listen       4433 http2 ssl;
-					    server_name  ${TRANSMISSION_DOMAIN};
-					    ssl_certificate      /ssl/${TRANSMISSION_DOMAIN}.cer;
-					    ssl_certificate_key  /ssl/${TRANSMISSION_DOMAIN}.key;
-					    ssl_session_cache    shared:SSL:1m;
-					    ssl_session_timeout  5m;
-					    ssl_protocols TLSv1.2 TLSv1.3;
-					    ssl_prefer_server_ciphers  on;
-					    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-					    location / {
-					        proxy_redirect off;
-					        proxy_pass http://127.0.0.1:${port};
-					        proxy_http_version 1.1;
-					        proxy_set_header Upgrade \$http_upgrade;
-					        proxy_set_header Connection "upgrade";
-					        proxy_set_header Host \$http_host;
-					    }
-					    location /${TRRNA_FILE_SERVER_PATH}/ {
-					        alias ${dir}/;
-					        autoindex on;
-					    }
-					}
-					EOF
-					acme.sh $TRANSMISSION_DOMAIN
-					systemctl restart nginx
-					echo -e "\e[32m\e[1m打开网址https://${TRANSMISSION_DOMAIN}测试登录\e[0m"
-					echo -e "\e[32m\e[1m文件下载服务器地址https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/ \e[0m"
-					break
-				fi
-			done
-
-		fi
+	else 
+		echo -e "\e[31m\e[1mtransmission首次启动失败。\e[0m"
 	fi
 }
 
@@ -1031,7 +1033,7 @@ function trojan(){
 		systemctl start trojan
 		NGINX_SERVICE_LIFE=`systemctl is-active trojan.service`
 		if [[ "active" == "$NGINX_SERVICE_LIFE" ]]; then
-			echo "\e[32m\e[1mtrojan服务启动成功\e[0m"
+			echo -e "\e[32m\e[1mtrojan服务启动成功\e[0m"
 			NGINX_SNI $TROJAN_DOMAIN $TROJAN_HTTPS_PORT
 			systemctl restart nginx
 			systemctl enable trojan
@@ -1193,7 +1195,7 @@ function caddy(){
 		read CADDY_HTTPS_PORT
 		CHECK_PORT "NOINPUT" $CADDY_HTTPS_PORT
 		CADDY_HTTPS_PORT=$port
-		CHECK_PORT "NOINPUT" 81
+		CHECK_PORT "NOINPUT" 16254
 		CADDY_HTTP_PORT=$port
 		#证书申请完之后再重启NGINX使SNI分流生效
 		#否则会因分流回落端口无响应导致申请证书失败
@@ -1214,7 +1216,7 @@ function caddy(){
 	fi
 
 	if ! [[ $(type -P go) ]]; then
-		echo "未配置GO环境，开始配置环境"
+		echo -e "\e[31m\e[1m未配置GO环境，开始配置环境\e[0m"
 		$PKGMANAGER_INSTALL wget
 		wget -P /tmp https://golang.google.cn/dl/go1.16.6.linux-amd64.tar.gz
 		tar zxvf /tmp/go1.16.6.linux-amd64.tar.gz -C /tmp/
