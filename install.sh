@@ -765,7 +765,7 @@ function aria2(){
 	ARIA2_SERVICE_LIFE=`systemctl is-active aria2.service`
 	if [[ "active" == "$ARIA2_SERVICE_LIFE" ]]; then
 		systemctl enable aria2
-		echo "aria2服务启动成功"
+		echo -e "\e[32m\e[1maria2服务启动成功\e[0m"
 		if [[ "DOWNLOAD_ARIA2_WEBUI_" ]]; then
 			echo "开始下载WEBUI"
 			DOWNLOAD_ARIA2_WEBUI
