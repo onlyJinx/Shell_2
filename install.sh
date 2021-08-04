@@ -543,6 +543,7 @@ function transmission(){
 	TRANSMISSION_NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
 	if [[ -e $TRANSMISSION_NGINX_CONFIG ]];then
 		echo "检测到NGINX配置文件，是否开启https WEBUI反代?(Y/n) "
+		OUTPUT_HTTPS_LOGIN_ADDR=""
 		read ENABLE_HTTPS_TS
 		if [[ "" == "$ENABLE_HTTPS_TS" ]] || [[ "y" == "$ENABLE_HTTPS_TS" ]]; then
 			while [[ true ]]; do
@@ -557,16 +558,17 @@ function transmission(){
 					done
 					acme.sh $TRANSMISSION_DOMAIN
 					if [[ -e "/ssl/${TRANSMISSION_DOMAIN}.key" ]]; then
-						echo "已检测到证书"
+						echo -e "\e[32m\e[1m已检测到证书\e[0m"
 						TRANSMISSION_CREATE_NGINX_SITE
-						ENABLE_HTTPS_TS="true"
+						OUTPUT_HTTPS_LOGIN_ADDR="true"
 					else 
-						echo "找不到证书，取消配置WEBUI HTTPS"
-						ENABLE_HTTPS_TS=""
+						echo -e "\e[31m\e[1m找不到证书，取消配置WEBUI HTTPS\e[0m"
 					fi
 					break
 				fi
 			done
+		else 
+			echo "已确认取消HTTPS WEBUI配置"
 		fi
 		
 	fi
@@ -618,8 +620,10 @@ function transmission(){
 	systemctl start transmission.service
 	TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
 	if [[ "active" == "$TRANSMISSION_SERVICE_LIFE" ]]; then
-		echo "transmission服务已启动"
+		echo -e "\e[32m\e[1mtransmission服务已启动\e[0m"
 		systemctl stop transmission.service
+		echo -e "\e[31m\e[1m休眠5s\e[0m"
+		sleep 5
 		TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
 		if [[ "inactive" == "$TRANSMISSION_SERVICE_LIFE" ]]; then
 			TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
@@ -633,10 +637,10 @@ function transmission(){
 			rm -fr transmission-web-control
 			systemctl start transmission.service
 			systemctl enable transmission.service
-			if [[ "$ENABLE_HTTPS_TS" ]]; then
+			if [[ "$OUTPUT_HTTPS_LOGIN_ADDR" ]]; then
 				systemctl restart nginx
-				echo -e "\e[32m\e[1m打开网址https://${TRANSMISSION_DOMAIN}测试登录\e[0m"
-				echo -e "\e[32m\e[1m文件下载服务器地址https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/ \e[0m"
+				echo -e "\e[32m\e[1m打开网址  https://${TRANSMISSION_DOMAIN}  测试登录  \e[0m"
+				echo -e "\e[32m\e[1m文件下载服务器地址  https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/\e[0m"
 			else 
 				echo -e port:"          ""\e[32m\e[1m$port\e[0m"
 			fi
@@ -650,16 +654,48 @@ function transmission(){
 	fi
 }
 
-#脚本开始安装aria2
+#aria2
 function aria2(){
-
+	function DOWNLOAD_ARIA2_WEBUI(){
+		cd /tmp
+		git clone https://github.com/ziahamza/webui-aria2.git
+		mv /tmp/webui-aria2/docs/* $ARIA2_WEBUI_ROOT
+		rm -fr /tmp/webui-aria2
+		systemctl restart nginx
+	}
 	CKECK_FILE_EXIST aria2
 	CHECK_VERSION aria2c aria2
 	clear
 	DOWNLOAD_PTAH "文件保存路径(/usr/downloads): " "/usr/downloads"
 	clear
-	read -p "输入密码(默认密码crazy_0): " key
-	key=${key:-crazy_0}
+	read -p "输入密码(默认密码crazy_0): " ARIA2_PASSWD
+	ARIA2_PASSWD=${ARIA2_PASSWD:-crazy_0}
+	read -p "输入RPC监听端口(6800): " ARIA2_PORT
+	ARIA2_PORT=${ARIA2_PORT:-6800}
+	if [[ "$(command -v nginx)" ]]; then
+		DOWNLOAD_ARIA2_WEBUI_=""
+		echo "检测到NGINX，是否下载WEBUI?(Y/n) "
+		read ENABLE_ARIA2_WEBUI
+		if [[ "$ENABLE_ARIA2_WEBUI" == "y" ]] || [[ "$ENABLE_ARIA2_WEBUI" == "" ]]; then
+			find / -name html
+			read -p "输入网站根目录(/usr/local/nginx/html)  " ARIA2_WEBUI_ROOT
+			ARIA2_WEBUI_ROOT=${ARIA2_WEBUI_ROOT:-/usr/local/nginx/html}
+			if ! [[ -d "$ARIA2_WEBUI_ROOT" ]]; then
+				echo "your full path no exist"
+				exit 0
+			else
+				if [[ "$(ls $ARIA2_WEBUI_ROOT)" ]]; then
+					echo "注意！输入的文件夹里发现文件，是否强制覆盖?"
+					read overwrite
+					if ! [[ "" == "$overwrite" ]]; then
+						echo "已将文件夹备份为后缀_BACKUP文件夹"
+						mv $ARIA2_WEBUI_ROOT ${ARIA2_WEBUI_ROOT}_BACKUP
+					fi
+					DOWNLOAD_ARIA2_WEBUI_="true"
+				fi
+			fi
+		fi
+	fi
 
 	if [[ "debian" == "$RUNNING_SYSTEM" ]]; then
 		$PKGMANAGER_INSTALL git libxml2-dev libcppunit-dev \
@@ -673,16 +709,19 @@ function aria2(){
 		c-ares-devel gnutls-devel libgcrypt-devel libxml2-devel \
 		sqlite-devel gettext xz-devel gperftools gperftools-devel \
 		gperftools-libs trousers-devel
-		ARIA2_AUTOCONF="autoreconf -i"
+		
 	fi
-
+	ARIA2_AUTOCONF="autoreconf -i"
+	libtoolize --automake --copy --debug  --force
 	git clone https://github.com/aria2/aria2.git && cd aria2
 
 	##静态编译
 	##autoreconf -i && ./configure ARIA2_STATIC=yes
 	
 	$ARIA2_AUTOCONF && ./configure
+	check "aria2c configure失败"
 	make && make install
+	check "aria2c编译安装失败"
 	rm -fr aria2
 
 	###相关编译报错引用https://weair.xyz/build-aria2/
@@ -704,8 +743,9 @@ function aria2(){
 	##aria2 config file
 
 	cat >$ARIA2_CONFIG_DIR/aria2.conf<<-EOF
-    rpc-secret=$key
+    rpc-secret=$ARIA2_PASSWD
     enable-rpc=true
+    rpc-listen-port=$ARIA2_PORT
     rpc-allow-origin-all=true
     rpc-listen-all=true
     max-concurrent-downloads=5
@@ -721,41 +761,18 @@ function aria2(){
     file-allocation=prealloc
 	EOF
 	systemctl daemon-reload
-	systemctl enable aria2
 	systemctl start aria2
-
-	clear
-	if [[ "$(command -v nginx)" ]]; then
-		echo "already installed nginx, download WEBUI?(Y/n) "
-		read ARIA2_WEBUI
-		if [[ "$ARIA2_WEBUI" == "y" ]] || [[ "$ARIA2_WEBUI" == "" ]]; then
-			find / -name html
-			read -p "full your web root  " ARIA2_WEBUI_ROOT
-			if ! [[ -d "$ARIA2_WEBUI_ROOT" ]]; then
-				echo "your full path no exist"
-				exit 0
-			else
-				if [[ "$(ls $ARIA2_WEBUI_ROOT)" ]]; then
-					echo "注意！输入的文件夹里发现文件，输入yes确定强制覆盖"
-					read overwrite
-					if ! [[ "yes" == "$overwrite" ]]; then
-						echo "已取消覆盖，退出！"
-						exit 0
-					fi
-				fi
-			fi
-			cd /tmp
-			git clone https://github.com/ziahamza/webui-aria2.git
-			mv /tmp/webui-aria2/docs/* $ARIA2_WEBUI_ROOT
-			rm -fr /tmp/webui-aria2
-			systemctl restart nginx
+	ARIA2_SERVICE_LIFE=`systemctl is-active aria2.service`
+	if [[ "active" == "$ARIA2_SERVICE_LIFE" ]]; then
+		systemctl enable aria2
+		echo "aria2服务启动成功"
+		if [[ "DOWNLOAD_ARIA2_WEBUI_" ]]; then
+			echo "开始下载WEBUI"
+			DOWNLOAD_ARIA2_WEBUI
 		fi
 	fi
-	# while [[ true ]]; do
 
-	# done
-
-	echo -e "\e[32m\e[1mTONKE:        ${key}\e[0m"
+	echo -e "\e[32m\e[1mTONKE:        ${ARIA2_PASSWD}\e[0m"
 	echo -e "\e[32m\e[1mDOWNLOAD_PTAH:${dir}\e[0m"
 	echo -e "\e[32m\e[1mCONFIG_JSON:  /etc/aria2/aria2.conf\e[0m"
 
