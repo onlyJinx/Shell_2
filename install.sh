@@ -1264,7 +1264,9 @@ function caddy(){
 			EOF
 			systemctl daemon-reload
 			systemctl start caddy
-			if [[ `ss -lnp|grep :$CADDY_HTTPS_PORT` ]]; then
+			CHECK_CADDY_LIFE="`ss -lnp|grep :$CADDY_HTTPS_PORT`"
+			echo $CHECK_CADDY_LIFE
+			if [[ "$CHECK_CADDY_LIFE" ]]; then
 				echo "Caddy运行正常，开始写入SNI分流配置"
 				systemctl enable caddy
 				NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
