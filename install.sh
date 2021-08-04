@@ -1191,10 +1191,9 @@ function caddy(){
 		#证书申请完之后再重启NGINX使SNI分流生效
 		#否则会因分流回落端口无响应导致申请证书失败
 		acme.sh "$CADDY_DOMAIN"
-		systemctl restart nginx
 		CADDY_TLS="tls /ssl/${CADDY_DOMAIN}.cer /ssl/${CADDY_DOMAIN}.key"
 		if [[ -e "/ssl/${CADDY_DOMAIN}.key" ]]; then
-			NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
+			echo "已检测到SSL证书，安装继续"
 		else 
 			echo "证书申请失败，退出安装！"
 			return -1
@@ -1249,7 +1248,6 @@ function caddy(){
 				Documentation=https://caddyserver.com/docs/
 				After=network.target network-online.target
 				Requires=network-online.target
-
 				[Service]
 				User=root
 				Group=root
@@ -1261,16 +1259,23 @@ function caddy(){
 				PrivateTmp=true
 				ProtectSystem=full
 				AmbientCapabilities=CAP_NET_BIND_SERVICE
-
 				[Install]
 				WantedBy=multi-user.target
 			EOF
 			systemctl daemon-reload
 			systemctl start caddy
-			systemctl enable caddy 
-			systemctl restart nginx
-			check "caddy启动失败"
-
+			if [[ `ss -lnp|grep :$CADDY_HTTPS_PORT` ]]; then
+				echo "Caddy运行正常，开始写入SNI分流配置"
+				systemctl enable caddy
+				NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
+				systemctl restart nginx
+				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
+				echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
+			else
+				echo "检测不到Caddy监听端口"
+				echo "rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go"
+				echo "export PATH=$PATH:/tmp/go/bin"
+			fi
 		else
 			echo "caddy编译失败"
 			exit 1
@@ -1280,9 +1285,6 @@ function caddy(){
 		echo "Go环境配置失败！"
 		exit 1
 	fi
-	rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
-	##systemctl status caddy
-	echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
 }
 
 echo "输入对应的数字选项:"
