@@ -1281,7 +1281,6 @@ function caddy(){
 		exit 1
 	fi
 	rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
-	clear
 	##systemctl status caddy
 	echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
 }
