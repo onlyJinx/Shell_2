@@ -1274,9 +1274,8 @@ function caddy(){
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
 				echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
 			else
-				echo "检测不到Caddy监听端口"
-				echo "rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go"
-				echo "export PATH=$PATH:/tmp/go/bin"
+				echo "Caddy启动失败，安装退出"
+				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
 			fi
 		else
 			echo "caddy编译失败"
