@@ -8,12 +8,6 @@ function check(){
 		echo "$2"
 	fi
 }
-function RESTART_NGINX(){
-	if [[ "$(command -v nginx)" ]]; then
-	/usr/local/nginx/sbin/nginx -s stop
-	/usr/local/nginx/sbin/nginx
-	fi
-}
 function NGINX_SNI(){
 	#域名 端口
 	NGINX_BIN="$(command -v nginx)"
@@ -991,50 +985,63 @@ function trojan(){
 		read TROJAN_HTTPS_PORT
 		CHECK_PORT "NOINPUT" $TROJAN_HTTPS_PORT
 		TROJAN_HTTPS_PORT=$port
-		NGINX_SNI $TROJAN_DOMAIN $TROJAN_HTTPS_PORT
 	else 
 		CHECK_PORT "NOINPUT" 443
 		TROJAN_HTTPS_PORT="443"
 	fi
-	echo "Trojan 回落端口: "
+	echo "Trojan 回落端口(5555): "
 	read TROJAN_CALLBACK_PORT
 	TROJAN_HTTP_PORT=${TROJAN_CALLBACK_PORT:-5555}
 	echo "设置trojan密码(默认trojanWdai1)"
 	echo "不可以包含#@?"
 	read TROJAN_PASSWD
 	TROJAN_PASSWD=${TROJAN_PASSWD:-trojanWdai1}
-	trojan_version=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
-	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 
-	wget https://github.com/trojan-gfw/trojan/releases/download/v${trojan_version}/trojan-${trojan_version}-linux-amd64.tar.xz && tar xvJf trojan-${trojan_version}-linux-amd64.tar.xz -C /etc
-	ln -s /etc/trojan/trojan /usr/bin/trojan
-	rm -f trojan-${trojan_version}-linux-amd64.tar.xz
-	TROJAN_CONFIG=/etc/trojan/config.json
-	sed -i '/password2/ d' $TROJAN_CONFIG
-	sed -i "/remote_port/ s/80/$TROJAN_HTTP_PORT/" $TROJAN_CONFIG
-	sed -i "/local_port/ s/443/$TROJAN_HTTPS_PORT/" $TROJAN_CONFIG
-	sed -i "/\"password1\",/ s/\"password1\",/\"$TROJAN_PASSWD\"/" $TROJAN_CONFIG
-	sed -i ":certificate: s:/path/to/certificate.crt:/ssl/${TROJAN_DOMAIN}.cer:" $TROJAN_CONFIG
-	sed -i ":private: s:/path/to/private.key:/ssl/${TROJAN_DOMAIN}.key:" $TROJAN_CONFIG
-
-	###crate service
-	cat >$SYSTEMD_SERVICES/trojan.service<<-EOF
-	[Unit]
-	Description=trojan Server
-	After=network.target
-	[Service]
-	ExecStart=/etc/trojan/trojan -c /etc/trojan/config.json
-	User=root
-	[Install]
-	WantedBy=multi-user.target
-	EOF
 	##申请SSL证书
 	acme.sh $TROJAN_DOMAIN
-	systemctl restart nginx
-	systemctl daemon-reload
-	systemctl start trojan
-	systemctl enable trojan
-	echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
+	if [[ -e "/ssl/${TROJAN_DOMAIN}.key" ]]; then
+		echo "已检测到证书"
+		trojan_version=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
+		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
+
+		wget https://github.com/trojan-gfw/trojan/releases/download/v${trojan_version}/trojan-${trojan_version}-linux-amd64.tar.xz && tar xvJf trojan-${trojan_version}-linux-amd64.tar.xz -C /etc
+		ln -s /etc/trojan/trojan /usr/bin/trojan
+		rm -f trojan-${trojan_version}-linux-amd64.tar.xz
+
+		TROJAN_CONFIG=/etc/trojan/config.json
+		sed -i '/password2/ d' $TROJAN_CONFIG
+		sed -i "/remote_port/ s/80/$TROJAN_HTTP_PORT/" $TROJAN_CONFIG
+		sed -i "/local_port/ s/443/$TROJAN_HTTPS_PORT/" $TROJAN_CONFIG
+		sed -i "/\"password1\",/ s/\"password1\",/\"$TROJAN_PASSWD\"/" $TROJAN_CONFIG
+		sed -i ":certificate: s:/path/to/certificate.crt:/ssl/${TROJAN_DOMAIN}.cer:" $TROJAN_CONFIG
+		sed -i ":private: s:/path/to/private.key:/ssl/${TROJAN_DOMAIN}.key:" $TROJAN_CONFIG
+
+		###crate service
+		cat >$SYSTEMD_SERVICES/trojan.service<<-EOF
+		[Unit]
+		Description=trojan Server
+		After=network.target
+		[Service]
+		ExecStart=/etc/trojan/trojan -c /etc/trojan/config.json
+		User=root
+		[Install]
+		WantedBy=multi-user.target
+		EOF
+		systemctl daemon-reload
+		systemctl start trojan
+		NGINX_SERVICE_LIFE=`systemctl is-active trojan.service`
+		if [[ "active" == "$NGINX_SERVICE_LIFE" ]]; then
+			echo "\e[32m\e[1mtrojan服务启动成功\e[0m"
+			NGINX_SNI $TROJAN_DOMAIN $TROJAN_HTTPS_PORT
+			systemctl restart nginx
+			systemctl enable trojan
+			echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
+		fi
+	else 
+		"检测不到证书，退出"
+		return -1
+	fi
+
 }
 #脚本开始安装nginx
 function INSTALL_NGINX(){
@@ -1123,7 +1130,7 @@ function INSTALL_NGINX(){
 	systemctl enable nginx
 	###systemctl status nginx
 	clear
-	echo "编译nginx成功"
+	echo -e "\e[32m\e[1m编译nginx成功\e[0m"
 	echo "是否开启SSL配置?(Y/n) "
 	read ENAGLE_NGINX_SSL
 	if [[ "" == "$ENAGLE_NGINX_SSL" ]] || [[ "y" == "$ENAGLE_NGINX_SSL" ]]; then
@@ -1136,7 +1143,7 @@ function INSTALL_NGINX(){
 			#开始申请SSL证书
 			acme.sh "$NGINX_DOMAIN"
 			if [[ -e "/ssl/${NGINX_DOMAIN}".key ]]; then
-				echo "证书申请成功，开始写入ssl配置"
+				echo -e "\e[32m\e[1m证书申请成功，开始写入ssl配置\e[0m"
 				cat >${NGINX_SITE_ENABLED}/${NGINX_DOMAIN}<<-EOF
 				server {
 				    listen       4433 http2 ssl;
@@ -1274,16 +1281,16 @@ function caddy(){
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
 				echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
 			else
-				echo "Caddy启动失败，安装退出"
+				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
 			fi
 		else
-			echo "caddy编译失败"
+			echo -e "\e[31m\e[1mcaddy编译失败\e[0m"
 			exit 1
 		fi
 		
 	else
-		echo "Go环境配置失败！"
+		echo -e "\e[31m\e[1mGo环境配置失败！\e[0m"
 		exit 1
 	fi
 }
