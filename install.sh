@@ -1322,8 +1322,10 @@ function hysteria(){
 			break
 		fi
 	done
-	read -p "输入密码(io!jioOhu8eH)" hysteria_PASSWD
-	hysteria_PASSWD=${hysteria_PASSWD:-io!jioOhu8eH}
+	read -p "输入obfs混淆(io!jioOhu8eH)" hysteria_OBFS
+	hysteria_OBFS=${hysteria_OBFS:-io!jioOhu8eH}
+	read -p "输入认证密码(ieLj3fhG!o34)" hysteria_AUTH
+	hysteria_AUTH=${hysteria_AUTH:-ieLj3fhG}
 	acme.sh "$hysteria_DOMAIN"
 	if [[ -e "/ssl/${hysteria_DOMAIN}.key" ]]; then
 		echo "已检测到证书"
@@ -1338,7 +1340,13 @@ function hysteria(){
 		    "listen": ":443",
 		    "cert": "/ssl/${hysteria_DOMAIN}.cer",
 		    "key": "/ssl/${hysteria_DOMAIN}.key",
-		    "obfs": "${hysteria_PASSWD}",
+		    "obfs": "${hysteria_OBFS}",
+		    "auth": {
+		        "mode": "password",
+		        "config": {
+		            "password": "$hysteria_AUTH"
+		        }
+		    },
 		    "up_mbps": 100,
 		    "down_mbps": 100
 		}
@@ -1356,11 +1364,15 @@ function hysteria(){
 		EOF
 		systemctl daemon-reload
 		systemctl start hysteria.service
-
-		if [[ "active" == `systemctl is-active hysteria.service` ]]; then
+		echo 1
+		systemctl is-active hysteria.service
+		if [[ "active" == "`systemctl is-active hysteria.service`" ]]; then
+			echo 2
+			systemctl is-active hysteria.service
 			echo "hysteria已成功启动"
 			echo $hysteria_DOMAIN
-			echo $hysteria_PASSWD
+			echo "obfs: "$hysteria_OBFS
+			echo "auth: "$hysteria_AUTH
 		else
 			echo "服务启动失败，检查报错信息"
 		fi
@@ -1368,10 +1380,8 @@ function hysteria(){
 		echo "检测不到证书，安装退出"
 	fi
 }
-hysteria
-exit
 echo "输入对应的数字选项:"
-select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy"
+select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy" "hysteria"
 do
 	case $option in
 		"acme.sh")
@@ -1400,6 +1410,9 @@ do
 			break;;
 		"caddy")
 			caddy
+			break;;
+		"hysteria")
+			hysteria
 			break;;
 		*)
 			echo "nothink to do"
