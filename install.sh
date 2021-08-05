@@ -1349,7 +1349,7 @@ function hysteria(){
 		Description=hysteria Server
 		After=network.target
 		[Service]
-		ExecStart=/etc/hysteria/hysteria -config /etc/hysteria/config.json
+		ExecStart=/etc/hysteria/hysteria -config /etc/hysteria/config.json server
 		User=root
 		[Install]
 		WantedBy=multi-user.target
