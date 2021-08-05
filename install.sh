@@ -1325,7 +1325,7 @@ function hysteria(){
 	read -p "输入obfs混淆(io!jioOhu8eH)" hysteria_OBFS
 	hysteria_OBFS=${hysteria_OBFS:-io!jioOhu8eH}
 	read -p "输入认证密码(ieLj3fhG!o34)" hysteria_AUTH
-	hysteria_AUTH=${hysteria_AUTH:-ieLj3fhG}
+	hysteria_AUTH=${hysteria_AUTH:-ieLj3fhG!o34}
 	acme.sh "$hysteria_DOMAIN"
 	if [[ -e "/ssl/${hysteria_DOMAIN}.key" ]]; then
 		echo "已检测到证书"
