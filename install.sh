@@ -1369,15 +1369,15 @@ function hysteria(){
 		if [[ "active" == "`systemctl is-active hysteria.service`" ]]; then
 			echo 2
 			systemctl is-active hysteria.service
-			echo "hysteria已成功启动"
+			echo -e "\e[32m\e[1mhysteria已成功启动\e[0m"
 			echo $hysteria_DOMAIN
 			echo "obfs: "$hysteria_OBFS
 			echo "auth: "$hysteria_AUTH
 		else
-			echo "服务启动失败，检查报错信息"
+			echo -e "\e[31m\e[1m服务启动失败，检查报错信息\e[0m"
 		fi
 	else
-		echo "检测不到证书，安装退出"
+		echo -e "\e[31m\e[1m检测不到证书，安装退出\e[0m"
 	fi
 }
 echo "输入对应的数字选项:"
