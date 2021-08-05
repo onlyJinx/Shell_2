@@ -1347,8 +1347,8 @@ function hysteria(){
 		            "password": "$hysteria_AUTH"
 		        }
 		    },
-		    "up_mbps": 100,
-		    "down_mbps": 100
+		    "up_mbps": 1000,
+		    "down_mbps": 1000
 		}
 		EOF
 		###crate service
