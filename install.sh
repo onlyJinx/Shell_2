@@ -1313,7 +1313,63 @@ function caddy(){
 		exit 1
 	fi
 }
+#hysteria
+function hysteria(){
+	while [[ true ]]; do
+		echo "输入域名，非空"
+		read hysteria_DOMAIN
+		if [[ "$hysteria_DOMAIN" ]]; then
+			break
+		fi
+	done
+	read -p "输入密码(io!jioOhu8eH)" hysteria_PASSWD
+	hysteria_PASSWD=${hysteria_PASSWD:-io!jioOhu8eH}
+	acme.sh "$hysteria_DOMAIN"
+	if [[ -e "/ssl/${hysteria_DOMAIN}.key" ]]; then
+		echo "已检测到证书"
+		hysteria_LATEST=`curl -s https://api.github.com/repos/HyNetwork/hysteria/releases/latest | grep tag_name|cut -f4 -d "\""`
+		hysteria_DOWNLOAD_LINK=https://github.com/HyNetwork/hysteria/releases/download/${hysteria_LATEST}/hysteria-linux-amd64
+		DESTINATION_PATH="/etc/hysteria"
+		mkdir $DESTINATION_PATH
+		wget -O ${DESTINATION_PATH}/hysteria $hysteria_DOWNLOAD_LINK
+		chmod +x ${DESTINATION_PATH}/hysteria
+		cat >${DESTINATION_PATH}/config.json<<-EOF
+		{
+		    "listen": ":443",
+		    "cert": "/ssl/${hysteria_DOMAIN}.cer",
+		    "key": "/ssl/${hysteria_DOMAIN}.key",
+		    "obfs": "${hysteria_PASSWD}",
+		    "up_mbps": 100,
+		    "down_mbps": 100
+		}
+		EOF
+		###crate service
+		cat >$SYSTEMD_SERVICES/hysteria.service<<-EOF
+		[Unit]
+		Description=hysteria Server
+		After=network.target
+		[Service]
+		ExecStart=/etc/hysteria/hysteria -config /etc/hysteria/config.json
+		User=root
+		[Install]
+		WantedBy=multi-user.target
+		EOF
+		systemctl daemon-reload
+		systemctl start hysteria.service
 
+		if [[ "active" == `systemctl is-active hysteria.service` ]]; then
+			echo "hysteria已成功启动"
+			echo $hysteria_DOMAIN
+			echo $hysteria_PASSWD
+		else
+			echo "服务启动失败，检查报错信息"
+		fi
+	else
+		echo "检测不到证书，安装退出"
+	fi
+}
+hysteria
+exit
 echo "输入对应的数字选项:"
 select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy"
 do
