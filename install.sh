@@ -12,7 +12,7 @@ function NGINX_SNI(){
 	#域名 端口
 	NGINX_BIN="$(command -v nginx)"
 	if [[ "$NGINX_BIN" ]]; then
-		NGINX_SNI_CONFIG="/usr/local/nginx/conf/nginx.conf"
+		NGINX_SNI_CONFIG="$NGINX_CONFIG"
 		if [[ `cat $NGINX_SNI_CONFIG | grep ssl_preread_server_name` ]];then
 			echo "检测到NGINX_SNI配置"
 			sed -i "/ssl_preread_server_name/a\ \ \ \ \ \ \ \ $1 127.0.0.1:$2;" $NGINX_SNI_CONFIG
@@ -29,6 +29,9 @@ function NGINX_SNI(){
 }
 function packageManager(){
 	SYSTEMD_SERVICES="/etc/systemd/system"
+	NGINX_CONFIG=/etc/nginx/conf/nginx.conf
+	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
+	NGINX_WEBROOT="/etc/nginx/html"
 	if [[ "$(type -P apt)" ]]; then
 		PKGMANAGER_INSTALL="apt install -y --no-install-recommends"
 		PKGMANAGER_UNINSTALL="apt remove -y"
@@ -143,7 +146,7 @@ function acme.sh(){
 	NEED_INSTALL_CERT="1"
 	CERT_INSTALL_PATH="/ssl"
 	ACME_PATH_RUN="/root/.acme.sh/acme.sh"
-	DEFAULT_WEB_ROOT="/usr/local/nginx/html/"
+	DEFAULT_WEB_ROOT="$NGINX_WEBROOT"
 	#第一次手动DNS校验时保存的文件，用于第二次renew
 	DOMAIN_AUTH_TEMP="/tmp/DOMAIN_AUTH_TEMP.TMP.5884748"
 	function ACME_DNS_API(){
@@ -179,7 +182,7 @@ function acme.sh(){
 		else
 			echo -e "\e[32m\e[1m检测到80端口占用，尝试列出所有html目录。\e[0m"
 			find / -name html
-			read -p "输入网站根目录(/usr/local/nginx/html): " ENTER_NGINX_PTAH
+			read -p "输入网站根目录(${NGINX_WEBROOT}): " ENTER_NGINX_PTAH
 			ENTER_NGINX_PTAH=${ENTER_NGINX_PTAH:-$DEFAULT_WEB_ROOT}
 			WEB_ROOT="--webroot "$ENTER_NGINX_PTAH
 			if ! [[ -d "$ENTER_NGINX_PTAH" ]]; then
@@ -500,7 +503,7 @@ function transmission(){
 	}
 
 	function TRANSMISSION_CREATE_NGINX_SITE(){
-		cat >/usr/local/nginx/conf/sites-enabled/${TRANSMISSION_DOMAIN}<<-EOF
+		cat >$NGINX_SITE_ENABLED/${TRANSMISSION_DOMAIN}<<-EOF
 		server {
 		    listen       4433 http2 ssl;
 		    server_name  ${TRANSMISSION_DOMAIN};
@@ -540,7 +543,7 @@ function transmission(){
 	DOWNLOAD_PTAH "文件保存路径(默认/usr/downloads): " "/usr/downloads"
 	check "downloads文件夹创建失败！"
 
-	TRANSMISSION_NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
+	TRANSMISSION_NGINX_CONFIG=$NGINX_CONFIG
 	if [[ -e $TRANSMISSION_NGINX_CONFIG ]];then
 		echo "检测到NGINX配置文件，是否开启https WEBUI反代?(Y/n) "
 		OUTPUT_HTTPS_LOGIN_ADDR=""
@@ -587,7 +590,7 @@ function transmission(){
 	wget https://github.com/transmission/transmission-releases/raw/master/transmission-3.00.tar.xz
 	tar xf transmission-3.00.tar.xz && cd transmission-3.00
 
-	./autogen.sh && make && make install
+	./configure --prefix=/etc/transmission  && make && make install
 	rm -fr ../transmission-3.00 ../transmission-3.00.tar.xz
 	###检查返回状态码
 	check "transmission编译失败！"
@@ -601,7 +604,7 @@ function transmission(){
 	[Service]
 	User=root
 	Type=simple
-	ExecStart=/usr/local/bin/transmission-daemon -f --log-error
+	ExecStart=/etc/transmission/bin/transmission-daemon -f --log-error
 	ExecStop=/bin/kill -s STOP \$MAINPID
 	ExecReload=/bin/kill -s HUP \$MAINPID
 
@@ -632,8 +635,8 @@ function transmission(){
 			##替换webUI
 			cd ~
 			git clone https://github.com/ronggang/transmission-web-control.git
-			mv /usr/local/share/transmission/web/index.html /usr/local/share/transmission/web/index.original.html
-			mv /root/transmission-web-control/src/* /usr/local/share/transmission/web/
+			mv /etc/transmission/share/transmission/web/index.html /etc/transmission/share/transmission/web/index.original.html
+			mv /root/transmission-web-control/src/* /etc/transmission/share/transmission/web/
 			rm -fr transmission-web-control
 			systemctl start transmission.service
 			systemctl enable transmission.service
@@ -678,14 +681,14 @@ function aria2(){
 		read ENABLE_ARIA2_WEBUI
 		if [[ "$ENABLE_ARIA2_WEBUI" == "y" ]] || [[ "$ENABLE_ARIA2_WEBUI" == "" ]]; then
 			find / -name html
-			read -p "输入网站根目录(/usr/local/nginx/html)  " ARIA2_WEBUI_ROOT
-			ARIA2_WEBUI_ROOT=${ARIA2_WEBUI_ROOT:-/usr/local/nginx/html}
+			read -p "输入网站根目录(${NGINX_WEBROOT})  " ARIA2_WEBUI_ROOT
+			ARIA2_WEBUI_ROOT=${ARIA2_WEBUI_ROOT:-/etc/nginx/html}
 			if ! [[ -d "$ARIA2_WEBUI_ROOT" ]]; then
 				echo "your full path no exist"
 				exit 0
 			else
 				if [[ "$(ls $ARIA2_WEBUI_ROOT)" ]]; then
-					echo "注意！输入的文件夹里发现文件，是否强制覆盖?"
+					echo "注意！输入的文件夹里发现文件，是否强制覆盖(Y/n)?"
 					read overwrite
 					if ! [[ "" == "$overwrite" ]]; then
 						echo "已将文件夹备份为后缀_BACKUP文件夹"
@@ -940,9 +943,9 @@ function Project_X(){
 		WantedBy=multi-user.target
 		EOF
 
-		XRAY_NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
+		XRAY_NGINX_CONFIG=$NGINX_CONFIG
 		if [[ -e $XRAY_NGINX_CONFIG ]];then
-			cat >/usr/local/nginx/conf/sites-enabled/${XRAY_DOMAIN}<<-EOF
+			cat >$NGINX_SITE_ENABLED/${XRAY_DOMAIN}<<-EOF
 			server {
 			    listen       4433 http2 ssl;
 			    server_name  ${XRAY_DOMAIN};
@@ -1062,14 +1065,16 @@ function trojan(){
 	fi
 
 }
-#脚本开始安装nginx
+#nginx
 function INSTALL_NGINX(){
 	CHECK_PORT "NOINPUT" 443
 	CHECK_PORT "NOINPUT" 80
 	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
 	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
 	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
-	NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
+	NGINX_CONFIG=/etc/nginx/conf/nginx.conf
+	NGINX_BIN=/etc/nginx/sbin/nginx
+	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
 
 	##安装依赖
 	if [[ "$(type -P apt)" ]]; then
@@ -1083,7 +1088,7 @@ function INSTALL_NGINX(){
 
 	wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${NGINX_VERSION}.tar.gz -C /tmp/ && cd /tmp/nginx-$NGINX_VERSION
 	./configure \
-	--prefix=/usr/local/nginx \
+	--prefix=/etc/nginx \
 	--pid-path=/run/nginx.pid \
 	--lock-path=/run/nginx.lock \
 	--with-http_ssl_module \
@@ -1101,11 +1106,10 @@ function INSTALL_NGINX(){
 	#清理残留
 	rm -fr /tmp/nginx-$NGINX_VERSION
 
-	ln -s /usr/local/nginx/sbin/nginx /usr/bin/nginx
+	ln -s /etc/nginx/sbin/nginx /usr/bin/nginx
 	mv $NGINX_CONFIG ${NGINX_CONFIG}_backup
-	wget -O /usr/local/nginx/conf/nginx.conf https://raw.githubusercontent.com/onlyJinx/Shell_2/main/nginxForFsGrpc.conf
+	wget -O $NGINX_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/nginxForFsGrpc.conf
 	echo "export ngp=$NGINX_CONFIG" >> /etc/profile
-	source /etc/profile
 	
 	###crate service
 	#单双引号不转义，反单引号 $ 要转
@@ -1122,8 +1126,8 @@ function INSTALL_NGINX(){
 			[Service]
 			Type=forking
 			PIDFile=/run/nginx.pid
-			ExecStartPre=/usr/local/nginx/sbin/nginx -t -c $NGINX_CONFIG
-			ExecStart=/usr/local/nginx/sbin/nginx -c $NGINX_CONFIG
+			ExecStartPre=$NGINX_BIN -t -c $NGINX_CONFIG
+			ExecStart=$NGINX_BIN -c $NGINX_CONFIG
 			ExecReload=/bin/kill -s HUP \$MAINPID
 			ExecStop=/bin/kill -s TERM \$MAINPID
 
@@ -1141,7 +1145,6 @@ function INSTALL_NGINX(){
 		exit 1
 	fi
 	#创建配置文件夹
-	NGINX_SITE_ENABLED="/usr/local/nginx/conf/sites-enabled"
 	mkdir $NGINX_SITE_ENABLED
 	###nginx编译引用自博客
 	###https://www.cnblogs.com/stulzq/p/9291223.html
@@ -1262,7 +1265,7 @@ function caddy(){
 				            probe_resistance
 				        }
 				        file_server { 
-				            root /usr/local/nginx/html
+				            root $NGINX_WEBROOT
 				        }
 				    }
 				}
@@ -1380,7 +1383,7 @@ function hysteria(){
 		echo -e "\e[31m\e[1m检测不到证书，安装退出\e[0m"
 	fi
 }
-echo "输入对应的数字选项:"
+echo -e "\e[31m\e[1m输入对应的数字选项:\e[0m"
 select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy" "hysteria"
 do
 	case $option in
