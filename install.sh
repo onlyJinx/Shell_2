@@ -8,12 +8,6 @@ function check(){
 		echo "$2"
 	fi
 }
-function RESTART_NGINX(){
-	if [[ "$(command -v nginx)" ]]; then
-	/usr/local/nginx/sbin/nginx -s stop
-	/usr/local/nginx/sbin/nginx
-	fi
-}
 function NGINX_SNI(){
 	#域名 端口
 	NGINX_BIN="$(command -v nginx)"
@@ -185,7 +179,7 @@ function acme.sh(){
 		else
 			echo -e "\e[32m\e[1m检测到80端口占用，尝试列出所有html目录。\e[0m"
 			find / -name html
-			read -p "输入网站根目录: " ENTER_NGINX_PTAH
+			read -p "输入网站根目录(/usr/local/nginx/html): " ENTER_NGINX_PTAH
 			ENTER_NGINX_PTAH=${ENTER_NGINX_PTAH:-$DEFAULT_WEB_ROOT}
 			WEB_ROOT="--webroot "$ENTER_NGINX_PTAH
 			if ! [[ -d "$ENTER_NGINX_PTAH" ]]; then
@@ -482,7 +476,7 @@ function shadowsocks-libev(){
 	echo -e use \""\e[31m\e[1msystemctl status ssl\e[0m"\" run the shadowsocks-libev in background
 	echo -e "\e[31m\e[1mhttps://github.com/shadowsocks\e[0m"
 }
-#脚本开始安装transmission
+#transmission
 function transmission(){
 	function MODIFY_CONFIG(){
 		sed -i '/rpc-whitelist-enabled/ s/true/false/' $1
@@ -505,6 +499,33 @@ function transmission(){
 		sed -i "/\"ratio-limit\"/ s/:.*/: 10,/" $1
 	}
 
+	function TRANSMISSION_CREATE_NGINX_SITE(){
+		cat >/usr/local/nginx/conf/sites-enabled/${TRANSMISSION_DOMAIN}<<-EOF
+		server {
+		    listen       4433 http2 ssl;
+		    server_name  ${TRANSMISSION_DOMAIN};
+		    ssl_certificate      /ssl/${TRANSMISSION_DOMAIN}.cer;
+		    ssl_certificate_key  /ssl/${TRANSMISSION_DOMAIN}.key;
+		    ssl_session_cache    shared:SSL:1m;
+		    ssl_session_timeout  5m;
+		    ssl_protocols TLSv1.2 TLSv1.3;
+		    ssl_prefer_server_ciphers  on;
+		    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+		    location / {
+		        proxy_redirect off;
+		        proxy_pass http://127.0.0.1:${port};
+		        proxy_http_version 1.1;
+		        proxy_set_header Upgrade \$http_upgrade;
+		        proxy_set_header Connection "upgrade";
+		        proxy_set_header Host \$http_host;
+		    }
+		    location /${TRRNA_FILE_SERVER_PATH}/ {
+		        alias ${dir}/;
+		        autoindex on;
+		    }
+		}
+		EOF
+	}
 	CKECK_FILE_EXIST transmission-3.00+
 	CHECK_VERSION transmission-daemon transmission
 	clear
@@ -518,6 +539,39 @@ function transmission(){
 	clear
 	DOWNLOAD_PTAH "文件保存路径(默认/usr/downloads): " "/usr/downloads"
 	check "downloads文件夹创建失败！"
+
+	TRANSMISSION_NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
+	if [[ -e $TRANSMISSION_NGINX_CONFIG ]];then
+		echo "检测到NGINX配置文件，是否开启https WEBUI反代?(Y/n) "
+		OUTPUT_HTTPS_LOGIN_ADDR=""
+		read ENABLE_HTTPS_TS
+		if [[ "" == "$ENABLE_HTTPS_TS" ]] || [[ "y" == "$ENABLE_HTTPS_TS" ]]; then
+			while [[ true ]]; do
+				read -p "输入域名(ctrl+c强制终止) " TRANSMISSION_DOMAIN
+				if [[ "$TRANSMISSION_DOMAIN" ]]; then
+					while [[ true ]]; do
+						echo "输入文件下载服务器路径(不能为空,不带斜杠)"
+						read TRRNA_FILE_SERVER_PATH
+						if [[ $"TRRNA_FILE_SERVER_PATH" ]]; then
+							break
+						fi
+					done
+					acme.sh $TRANSMISSION_DOMAIN
+					if [[ -e "/ssl/${TRANSMISSION_DOMAIN}.key" ]]; then
+						echo -e "\e[32m\e[1m已检测到证书\e[0m"
+						TRANSMISSION_CREATE_NGINX_SITE
+						OUTPUT_HTTPS_LOGIN_ADDR="true"
+					else 
+						echo -e "\e[31m\e[1m找不到证书，取消配置WEBUI HTTPS\e[0m"
+					fi
+					break
+				fi
+			done
+		else 
+			echo "已确认取消HTTPS WEBUI配置"
+		fi
+		
+	fi
 
 	if [[ "$(type -P apt)" ]]; then
 		echo "Debian"
@@ -564,106 +618,84 @@ function transmission(){
 	fi
 	##首次启动，生成配置文件
 	systemctl start transmission.service
-	check "transmission启动失败！"
-	sleep 2
-	systemctl stop transmission.service
-	sleep 2
-	TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
-	## change config  sed引用 https://segmentfault.com/a/1190000020613397
-	count=0
-	for((i=1;i<3;i++))
-	do
-		if [[ -e $TRANSMISSION_CONFIG ]]; then
-			MODIFY_CONFIG $TRANSMISSION_CONFIG
-			break
-		else
-			systemctl daemon-reload	
+	TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
+	if [[ "active" == "$TRANSMISSION_SERVICE_LIFE" ]]; then
+		echo -e "\e[32m\e[1mtransmission服务已启动\e[0m"
+		systemctl stop transmission.service
+		echo -e "\e[31m\e[1m休眠5s\e[0m"
+		sleep 5
+		TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
+		if [[ "inactive" == "$TRANSMISSION_SERVICE_LIFE" ]]; then
+			TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
+			MODIFY_CONFIG "$TRANSMISSION_CONFIG"
+			## change config  sed引用 https://segmentfault.com/a/1190000020613397
+			##替换webUI
+			cd ~
+			git clone https://github.com/ronggang/transmission-web-control.git
+			mv /usr/local/share/transmission/web/index.html /usr/local/share/transmission/web/index.original.html
+			mv /root/transmission-web-control/src/* /usr/local/share/transmission/web/
+			rm -fr transmission-web-control
 			systemctl start transmission.service
-			sleep 2
-			systemctl stop transmission.service
-			sleep 2
-			let count++
+			systemctl enable transmission.service
+			if [[ "$OUTPUT_HTTPS_LOGIN_ADDR" ]]; then
+				systemctl restart nginx
+				echo -e "\e[32m\e[1m打开网址  https://${TRANSMISSION_DOMAIN}  测试登录  \e[0m"
+				echo -e "\e[32m\e[1m文件下载服务器地址  https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/\e[0m"
+			else 
+				echo -e port:"          ""\e[32m\e[1m$port\e[0m"
+			fi
+			echo -e password:"      ""\e[32m\e[1m$TRANSMISSION_PASSWD\e[0m"
+			echo -e username:"      ""\e[32m\e[1m$TRANSMISSION_USER_NAME\e[0m"
+			echo -e DOWNLOAD_PTAH:"      ""\e[32m\e[1m$dir\e[0m"
+			echo -e config.json:"   ""\e[32m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
 		fi
-	done
-	##替换webUI
-	cd ~
-	git clone https://github.com/ronggang/transmission-web-control.git
-	mv /usr/local/share/transmission/web/index.html /usr/local/share/transmission/web/index.original.html
-	mv /root/transmission-web-control/src/* /usr/local/share/transmission/web/
-	rm -fr transmission-web-control
-	systemctl start transmission.service
-	clear
-	check "transmission-daemon 运行失败" "transmission-daemon 运行正常"
-	systemctl enable transmission.service > /dev/nul 2>&1&
-
-	echo -e port:"          ""\e[31m\e[1m$port\e[0m"
-	echo -e password:"      ""\e[31m\e[1m$TRANSMISSION_PASSWD\e[0m"
-	echo -e username:"      ""\e[31m\e[1m$TRANSMISSION_USER_NAME\e[0m"
-	echo -e DOWNLOAD_PTAH:"      ""\e[31m\e[1m$dir\e[0m"
-	echo -e config.json:"   ""\e[31m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
-
-	TRANSMISSION_NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
-	if [[ -e $TRANSMISSION_NGINX_CONFIG ]];then
-		echo "检测到NGINX配置文件，是否开启https WEBUI反代?(Y/n) "
-		read ENABLE_HTTPS_TS
-		if [[ "" == "$ENABLE_HTTPS_TS" ]] || [[ "y" == "$ENABLE_HTTPS_TS" ]]; then
-			while [[ true ]]; do
-				read -p "输入域名(ctrl+c强制终止) " TRANSMISSION_DOMAIN
-				if [[ "$TRANSMISSION_DOMAIN" ]]; then
-					while [[ true ]]; do
-						echo "输入文件下载服务器路径(不能为空,不带斜杠)"
-						read TRRNA_FILE_SERVER_PATH
-						if [[ $"TRRNA_FILE_SERVER_PATH" ]]; then
-							break
-						fi
-					done
-					cat >/usr/local/nginx/conf/sites-enabled/${TRANSMISSION_DOMAIN}<<-EOF
-					server {
-					    listen       4433 http2 ssl;
-					    server_name  ${TRANSMISSION_DOMAIN};
-					    ssl_certificate      /ssl/${TRANSMISSION_DOMAIN}.cer;
-					    ssl_certificate_key  /ssl/${TRANSMISSION_DOMAIN}.key;
-					    ssl_session_cache    shared:SSL:1m;
-					    ssl_session_timeout  5m;
-					    ssl_protocols TLSv1.2 TLSv1.3;
-					    ssl_prefer_server_ciphers  on;
-					    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-					    location / {
-					        proxy_redirect off;
-					        proxy_pass http://127.0.0.1:${port};
-					        proxy_http_version 1.1;
-					        proxy_set_header Upgrade \$http_upgrade;
-					        proxy_set_header Connection "upgrade";
-					        proxy_set_header Host \$http_host;
-					    }
-					    location /${TRRNA_FILE_SERVER_PATH}/ {
-					        alias ${dir}/;
-					        autoindex on;
-					    }
-					}
-					EOF
-					acme.sh $TRANSMISSION_DOMAIN
-					systemctl restart nginx
-					echo -e "\e[32m\e[1m打开网址https://${TRANSMISSION_DOMAIN}测试登录\e[0m"
-					echo -e "\e[32m\e[1m文件下载服务器地址https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/ \e[0m"
-					break
-				fi
-			done
-
-		fi
+	else 
+		echo -e "\e[31m\e[1mtransmission首次启动失败。\e[0m"
 	fi
 }
 
-#脚本开始安装aria2
+#aria2
 function aria2(){
-
+	function DOWNLOAD_ARIA2_WEBUI(){
+		cd /tmp
+		git clone https://github.com/ziahamza/webui-aria2.git
+		mv /tmp/webui-aria2/docs/* $ARIA2_WEBUI_ROOT
+		rm -fr /tmp/webui-aria2
+		systemctl restart nginx
+	}
 	CKECK_FILE_EXIST aria2
 	CHECK_VERSION aria2c aria2
 	clear
 	DOWNLOAD_PTAH "文件保存路径(/usr/downloads): " "/usr/downloads"
 	clear
-	read -p "输入密码(默认密码crazy_0): " key
-	key=${key:-crazy_0}
+	read -p "输入密码(默认密码crazy_0): " ARIA2_PASSWD
+	ARIA2_PASSWD=${ARIA2_PASSWD:-crazy_0}
+	read -p "输入RPC监听端口(6800): " ARIA2_PORT
+	ARIA2_PORT=${ARIA2_PORT:-6800}
+	if [[ "$(command -v nginx)" ]]; then
+		DOWNLOAD_ARIA2_WEBUI_=""
+		echo "检测到NGINX，是否下载WEBUI?(Y/n) "
+		read ENABLE_ARIA2_WEBUI
+		if [[ "$ENABLE_ARIA2_WEBUI" == "y" ]] || [[ "$ENABLE_ARIA2_WEBUI" == "" ]]; then
+			find / -name html
+			read -p "输入网站根目录(/usr/local/nginx/html)  " ARIA2_WEBUI_ROOT
+			ARIA2_WEBUI_ROOT=${ARIA2_WEBUI_ROOT:-/usr/local/nginx/html}
+			if ! [[ -d "$ARIA2_WEBUI_ROOT" ]]; then
+				echo "your full path no exist"
+				exit 0
+			else
+				if [[ "$(ls $ARIA2_WEBUI_ROOT)" ]]; then
+					echo "注意！输入的文件夹里发现文件，是否强制覆盖?"
+					read overwrite
+					if ! [[ "" == "$overwrite" ]]; then
+						echo "已将文件夹备份为后缀_BACKUP文件夹"
+						mv $ARIA2_WEBUI_ROOT ${ARIA2_WEBUI_ROOT}_BACKUP
+					fi
+					DOWNLOAD_ARIA2_WEBUI_="true"
+				fi
+			fi
+		fi
+	fi
 
 	if [[ "debian" == "$RUNNING_SYSTEM" ]]; then
 		$PKGMANAGER_INSTALL git libxml2-dev libcppunit-dev \
@@ -677,16 +709,19 @@ function aria2(){
 		c-ares-devel gnutls-devel libgcrypt-devel libxml2-devel \
 		sqlite-devel gettext xz-devel gperftools gperftools-devel \
 		gperftools-libs trousers-devel
-		ARIA2_AUTOCONF="autoreconf -i"
+		
 	fi
-
+	ARIA2_AUTOCONF="autoreconf -i"
+	libtoolize --automake --copy --debug  --force
 	git clone https://github.com/aria2/aria2.git && cd aria2
 
 	##静态编译
 	##autoreconf -i && ./configure ARIA2_STATIC=yes
 	
 	$ARIA2_AUTOCONF && ./configure
+	check "aria2c configure失败"
 	make && make install
+	check "aria2c编译安装失败"
 	rm -fr aria2
 
 	###相关编译报错引用https://weair.xyz/build-aria2/
@@ -708,58 +743,36 @@ function aria2(){
 	##aria2 config file
 
 	cat >$ARIA2_CONFIG_DIR/aria2.conf<<-EOF
-    rpc-secret=$key
-    enable-rpc=true
-    rpc-allow-origin-all=true
-    rpc-listen-all=true
-    max-concurrent-downloads=5
-    continue=true
-    max-connection-per-server=5
-    min-split-size=10M
-    split=16
-    max-overall-download-limit=0
-    max-download-limit=0
-    max-overall-upload-limit=0
-    max-upload-limit=0
-    dir=$dir
-    file-allocation=prealloc
+	rpc-secret=$ARIA2_PASSWD
+	enable-rpc=true
+	rpc-listen-port=$ARIA2_PORT
+	rpc-allow-origin-all=true
+	rpc-listen-all=true
+	max-concurrent-downloads=5
+	continue=true
+	max-connection-per-server=5
+	min-split-size=10M
+	split=16
+	max-overall-download-limit=0
+	max-download-limit=0
+	max-overall-upload-limit=0
+	max-upload-limit=0
+	dir=$dir
+	file-allocation=prealloc
 	EOF
 	systemctl daemon-reload
-	systemctl enable aria2
 	systemctl start aria2
-
-	clear
-	if [[ "$(command -v nginx)" ]]; then
-		echo "already installed nginx, download WEBUI?(Y/n) "
-		read ARIA2_WEBUI
-		if [[ "$ARIA2_WEBUI" == "y" ]] || [[ "$ARIA2_WEBUI" == "" ]]; then
-			find / -name html
-			read -p "full your web root  " ARIA2_WEBUI_ROOT
-			if ! [[ -d "$ARIA2_WEBUI_ROOT" ]]; then
-				echo "your full path no exist"
-				exit 0
-			else
-				if [[ "$(ls $ARIA2_WEBUI_ROOT)" ]]; then
-					echo "注意！输入的文件夹里发现文件，输入yes确定强制覆盖"
-					read overwrite
-					if ! [[ "yes" == "$overwrite" ]]; then
-						echo "已取消覆盖，退出！"
-						exit 0
-					fi
-				fi
-			fi
-			cd /tmp
-			git clone https://github.com/ziahamza/webui-aria2.git
-			mv /tmp/webui-aria2/docs/* $ARIA2_WEBUI_ROOT
-			rm -fr /tmp/webui-aria2
-			systemctl restart nginx
+	ARIA2_SERVICE_LIFE=`systemctl is-active aria2.service`
+	if [[ "active" == "$ARIA2_SERVICE_LIFE" ]]; then
+		systemctl enable aria2
+		echo -e "\e[32m\e[1maria2服务启动成功\e[0m"
+		if [[ "DOWNLOAD_ARIA2_WEBUI_" ]]; then
+			echo "开始下载WEBUI"
+			DOWNLOAD_ARIA2_WEBUI
 		fi
 	fi
-	# while [[ true ]]; do
 
-	# done
-
-	echo -e "\e[32m\e[1mTONKE:        ${key}\e[0m"
+	echo -e "\e[32m\e[1mTONKE:        ${ARIA2_PASSWD}\e[0m"
 	echo -e "\e[32m\e[1mDOWNLOAD_PTAH:${dir}\e[0m"
 	echo -e "\e[32m\e[1mCONFIG_JSON:  /etc/aria2/aria2.conf\e[0m"
 
@@ -965,7 +978,7 @@ function Project_X(){
 		systemctl daemon-reload
 		systemctl start xray
 		systemctl enable xray
-		systemctl restart nginxf
+		systemctl restart nginx
 
 		echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls&sni=$XRAY_DOMAIN&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
 
@@ -986,55 +999,68 @@ function trojan(){
 	done
 	CHECK_NGINX_443=`ss -lnp|grep ":443 "|grep nginx`
 	if [[ "$CHECK_NGINX_443" ]]; then
-		echo "NGINX正在监听443端口，检查SNI配置"
+		echo -e "\e[32m\e[1mNGINX正在监听443端口，检查SNI配置\e[0m"
 		echo "输入Trojan分流端口(非443)"
 		read TROJAN_HTTPS_PORT
 		CHECK_PORT "NOINPUT" $TROJAN_HTTPS_PORT
 		TROJAN_HTTPS_PORT=$port
-		NGINX_SNI $TROJAN_DOMAIN $TROJAN_HTTPS_PORT
 	else 
 		CHECK_PORT "NOINPUT" 443
 		TROJAN_HTTPS_PORT="443"
 	fi
-	echo "Trojan 回落端口: "
+	echo "Trojan 回落端口(5555): "
 	read TROJAN_CALLBACK_PORT
 	TROJAN_HTTP_PORT=${TROJAN_CALLBACK_PORT:-5555}
 	echo "设置trojan密码(默认trojanWdai1)"
 	echo "不可以包含#@?"
 	read TROJAN_PASSWD
 	TROJAN_PASSWD=${TROJAN_PASSWD:-trojanWdai1}
-	trojan_version=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
-	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 
-	wget https://github.com/trojan-gfw/trojan/releases/download/v${trojan_version}/trojan-${trojan_version}-linux-amd64.tar.xz && tar xvJf trojan-${trojan_version}-linux-amd64.tar.xz -C /etc
-	ln -s /etc/trojan/trojan /usr/bin/trojan
-	rm -f trojan-${trojan_version}-linux-amd64.tar.xz
-	TROJAN_CONFIG=/etc/trojan/config.json
-	sed -i '/password2/ d' $TROJAN_CONFIG
-	sed -i "/remote_port/ s/80/$TROJAN_HTTP_PORT/" $TROJAN_CONFIG
-	sed -i "/local_port/ s/443/$TROJAN_HTTPS_PORT/" $TROJAN_CONFIG
-	sed -i "/\"password1\",/ s/\"password1\",/\"$TROJAN_PASSWD\"/" $TROJAN_CONFIG
-	sed -i ":certificate: s:/path/to/certificate.crt:/ssl/${TROJAN_DOMAIN}.cer:" $TROJAN_CONFIG
-	sed -i ":private: s:/path/to/private.key:/ssl/${TROJAN_DOMAIN}.key:" $TROJAN_CONFIG
-
-	###crate service
-	cat >$SYSTEMD_SERVICES/trojan.service<<-EOF
-	[Unit]
-	Description=trojan Server
-	After=network.target
-	[Service]
-	ExecStart=/etc/trojan/trojan -c /etc/trojan/config.json
-	User=root
-	[Install]
-	WantedBy=multi-user.target
-	EOF
 	##申请SSL证书
 	acme.sh $TROJAN_DOMAIN
-	systemctl restart nginx
-	systemctl daemon-reload
-	systemctl start trojan
-	systemctl enable trojan
-	echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
+	if [[ -e "/ssl/${TROJAN_DOMAIN}.key" ]]; then
+		echo -e "\e[32m\e[1m已检测到证书\e[0m"
+		trojan_version=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
+		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
+
+		wget https://github.com/trojan-gfw/trojan/releases/download/v${trojan_version}/trojan-${trojan_version}-linux-amd64.tar.xz && tar xvJf trojan-${trojan_version}-linux-amd64.tar.xz -C /etc
+		ln -s /etc/trojan/trojan /usr/bin/trojan
+		rm -f trojan-${trojan_version}-linux-amd64.tar.xz
+
+		TROJAN_CONFIG=/etc/trojan/config.json
+		sed -i '/password2/ d' $TROJAN_CONFIG
+		sed -i "/remote_port/ s/80/$TROJAN_HTTP_PORT/" $TROJAN_CONFIG
+		sed -i "/local_port/ s/443/$TROJAN_HTTPS_PORT/" $TROJAN_CONFIG
+		sed -i "/\"password1\",/ s/\"password1\",/\"$TROJAN_PASSWD\"/" $TROJAN_CONFIG
+		sed -i ":certificate: s:/path/to/certificate.crt:/ssl/${TROJAN_DOMAIN}.cer:" $TROJAN_CONFIG
+		sed -i ":private: s:/path/to/private.key:/ssl/${TROJAN_DOMAIN}.key:" $TROJAN_CONFIG
+
+		###crate service
+		cat >$SYSTEMD_SERVICES/trojan.service<<-EOF
+		[Unit]
+		Description=trojan Server
+		After=network.target
+		[Service]
+		ExecStart=/etc/trojan/trojan -c /etc/trojan/config.json
+		User=root
+		[Install]
+		WantedBy=multi-user.target
+		EOF
+		systemctl daemon-reload
+		systemctl start trojan
+		NGINX_SERVICE_LIFE=`systemctl is-active trojan.service`
+		if [[ "active" == "$NGINX_SERVICE_LIFE" ]]; then
+			echo -e "\e[32m\e[1mtrojan服务启动成功\e[0m"
+			NGINX_SNI $TROJAN_DOMAIN $TROJAN_HTTPS_PORT
+			systemctl restart nginx
+			systemctl enable trojan
+			echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
+		fi
+	else 
+		"检测不到证书，退出"
+		return -1
+	fi
+
 }
 #脚本开始安装nginx
 function INSTALL_NGINX(){
@@ -1123,7 +1149,7 @@ function INSTALL_NGINX(){
 	systemctl enable nginx
 	###systemctl status nginx
 	clear
-	echo "编译nginx成功"
+	echo -e "\e[32m\e[1m编译nginx成功\e[0m"
 	echo "是否开启SSL配置?(Y/n) "
 	read ENAGLE_NGINX_SSL
 	if [[ "" == "$ENAGLE_NGINX_SSL" ]] || [[ "y" == "$ENAGLE_NGINX_SSL" ]]; then
@@ -1136,7 +1162,7 @@ function INSTALL_NGINX(){
 			#开始申请SSL证书
 			acme.sh "$NGINX_DOMAIN"
 			if [[ -e "/ssl/${NGINX_DOMAIN}".key ]]; then
-				echo "证书申请成功，开始写入ssl配置"
+				echo -e "\e[32m\e[1m证书申请成功，开始写入ssl配置\e[0m"
 				cat >${NGINX_SITE_ENABLED}/${NGINX_DOMAIN}<<-EOF
 				server {
 				    listen       4433 http2 ssl;
@@ -1186,7 +1212,7 @@ function caddy(){
 		read CADDY_HTTPS_PORT
 		CHECK_PORT "NOINPUT" $CADDY_HTTPS_PORT
 		CADDY_HTTPS_PORT=$port
-		CHECK_PORT "NOINPUT" 81
+		CHECK_PORT "NOINPUT" 16254
 		CADDY_HTTP_PORT=$port
 		#证书申请完之后再重启NGINX使SNI分流生效
 		#否则会因分流回落端口无响应导致申请证书失败
@@ -1207,7 +1233,7 @@ function caddy(){
 	fi
 
 	if ! [[ $(type -P go) ]]; then
-		echo "未配置GO环境，开始配置环境"
+		echo -e "\e[31m\e[1m未配置GO环境，开始配置环境\e[0m"
 		$PKGMANAGER_INSTALL wget
 		wget -P /tmp https://golang.google.cn/dl/go1.16.6.linux-amd64.tar.gz
 		tar zxvf /tmp/go1.16.6.linux-amd64.tar.gz -C /tmp/
@@ -1267,30 +1293,95 @@ function caddy(){
 			CHECK_CADDY_LIFE=`systemctl is-active caddy`
 			#active返回状态码0，其余返回非0
 			if [[ "active" == "$CHECK_CADDY_LIFE" ]]; then
-				echo "Caddy运行正常，开始写入SNI分流配置"
+				echo -e "\e[32m\e[1mCaddy运行正常\e[0m"
 				systemctl enable caddy
 				NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
 				systemctl restart nginx
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
 				echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
 			else
-				echo "检测不到Caddy监听端口"
-				echo "rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go"
-				echo "export PATH=$PATH:/tmp/go/bin"
+				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
+				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
 			fi
 		else
-			echo "caddy编译失败"
+			echo -e "\e[31m\e[1mcaddy编译失败\e[0m"
 			exit 1
 		fi
 		
 	else
-		echo "Go环境配置失败！"
+		echo -e "\e[31m\e[1mGo环境配置失败！\e[0m"
 		exit 1
 	fi
 }
-
+#hysteria
+function hysteria(){
+	while [[ true ]]; do
+		echo "输入域名，非空"
+		read hysteria_DOMAIN
+		if [[ "$hysteria_DOMAIN" ]]; then
+			break
+		fi
+	done
+	read -p "输入obfs混淆(io!jioOhu8eH)" hysteria_OBFS
+	hysteria_OBFS=${hysteria_OBFS:-io!jioOhu8eH}
+	read -p "输入认证密码(ieLj3fhG!o34)" hysteria_AUTH
+	hysteria_AUTH=${hysteria_AUTH:-ieLj3fhG!o34}
+	acme.sh "$hysteria_DOMAIN"
+	if [[ -e "/ssl/${hysteria_DOMAIN}.key" ]]; then
+		echo "已检测到证书"
+		hysteria_LATEST=`curl -s https://api.github.com/repos/HyNetwork/hysteria/releases/latest | grep tag_name|cut -f4 -d "\""`
+		hysteria_DOWNLOAD_LINK=https://github.com/HyNetwork/hysteria/releases/download/${hysteria_LATEST}/hysteria-linux-amd64
+		DESTINATION_PATH="/etc/hysteria"
+		mkdir $DESTINATION_PATH
+		wget -O ${DESTINATION_PATH}/hysteria $hysteria_DOWNLOAD_LINK
+		chmod +x ${DESTINATION_PATH}/hysteria
+		cat >${DESTINATION_PATH}/config.json<<-EOF
+		{
+		    "listen": ":443",
+		    "cert": "/ssl/${hysteria_DOMAIN}.cer",
+		    "key": "/ssl/${hysteria_DOMAIN}.key",
+		    "obfs": "${hysteria_OBFS}",
+		    "auth": {
+		        "mode": "password",
+		        "config": {
+		            "password": "$hysteria_AUTH"
+		        }
+		    },
+		    "up_mbps": 1000,
+		    "down_mbps": 1000
+		}
+		EOF
+		###crate service
+		cat >$SYSTEMD_SERVICES/hysteria.service<<-EOF
+		[Unit]
+		Description=hysteria Server
+		After=network.target
+		[Service]
+		ExecStart=/etc/hysteria/hysteria -config /etc/hysteria/config.json server
+		User=root
+		[Install]
+		WantedBy=multi-user.target
+		EOF
+		systemctl daemon-reload
+		systemctl start hysteria.service
+		echo 1
+		systemctl is-active hysteria.service
+		if [[ "active" == "`systemctl is-active hysteria.service`" ]]; then
+			echo 2
+			systemctl is-active hysteria.service
+			echo -e "\e[32m\e[1mhysteria已成功启动\e[0m"
+			echo $hysteria_DOMAIN
+			echo "obfs: "$hysteria_OBFS
+			echo "auth: "$hysteria_AUTH
+		else
+			echo -e "\e[31m\e[1m服务启动失败，检查报错信息\e[0m"
+		fi
+	else
+		echo -e "\e[31m\e[1m检测不到证书，安装退出\e[0m"
+	fi
+}
 echo "输入对应的数字选项:"
-select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy"
+select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy" "hysteria"
 do
 	case $option in
 		"acme.sh")
@@ -1319,6 +1410,9 @@ do
 			break;;
 		"caddy")
 			caddy
+			break;;
+		"hysteria")
+			hysteria
 			break;;
 		*)
 			echo "nothink to do"
