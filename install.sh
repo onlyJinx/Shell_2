@@ -29,7 +29,7 @@ function NGINX_SNI(){
 }
 function packageManager(){
 	SYSTEMD_SERVICES="/etc/systemd/system"
-	NGINX_CONFIG=/etc/nginx/conf/nginx.conf
+	NGINX_CONFIG="/etc/nginx/conf/nginx.conf"
 	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
 	NGINX_WEBROOT="/etc/nginx/html"
 	if [[ "$(type -P apt)" ]]; then
@@ -58,9 +58,10 @@ function CHECK_PORT(){
 		fi
 		myport=$(ss -lnp|grep :$port)
 		if [ -n "$myport" ];then
-			echo "端口$port已被占用,输入 y 关闭占用进程,输入 n 退出程序直接回车更换其他端口"
+			echo "端口${port}已被占用,回车关闭占用进程,输入n退出程序"
+			echo "直接输入端口号更换其他端口"
 			read sel
-			if [ "$sel" == "y" ] || [ "$sel" == "Y" ]; then
+			if [[ "$sel" == "" ]]; then
 				##关闭进程
 				ss -lnp|grep :$port|awk -F "pid=" '{print $2}'|sed 's/,.*//'|xargs kill -9
 				if ! [ -n "$(ss -lnp|grep :$port)" ]; then
@@ -73,8 +74,12 @@ function CHECK_PORT(){
 			elif [ "$sel" == "n" ] || [ "$sel" == "N" ]; then
 				echo "已取消操作"
 				exit 0
-			else
-				clear
+			elif [[ $sel -gt 0 ]]; then
+				CHECK_PORT "NOINPUT" $sel
+				break
+			else 
+				echo "非法操作！"
+				exit -1
 			fi
 		else
 			break
@@ -571,7 +576,7 @@ function transmission(){
 				fi
 			done
 		else 
-			echo "已确认取消HTTPS WEBUI配置"
+			echo -e "\e[31m\e[1m已确认取消HTTPS WEBUI配置\e[0m"
 		fi
 		
 	fi
@@ -616,8 +621,8 @@ function transmission(){
 	if ! [[ "$(cat /etc/sysctl.conf|grep 4195328)" ]]; then
 		echo "net.core.rmem_max=4195328" >> /etc/sysctl.conf
 		echo "net.core.wmem_max=4195328" >> /etc/sysctl.conf
-		/sbin/sysctl -p
-		/usr/sbin/sysctl -p
+		/sbin/sysctl -p > /dev/nul 2>&1
+		/usr/sbin/sysctl -p > /dev/nul 2>&1
 	fi
 	##首次启动，生成配置文件
 	systemctl start transmission.service
@@ -673,8 +678,8 @@ function aria2(){
 	clear
 	read -p "输入密码(默认密码crazy_0): " ARIA2_PASSWD
 	ARIA2_PASSWD=${ARIA2_PASSWD:-crazy_0}
-	read -p "输入RPC监听端口(6800): " ARIA2_PORT
-	ARIA2_PORT=${ARIA2_PORT:-6800}
+	CHECK_PORT "输入RPC监听端口(6800): " 6800
+	ARIA2_PORT=$port
 	if [[ "$(command -v nginx)" ]]; then
 		DOWNLOAD_ARIA2_WEBUI_=""
 		echo "检测到NGINX，是否下载WEBUI?(Y/n) "
@@ -704,7 +709,7 @@ function aria2(){
 		$PKGMANAGER_INSTALL git libxml2-dev libcppunit-dev \
 		autoconf automake autotools-dev autopoint libtool \
 		build-essential libtool pkg-config
-		ARIA2_AUTOCONF="autoreconf -i -I /usr/share/aclocal/"
+		#ARIA2_AUTOCONF="autoreconf -i -I /usr/share/aclocal/"
 	else
 		$PKGMANAGER_INSTALL gcc-c++ make libtool automake bison \
 		autoconf git intltool libssh2-devel expat-devel \
@@ -721,24 +726,21 @@ function aria2(){
 	##静态编译
 	##autoreconf -i && ./configure ARIA2_STATIC=yes
 	
-	$ARIA2_AUTOCONF && ./configure
+	$ARIA2_AUTOCONF && ./configure --prefix=/etc/aria2
 	check "aria2c configure失败"
 	make && make install
 	check "aria2c编译安装失败"
-	rm -fr aria2
-
+	#rm -fr aria2
+	ln -s /etc/aria2/bin/aria2c /usr/local/bin/aria2c
 	###相关编译报错引用https://weair.xyz/build-aria2/
 	check "aria2c编译安装失败"
 	ARIA2_CONFIG_DIR="/etc/aria2"
-	if ! [[ -d "$ARIA2_CONFIG_DIR" ]]; then
-		mkdir $ARIA2_CONFIG_DIR
-	fi
 	cat >$SYSTEMD_SERVICES/aria2.service<<-EOF
 	[Unit]
 	Description=aria2c
 	After=network.target
 	[Service]
-	ExecStart=/usr/local/bin/aria2c --conf-path=$ARIA2_CONFIG_DIR/aria2.conf
+	ExecStart=/etc/aria2/bin/aria2c --conf-path=$ARIA2_CONFIG_DIR/aria2.conf
 	User=root
 	[Install]
 	WantedBy=multi-user.target
@@ -769,16 +771,17 @@ function aria2(){
 	if [[ "active" == "$ARIA2_SERVICE_LIFE" ]]; then
 		systemctl enable aria2
 		echo -e "\e[32m\e[1maria2服务启动成功\e[0m"
-		if [[ "DOWNLOAD_ARIA2_WEBUI_" ]]; then
-			echo "开始下载WEBUI"
+		if [[ "$DOWNLOAD_ARIA2_WEBUI_" ]]; then
+			echo -e "\e[32m\e[1m开始下载WEBUI\e[0m"
 			DOWNLOAD_ARIA2_WEBUI
 		fi
+		echo -e "\e[32m\e[1mPORT:        ${ARIA2_PORT}\e[0m"
+		echo -e "\e[32m\e[1mTONKE:        ${ARIA2_PASSWD}\e[0m"
+		echo -e "\e[32m\e[1mDOWNLOAD_PTAH:${dir}\e[0m"
+		echo -e "\e[32m\e[1mCONFIG_JSON:  /etc/aria2/aria2.conf\e[0m"
+	else 
+		echo -e "\e[31m\e[1maria2服务启动失败，请检查error log\e[0m"
 	fi
-
-	echo -e "\e[32m\e[1mTONKE:        ${ARIA2_PASSWD}\e[0m"
-	echo -e "\e[32m\e[1mDOWNLOAD_PTAH:${dir}\e[0m"
-	echo -e "\e[32m\e[1mCONFIG_JSON:  /etc/aria2/aria2.conf\e[0m"
-
 }
 
 #脚本开始安装内核更新
@@ -842,7 +845,7 @@ function Up_kernel(){
 	fi
 
 }
-#脚本开始安装xray
+#xray
 function Project_X(){
 	function INSTALL_BINARY(){
 		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
@@ -1383,6 +1386,7 @@ function hysteria(){
 		echo -e "\e[31m\e[1m检测不到证书，安装退出\e[0m"
 	fi
 }
+
 echo -e "\e[31m\e[1m输入对应的数字选项:\e[0m"
 select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy" "hysteria"
 do
