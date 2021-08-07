@@ -1170,10 +1170,10 @@ function INSTALL_NGINX(){
 			acme.sh "$NGINX_DOMAIN"
 			if [[ -e "/ssl/${NGINX_DOMAIN}".key ]]; then
 				echo -e "\e[32m\e[1m证书申请成功，开始写入ssl配置\e[0m"
-				cat >${NGINX_SITE_ENABLED}/${NGINX_DOMAIN}<<-EOF
+				cat >${NGINX_SITE_ENABLED}/Default<<-EOF
 				server {
 				    listen       4433 http2 ssl;
-				    server_name  ${NGINX_DOMAIN};
+				    server_name  ${NGINX_DOMAIN} default;
 				    ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
 				    ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
 				    ssl_session_cache    shared:SSL:1m;
