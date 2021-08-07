@@ -996,6 +996,40 @@ function Project_X(){
 }
 #trojan
 function trojan(){
+	TROJAN_LAEST_VERSION=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
+	TROJAN_CONFIG=/etc/trojan/config.json
+	function TROJAN_BINARY(){
+		cd /tmp
+		wget https://github.com/trojan-gfw/trojan/releases/download/v${TROJAN_LAEST_VERSION}/trojan-${TROJAN_LAEST_VERSION}-linux-amd64.tar.xz 
+		tar xvJf trojan-${TROJAN_LAEST_VERSION}-linux-amd64.tar.xz
+		mv /tmp/trojan/trojan /etc/trojan/trojan
+		if ! [[ -e "/etc/trojan/config.json" ]]; then
+			mv /tmp/trojan/config.json /etc/trojan/config.json
+		fi
+		ln -s /etc/trojan/trojan /usr/bin/trojan
+		rm -fr trojan-${TROJAN_LAEST_VERSION}-linux-amd64.tar.xz trojan
+	}
+	if [[ "$(type -P trojan)" ]]; then
+		TROJAN_CURRENT_CERSION=$(/etc/trojan/trojan -v 2>&1 | grep Welcome | cut -d ' ' -f4)
+		echo -e "\e[32m\e[1m检测到已安装trojan v${TROJAN_CURRENT_CERSION}\e[0m"
+		echo -e "\e[32m\e[1m当前服务端最新版v${TROJAN_LAEST_VERSION}\e[0m"
+		echo "回车只更新binary(不丢配置),输入new全新安装,输入其他任意键退出"
+		read TROJAN_CONFIRM
+		if [[ "" == "$TROJAN_CONFIRM" ]]; then
+			TROJAN_BINARY
+			echo -e "\e[32m\e[1m已更新成功,版本信息显示\e[0m"
+			systemctl restart trojan
+			/etc/trojan/trojan -v 2>&1 | grep Welcome
+			exit 0
+		elif [[ "new" == "$TROJAN_CONFIRM" ]]; then
+			rm -f $TROJAN_CONFIG
+			echo "开始安装Trojan"
+		else 
+			echo "已取消安装"
+			exit 0
+		fi
+	fi
+	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 	while [[ true ]]; do
 		echo "输入Trojan域名"
 		read ENTER_TROJAN_DOMAIN
@@ -1027,14 +1061,8 @@ function trojan(){
 	acme.sh $TROJAN_DOMAIN
 	if [[ -e "/ssl/${TROJAN_DOMAIN}.key" ]]; then
 		echo -e "\e[32m\e[1m已检测到证书\e[0m"
-		trojan_version=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
-		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
-
-		wget https://github.com/trojan-gfw/trojan/releases/download/v${trojan_version}/trojan-${trojan_version}-linux-amd64.tar.xz && tar xvJf trojan-${trojan_version}-linux-amd64.tar.xz -C /etc
-		ln -s /etc/trojan/trojan /usr/bin/trojan
-		rm -f trojan-${trojan_version}-linux-amd64.tar.xz
-
-		TROJAN_CONFIG=/etc/trojan/config.json
+		mkdir /etc/trojan
+		TROJAN_BINARY
 		sed -i '/password2/ d' $TROJAN_CONFIG
 		sed -i "/remote_port/ s/80/$TROJAN_HTTP_PORT/" $TROJAN_CONFIG
 		sed -i "/local_port/ s/443/$TROJAN_HTTPS_PORT/" $TROJAN_CONFIG
