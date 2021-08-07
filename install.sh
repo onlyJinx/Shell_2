@@ -64,12 +64,16 @@ function CHECK_PORT(){
 			read sel
 			if [[ "$sel" == "" ]]; then
 				##关闭进程
-				ss -lnp|grep :$port|awk -F "pid=" '{print $2}'|sed 's/,.*//'|xargs kill -9
+				if [[ $(echo $myport | grep nginx) ]]; then
+					systemctl stop nginx
+				else 
+					ss -lnp|grep :$port|awk -F "pid=" '{print $2}'|sed 's/,.*//'|xargs kill -9
+				fi
 				if ! [ -n "$(ss -lnp|grep :$port)" ]; then
-					echo "已终止占用端口进程"
+					echo -e "\e[32m\e[1m已终止占用端口进程\e[0m"
 					break
 				else
-					echo "进程关闭失败,请手动关闭"
+					echo -e "\e[31m\e[1m进程关闭失败,请手动关闭\e[0m"
 					exit 1
 				fi
 			elif [ "$sel" == "n" ] || [ "$sel" == "N" ]; then
@@ -1012,8 +1016,8 @@ function trojan(){
 	}
 	if [[ "$(type -P trojan)" ]]; then
 		TROJAN_CURRENT_CERSION=$(/etc/trojan/trojan -v 2>&1 | grep Welcome | cut -d ' ' -f4)
-		echo -e "\e[32m\e[1m检测到已安装trojan v${TROJAN_CURRENT_CERSION}\e[0m"
-		echo -e "\e[32m\e[1m当前服务端最新版v${TROJAN_LAEST_VERSION}\e[0m"
+		echo -e "检测到已安装trojan v\e[32m\e[1m${TROJAN_CURRENT_CERSION}\e[0m"
+		echo -e "当前服务端最新版v\e[32m\e[1m${TROJAN_LAEST_VERSION}\e[0m"
 		echo "回车只更新binary(不丢配置),输入new全新安装,输入其他任意键退出"
 		read TROJAN_CONFIRM
 		if [[ "" == "$TROJAN_CONFIRM" ]]; then
@@ -1102,12 +1106,56 @@ function trojan(){
 function INSTALL_NGINX(){
 	CHECK_PORT "NOINPUT" 443
 	CHECK_PORT "NOINPUT" 80
-	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
-	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
-	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
 	NGINX_CONFIG=/etc/nginx/conf/nginx.conf
 	NGINX_BIN=/etc/nginx/sbin/nginx
 	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
+
+	function NGINX_BINARY(){
+		wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${NGINX_VERSION}.tar.gz -C /tmp/ && cd /tmp/nginx-$NGINX_VERSION
+		if [[ -e "/tmp/nginx-${NGINX_VERSION}.tar.gz" ]]; then
+			./configure \
+			--prefix=/etc/nginx \
+			--pid-path=/run/nginx.pid \
+			--lock-path=/run/nginx.lock \
+			--with-http_ssl_module \
+			--with-http_stub_status_module \
+			--with-http_realip_module \
+			--with-threads \
+			--with-stream_ssl_module \
+			--with-http_v2_module \
+			--with-stream_ssl_preread_module \
+			--with-stream=dynamic
+
+			make && make install
+			check "编译nginx失败！"
+			#清理残留
+			rm -fr /tmp/nginx-$NGINX_VERSION
+		else 
+			echo -e "\e[32m\e[1m找不到nginx压缩包,检查是否下载成功。\e[0m"
+			exit 0
+		fi
+
+	}
+	if [[ -e $NGINX_BIN ]]; then
+		NGINX_CURRENT_VERSION=`$NGINX_BIN -v 2>&1 | cut -d '/' -f2`
+		echo -e "已检测到nginx v\e[32m\e[1m${NGINX_CURRENT_VERSION}\e[0m,是否继续编译更新版本?(Y/n)"
+		read NGINX_UPDATE_COMFIRM
+		if [[ "" == "$NGINX_UPDATE_COMFIRM" ]]; then
+			read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
+			NGINX_VERSION=${NGINX_VERSION:-1.21.1}
+			nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
+			systemctl stop nginx
+			NGINX_BINARY
+			systemctl start nginx
+			echo -e "\e[32m\e[1m编译完成,显示当前版本号\e[0m"
+			$NGINX_BIN -v
+			return 0
+		else 
+			echo -e "\e[32m\e[1m已取消操作！\e[0m"
+			systemctl start nginx
+			exit 0
+		fi
+	fi
 
 	##安装依赖
 	if [[ "$(type -P apt)" ]]; then
@@ -1118,26 +1166,11 @@ function INSTALL_NGINX(){
 		echo "error: The script does not support the package manager in this operating system."
 		exit 1
 	fi
-
-	wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${NGINX_VERSION}.tar.gz -C /tmp/ && cd /tmp/nginx-$NGINX_VERSION
-	./configure \
-	--prefix=/etc/nginx \
-	--pid-path=/run/nginx.pid \
-	--lock-path=/run/nginx.lock \
-	--with-http_ssl_module \
-	--with-http_stub_status_module \
-	--with-http_realip_module \
-	--with-threads \
-	--with-stream_ssl_module \
-	--with-http_v2_module \
-	--with-stream_ssl_preread_module \
-	--with-stream=dynamic
-
-	make && make install
-	check "编译nginx失败！"
-
-	#清理残留
-	rm -fr /tmp/nginx-$NGINX_VERSION
+	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
+	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
+	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
+	#开始编译
+	NGINX_BINARY
 
 	ln -s /etc/nginx/sbin/nginx /usr/bin/nginx
 	mv $NGINX_CONFIG ${NGINX_CONFIG}_backup
