@@ -13,6 +13,7 @@ function NGINX_SNI(){
 	NGINX_BIN="$(command -v nginx)"
 	if [[ "$NGINX_BIN" ]]; then
 		NGINX_SNI_CONFIG="$NGINX_CONFIG"
+		sed -i "/$1/d" $NGINX_SNI_CONFIG
 		if [[ `cat $NGINX_SNI_CONFIG | grep ssl_preread_server_name` ]];then
 			echo "检测到NGINX_SNI配置"
 			sed -i "/ssl_preread_server_name/a\ \ \ \ \ \ \ \ $1 127.0.0.1:$2;" $NGINX_SNI_CONFIG
@@ -856,7 +857,7 @@ function Project_X(){
 		fi
 		unzip -o /tmp/Xray-linux-64.zip -d /tmp
 		if ! [[ -d /usr/local/share/xray ]];then
-			mkdir /usr/local/share/xray
+			mkdir -p /usr/local/share/xray
 		fi
 		alias mv='mv -i'
 		mv /tmp/geoip.dat /usr/local/share/xray/geoip.dat
