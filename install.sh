@@ -12,7 +12,7 @@ function NGINX_SNI(){
 	#域名 端口
 	NGINX_BIN="$(command -v nginx)"
 	if [[ "$NGINX_BIN" ]]; then
-		NGINX_SNI_CONFIG="/usr/local/nginx/conf/nginx.conf"
+		NGINX_SNI_CONFIG="$NGINX_CONFIG"
 		if [[ `cat $NGINX_SNI_CONFIG | grep ssl_preread_server_name` ]];then
 			echo "检测到NGINX_SNI配置"
 			sed -i "/ssl_preread_server_name/a\ \ \ \ \ \ \ \ $1 127.0.0.1:$2;" $NGINX_SNI_CONFIG
@@ -29,6 +29,9 @@ function NGINX_SNI(){
 }
 function packageManager(){
 	SYSTEMD_SERVICES="/etc/systemd/system"
+	NGINX_CONFIG="/etc/nginx/conf/nginx.conf"
+	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
+	NGINX_WEBROOT="/etc/nginx/html"
 	if [[ "$(type -P apt)" ]]; then
 		PKGMANAGER_INSTALL="apt install -y --no-install-recommends"
 		PKGMANAGER_UNINSTALL="apt remove -y"
@@ -55,9 +58,10 @@ function CHECK_PORT(){
 		fi
 		myport=$(ss -lnp|grep :$port)
 		if [ -n "$myport" ];then
-			echo "端口$port已被占用,输入 y 关闭占用进程,输入 n 退出程序直接回车更换其他端口"
+			echo "端口${port}已被占用,回车关闭占用进程,输入n退出程序"
+			echo "直接输入端口号更换其他端口"
 			read sel
-			if [ "$sel" == "y" ] || [ "$sel" == "Y" ]; then
+			if [[ "$sel" == "" ]]; then
 				##关闭进程
 				ss -lnp|grep :$port|awk -F "pid=" '{print $2}'|sed 's/,.*//'|xargs kill -9
 				if ! [ -n "$(ss -lnp|grep :$port)" ]; then
@@ -70,8 +74,12 @@ function CHECK_PORT(){
 			elif [ "$sel" == "n" ] || [ "$sel" == "N" ]; then
 				echo "已取消操作"
 				exit 0
-			else
-				clear
+			elif [[ $sel -gt 0 ]]; then
+				CHECK_PORT "NOINPUT" $sel
+				break
+			else 
+				echo "非法操作！"
+				exit -1
 			fi
 		else
 			break
@@ -143,7 +151,7 @@ function acme.sh(){
 	NEED_INSTALL_CERT="1"
 	CERT_INSTALL_PATH="/ssl"
 	ACME_PATH_RUN="/root/.acme.sh/acme.sh"
-	DEFAULT_WEB_ROOT="/usr/local/nginx/html/"
+	DEFAULT_WEB_ROOT="$NGINX_WEBROOT"
 	#第一次手动DNS校验时保存的文件，用于第二次renew
 	DOMAIN_AUTH_TEMP="/tmp/DOMAIN_AUTH_TEMP.TMP.5884748"
 	function ACME_DNS_API(){
@@ -179,7 +187,7 @@ function acme.sh(){
 		else
 			echo -e "\e[32m\e[1m检测到80端口占用，尝试列出所有html目录。\e[0m"
 			find / -name html
-			read -p "输入网站根目录(/usr/local/nginx/html): " ENTER_NGINX_PTAH
+			read -p "输入网站根目录(${NGINX_WEBROOT}): " ENTER_NGINX_PTAH
 			ENTER_NGINX_PTAH=${ENTER_NGINX_PTAH:-$DEFAULT_WEB_ROOT}
 			WEB_ROOT="--webroot "$ENTER_NGINX_PTAH
 			if ! [[ -d "$ENTER_NGINX_PTAH" ]]; then
@@ -500,7 +508,7 @@ function transmission(){
 	}
 
 	function TRANSMISSION_CREATE_NGINX_SITE(){
-		cat >/usr/local/nginx/conf/sites-enabled/${TRANSMISSION_DOMAIN}<<-EOF
+		cat >$NGINX_SITE_ENABLED/${TRANSMISSION_DOMAIN}<<-EOF
 		server {
 		    listen       4433 http2 ssl;
 		    server_name  ${TRANSMISSION_DOMAIN};
@@ -540,7 +548,7 @@ function transmission(){
 	DOWNLOAD_PTAH "文件保存路径(默认/usr/downloads): " "/usr/downloads"
 	check "downloads文件夹创建失败！"
 
-	TRANSMISSION_NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
+	TRANSMISSION_NGINX_CONFIG=$NGINX_CONFIG
 	if [[ -e $TRANSMISSION_NGINX_CONFIG ]];then
 		echo "检测到NGINX配置文件，是否开启https WEBUI反代?(Y/n) "
 		OUTPUT_HTTPS_LOGIN_ADDR=""
@@ -568,7 +576,7 @@ function transmission(){
 				fi
 			done
 		else 
-			echo "已确认取消HTTPS WEBUI配置"
+			echo -e "\e[31m\e[1m已确认取消HTTPS WEBUI配置\e[0m"
 		fi
 		
 	fi
@@ -587,7 +595,7 @@ function transmission(){
 	wget https://github.com/transmission/transmission-releases/raw/master/transmission-3.00.tar.xz
 	tar xf transmission-3.00.tar.xz && cd transmission-3.00
 
-	./autogen.sh && make && make install
+	./configure --prefix=/etc/transmission  && make && make install
 	rm -fr ../transmission-3.00 ../transmission-3.00.tar.xz
 	###检查返回状态码
 	check "transmission编译失败！"
@@ -601,7 +609,7 @@ function transmission(){
 	[Service]
 	User=root
 	Type=simple
-	ExecStart=/usr/local/bin/transmission-daemon -f --log-error
+	ExecStart=/etc/transmission/bin/transmission-daemon -f --log-error
 	ExecStop=/bin/kill -s STOP \$MAINPID
 	ExecReload=/bin/kill -s HUP \$MAINPID
 
@@ -613,8 +621,8 @@ function transmission(){
 	if ! [[ "$(cat /etc/sysctl.conf|grep 4195328)" ]]; then
 		echo "net.core.rmem_max=4195328" >> /etc/sysctl.conf
 		echo "net.core.wmem_max=4195328" >> /etc/sysctl.conf
-		/sbin/sysctl -p
-		/usr/sbin/sysctl -p
+		/sbin/sysctl -p > /dev/nul 2>&1
+		/usr/sbin/sysctl -p > /dev/nul 2>&1
 	fi
 	##首次启动，生成配置文件
 	systemctl start transmission.service
@@ -632,8 +640,8 @@ function transmission(){
 			##替换webUI
 			cd ~
 			git clone https://github.com/ronggang/transmission-web-control.git
-			mv /usr/local/share/transmission/web/index.html /usr/local/share/transmission/web/index.original.html
-			mv /root/transmission-web-control/src/* /usr/local/share/transmission/web/
+			mv /etc/transmission/share/transmission/web/index.html /etc/transmission/share/transmission/web/index.original.html
+			mv /root/transmission-web-control/src/* /etc/transmission/share/transmission/web/
 			rm -fr transmission-web-control
 			systemctl start transmission.service
 			systemctl enable transmission.service
@@ -670,22 +678,22 @@ function aria2(){
 	clear
 	read -p "输入密码(默认密码crazy_0): " ARIA2_PASSWD
 	ARIA2_PASSWD=${ARIA2_PASSWD:-crazy_0}
-	read -p "输入RPC监听端口(6800): " ARIA2_PORT
-	ARIA2_PORT=${ARIA2_PORT:-6800}
+	CHECK_PORT "输入RPC监听端口(6800): " 6800
+	ARIA2_PORT=$port
 	if [[ "$(command -v nginx)" ]]; then
 		DOWNLOAD_ARIA2_WEBUI_=""
 		echo "检测到NGINX，是否下载WEBUI?(Y/n) "
 		read ENABLE_ARIA2_WEBUI
 		if [[ "$ENABLE_ARIA2_WEBUI" == "y" ]] || [[ "$ENABLE_ARIA2_WEBUI" == "" ]]; then
 			find / -name html
-			read -p "输入网站根目录(/usr/local/nginx/html)  " ARIA2_WEBUI_ROOT
-			ARIA2_WEBUI_ROOT=${ARIA2_WEBUI_ROOT:-/usr/local/nginx/html}
+			read -p "输入网站根目录(${NGINX_WEBROOT})  " ARIA2_WEBUI_ROOT
+			ARIA2_WEBUI_ROOT=${ARIA2_WEBUI_ROOT:-/etc/nginx/html}
 			if ! [[ -d "$ARIA2_WEBUI_ROOT" ]]; then
 				echo "your full path no exist"
 				exit 0
 			else
 				if [[ "$(ls $ARIA2_WEBUI_ROOT)" ]]; then
-					echo "注意！输入的文件夹里发现文件，是否强制覆盖?"
+					echo "注意！输入的文件夹里发现文件，是否强制覆盖(Y/n)?"
 					read overwrite
 					if ! [[ "" == "$overwrite" ]]; then
 						echo "已将文件夹备份为后缀_BACKUP文件夹"
@@ -701,7 +709,7 @@ function aria2(){
 		$PKGMANAGER_INSTALL git libxml2-dev libcppunit-dev \
 		autoconf automake autotools-dev autopoint libtool \
 		build-essential libtool pkg-config
-		ARIA2_AUTOCONF="autoreconf -i -I /usr/share/aclocal/"
+		#ARIA2_AUTOCONF="autoreconf -i -I /usr/share/aclocal/"
 	else
 		$PKGMANAGER_INSTALL gcc-c++ make libtool automake bison \
 		autoconf git intltool libssh2-devel expat-devel \
@@ -718,24 +726,21 @@ function aria2(){
 	##静态编译
 	##autoreconf -i && ./configure ARIA2_STATIC=yes
 	
-	$ARIA2_AUTOCONF && ./configure
+	$ARIA2_AUTOCONF && ./configure --prefix=/etc/aria2
 	check "aria2c configure失败"
 	make && make install
 	check "aria2c编译安装失败"
-	rm -fr aria2
-
+	#rm -fr aria2
+	ln -s /etc/aria2/bin/aria2c /usr/local/bin/aria2c
 	###相关编译报错引用https://weair.xyz/build-aria2/
 	check "aria2c编译安装失败"
 	ARIA2_CONFIG_DIR="/etc/aria2"
-	if ! [[ -d "$ARIA2_CONFIG_DIR" ]]; then
-		mkdir $ARIA2_CONFIG_DIR
-	fi
 	cat >$SYSTEMD_SERVICES/aria2.service<<-EOF
 	[Unit]
 	Description=aria2c
 	After=network.target
 	[Service]
-	ExecStart=/usr/local/bin/aria2c --conf-path=$ARIA2_CONFIG_DIR/aria2.conf
+	ExecStart=/etc/aria2/bin/aria2c --conf-path=$ARIA2_CONFIG_DIR/aria2.conf
 	User=root
 	[Install]
 	WantedBy=multi-user.target
@@ -766,16 +771,17 @@ function aria2(){
 	if [[ "active" == "$ARIA2_SERVICE_LIFE" ]]; then
 		systemctl enable aria2
 		echo -e "\e[32m\e[1maria2服务启动成功\e[0m"
-		if [[ "DOWNLOAD_ARIA2_WEBUI_" ]]; then
-			echo "开始下载WEBUI"
+		if [[ "$DOWNLOAD_ARIA2_WEBUI_" ]]; then
+			echo -e "\e[32m\e[1m开始下载WEBUI\e[0m"
 			DOWNLOAD_ARIA2_WEBUI
 		fi
+		echo -e "\e[32m\e[1mPORT:        ${ARIA2_PORT}\e[0m"
+		echo -e "\e[32m\e[1mTONKE:        ${ARIA2_PASSWD}\e[0m"
+		echo -e "\e[32m\e[1mDOWNLOAD_PTAH:${dir}\e[0m"
+		echo -e "\e[32m\e[1mCONFIG_JSON:  /etc/aria2/aria2.conf\e[0m"
+	else 
+		echo -e "\e[31m\e[1maria2服务启动失败，请检查error log\e[0m"
 	fi
-
-	echo -e "\e[32m\e[1mTONKE:        ${ARIA2_PASSWD}\e[0m"
-	echo -e "\e[32m\e[1mDOWNLOAD_PTAH:${dir}\e[0m"
-	echo -e "\e[32m\e[1mCONFIG_JSON:  /etc/aria2/aria2.conf\e[0m"
-
 }
 
 #脚本开始安装内核更新
@@ -839,7 +845,7 @@ function Up_kernel(){
 	fi
 
 }
-#脚本开始安装xray
+#xray
 function Project_X(){
 	function INSTALL_BINARY(){
 		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
@@ -940,9 +946,9 @@ function Project_X(){
 		WantedBy=multi-user.target
 		EOF
 
-		XRAY_NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
+		XRAY_NGINX_CONFIG=$NGINX_CONFIG
 		if [[ -e $XRAY_NGINX_CONFIG ]];then
-			cat >/usr/local/nginx/conf/sites-enabled/${XRAY_DOMAIN}<<-EOF
+			cat >$NGINX_SITE_ENABLED/${XRAY_DOMAIN}<<-EOF
 			server {
 			    listen       4433 http2 ssl;
 			    server_name  ${XRAY_DOMAIN};
@@ -1062,14 +1068,16 @@ function trojan(){
 	fi
 
 }
-#脚本开始安装nginx
+#nginx
 function INSTALL_NGINX(){
 	CHECK_PORT "NOINPUT" 443
 	CHECK_PORT "NOINPUT" 80
 	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
 	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
 	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
-	NGINX_CONFIG=/usr/local/nginx/conf/nginx.conf
+	NGINX_CONFIG=/etc/nginx/conf/nginx.conf
+	NGINX_BIN=/etc/nginx/sbin/nginx
+	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
 
 	##安装依赖
 	if [[ "$(type -P apt)" ]]; then
@@ -1083,7 +1091,7 @@ function INSTALL_NGINX(){
 
 	wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${NGINX_VERSION}.tar.gz -C /tmp/ && cd /tmp/nginx-$NGINX_VERSION
 	./configure \
-	--prefix=/usr/local/nginx \
+	--prefix=/etc/nginx \
 	--pid-path=/run/nginx.pid \
 	--lock-path=/run/nginx.lock \
 	--with-http_ssl_module \
@@ -1101,11 +1109,10 @@ function INSTALL_NGINX(){
 	#清理残留
 	rm -fr /tmp/nginx-$NGINX_VERSION
 
-	ln -s /usr/local/nginx/sbin/nginx /usr/bin/nginx
+	ln -s /etc/nginx/sbin/nginx /usr/bin/nginx
 	mv $NGINX_CONFIG ${NGINX_CONFIG}_backup
-	wget -O /usr/local/nginx/conf/nginx.conf https://raw.githubusercontent.com/onlyJinx/Shell_2/main/nginxForFsGrpc.conf
+	wget -O $NGINX_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/nginxForFsGrpc.conf
 	echo "export ngp=$NGINX_CONFIG" >> /etc/profile
-	source /etc/profile
 	
 	###crate service
 	#单双引号不转义，反单引号 $ 要转
@@ -1122,8 +1129,8 @@ function INSTALL_NGINX(){
 			[Service]
 			Type=forking
 			PIDFile=/run/nginx.pid
-			ExecStartPre=/usr/local/nginx/sbin/nginx -t -c $NGINX_CONFIG
-			ExecStart=/usr/local/nginx/sbin/nginx -c $NGINX_CONFIG
+			ExecStartPre=$NGINX_BIN -t -c $NGINX_CONFIG
+			ExecStart=$NGINX_BIN -c $NGINX_CONFIG
 			ExecReload=/bin/kill -s HUP \$MAINPID
 			ExecStop=/bin/kill -s TERM \$MAINPID
 
@@ -1141,7 +1148,6 @@ function INSTALL_NGINX(){
 		exit 1
 	fi
 	#创建配置文件夹
-	NGINX_SITE_ENABLED="/usr/local/nginx/conf/sites-enabled"
 	mkdir $NGINX_SITE_ENABLED
 	###nginx编译引用自博客
 	###https://www.cnblogs.com/stulzq/p/9291223.html
@@ -1175,8 +1181,8 @@ function INSTALL_NGINX(){
 				    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
 				    ssl_prefer_server_ciphers  on;
 				    location / {
-					root   html;
-					index  index.html index.htm;
+				        root   html;
+				        index  index.html index.htm;
 				    }
 				}
 				EOF
@@ -1262,7 +1268,7 @@ function caddy(){
 				            probe_resistance
 				        }
 				        file_server { 
-				            root /usr/local/nginx/html
+				            root $NGINX_WEBROOT
 				        }
 				    }
 				}
@@ -1380,7 +1386,8 @@ function hysteria(){
 		echo -e "\e[31m\e[1m检测不到证书，安装退出\e[0m"
 	fi
 }
-echo "输入对应的数字选项:"
+
+echo -e "\e[31m\e[1m输入对应的数字选项:\e[0m"
 select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy" "hysteria"
 do
 	case $option in
