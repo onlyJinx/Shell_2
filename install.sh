@@ -1147,8 +1147,8 @@ function INSTALL_NGINX(){
 			systemctl stop nginx
 			NGINX_BINARY
 			systemctl start nginx
-			echo -e "\e[32m\e[1m编译完成,显示当前版本号\e[0m"
-			$NGINX_BIN -v
+			NGINX_CURRENT_VERSION=`$NGINX_BIN -v 2>&1 | cut -d '/' -f2`
+			echo -e "\e[32m\e[1m编译完成,当前版本号: ${NGINX_CURRENT_VERSION}\e[0m"
 			return 0
 		else 
 			echo -e "\e[32m\e[1m已取消操作！\e[0m"
