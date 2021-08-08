@@ -31,13 +31,18 @@ function NGINX_SNI(){
 function FORAM_DOMAIN(){
 	read FORAM_DOMAIN_ENTER
 	if [[ "" == "$FORAM_DOMAIN_ENTER" ]]; then
-		echo -e "\e[31m\e[1m域名不可为空，重新输入！\e[0m"
+		echo -e "\e[31m\e[1m域名不可为空,重新输入！\e[0m"
 		FORAM_DOMAIN
 		return 0
+	elif ! [[ `echo $FORAM_DOMAIN_ENTER|grep '\.'` ]]; then
+		echo -e "\e[31m\e[1m输入的域名不规范,重新输入！\e[0m"
+		FORAM_DOMAIN
+		return 0		
 	elif [[ `echo $FORAM_DOMAIN_ENTER | grep http` ]]; then
 		FORAM_DOMAIN_ENTER=`echo $FORAM_DOMAIN_ENTER | cut -d '/' -f3`
 	fi
 	RETURN_DOMAIN=$FORAM_DOMAIN_ENTER
+	echo -e "\e[31m\e[1m已格式化域名${RETURN_DOMAIN}\e[0m"
 }
 function packageManager(){
 	SYSTEMD_SERVICES="/etc/systemd/system"
@@ -1172,6 +1177,14 @@ function INSTALL_NGINX(){
 	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
 	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
 	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
+	echo "是否开启SSL配置?(Y/n) "
+	read ENAGLE_NGINX_SSL
+	if [[ "" == "$ENAGLE_NGINX_SSL" ]] || [[ "y" == "$ENAGLE_NGINX_SSL" ]]; then
+		echo "输入NGING 域名"
+		FORAM_DOMAIN
+		NGINX_DOMAIN=$RETURN_DOMAIN
+		ENAGLE_NGINX_SSL_=true
+	fi
 
 	##安装依赖
 	if [[ "$(type -P apt)" ]]; then
@@ -1232,39 +1245,35 @@ function INSTALL_NGINX(){
 	###systemctl status nginx
 	clear
 	echo -e "\e[32m\e[1m编译nginx成功\e[0m"
-	echo "是否开启SSL配置?(Y/n) "
-	read ENAGLE_NGINX_SSL
-	if [[ "" == "$ENAGLE_NGINX_SSL" ]] || [[ "y" == "$ENAGLE_NGINX_SSL" ]]; then
-			FORAM_DOMAIN
-			NGINX_DOMAIN=$RETURN_DOMAIN
-			systemctl start nginx
-			#开始申请SSL证书
-			acme.sh "$NGINX_DOMAIN"
-			if [[ -e "/ssl/${NGINX_DOMAIN}".key ]]; then
-				echo -e "\e[32m\e[1m证书申请成功，开始写入ssl配置\e[0m"
-				cat >${NGINX_SITE_ENABLED}/Default<<-EOF
-				server {
-				    listen       4433 http2 ssl;
-				    server_name  ${NGINX_DOMAIN} default;
-				    ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
-				    ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
-				    ssl_session_cache    shared:SSL:1m;
-				    ssl_session_timeout  5m;
-				    ssl_protocols TLSv1.2 TLSv1.3;
-				    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-				    ssl_prefer_server_ciphers  on;
-				    location / {
-				        root   html;
-				        index  index.html index.htm;
-				    }
-				}
-				EOF
-				#开启80端口强制重定向443
-				sed -i 's/#ENABLE_REDIRECT//' $NGINX_CONFIG
-				systemctl restart nginx
-			else
-				echo "证书申请失败，ssl配置未写入"
-			fi
+	if [[ "$ENAGLE_NGINX_SSL_" ]]; then
+		systemctl start nginx
+		#开始申请SSL证书
+		acme.sh "$NGINX_DOMAIN"
+		if [[ -e "/ssl/${NGINX_DOMAIN}".key ]]; then
+			echo -e "\e[32m\e[1m证书申请成功，开始写入ssl配置\e[0m"
+			cat >${NGINX_SITE_ENABLED}/Default<<-EOF
+			server {
+			    listen       4433 http2 ssl;
+			    server_name  ${NGINX_DOMAIN} default;
+			    ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
+			    ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
+			    ssl_session_cache    shared:SSL:1m;
+			    ssl_session_timeout  5m;
+			    ssl_protocols TLSv1.2 TLSv1.3;
+			    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+			    ssl_prefer_server_ciphers  on;
+			    location / {
+			        root   html;
+			        index  index.html index.htm;
+			    }
+			}
+			EOF
+			#开启80端口强制重定向443
+			sed -i 's/#ENABLE_REDIRECT//' $NGINX_CONFIG
+			systemctl restart nginx
+		else
+			echo "证书申请失败，ssl配置未写入"
+		fi
 	else 
 		systemctl start nginx
 	fi
