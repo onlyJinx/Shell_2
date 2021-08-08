@@ -28,6 +28,17 @@ function NGINX_SNI(){
 		return -1
 	fi
 }
+function FORAM_DOMAIN(){
+	read FORAM_DOMAIN_ENTER
+	if [[ "" == "$FORAM_DOMAIN_ENTER" ]]; then
+		echo -e "\e[31m\e[1m域名不可为空，重新输入！\e[0m"
+		FORAM_DOMAIN
+		return 0
+	elif [[ `echo $FORAM_DOMAIN_ENTER | grep http` ]]; then
+		FORAM_DOMAIN_ENTER=`echo $FORAM_DOMAIN_ENTER | cut -d '/' -f3`
+	fi
+	RETURN_DOMAIN=$FORAM_DOMAIN_ENTER
+}
 function packageManager(){
 	SYSTEMD_SERVICES="/etc/systemd/system"
 	NGINX_CONFIG="/etc/nginx/conf/nginx.conf"
@@ -338,7 +349,7 @@ function acme.sh(){
 			mkdir $CERT_INSTALL_PATH
 		fi
 		if ! [[ -e $ACME_PATH_RUN ]]; then
-			echo "未找到acme.sh脚本，尝试在线安装"
+			echo -e "\e[31m\e[1m未找到acme.sh脚本，尝试在线安装\e[0m"
 			cd /tmp
 			read -p "输入email(回车跳过)? " ACME_EMAIL
 			ACME_EMAIL=${ACME_EMAIL:-no_email@gmail.com}
@@ -560,31 +571,27 @@ function transmission(){
 		OUTPUT_HTTPS_LOGIN_ADDR=""
 		read ENABLE_HTTPS_TS
 		if [[ "" == "$ENABLE_HTTPS_TS" ]] || [[ "y" == "$ENABLE_HTTPS_TS" ]]; then
+			echo "输入transmission域名"
+			FORAM_DOMAIN
+			TRANSMISSION_DOMAIN=$RETURN_DOMAIN
 			while [[ true ]]; do
-				read -p "输入域名(ctrl+c强制终止) " TRANSMISSION_DOMAIN
-				if [[ "$TRANSMISSION_DOMAIN" ]]; then
-					while [[ true ]]; do
-						echo "输入文件下载服务器路径(不能为空,不带斜杠)"
-						read TRRNA_FILE_SERVER_PATH
-						if [[ $"TRRNA_FILE_SERVER_PATH" ]]; then
-							break
-						fi
-					done
-					acme.sh $TRANSMISSION_DOMAIN
-					if [[ -e "/ssl/${TRANSMISSION_DOMAIN}.key" ]]; then
-						echo -e "\e[32m\e[1m已检测到证书\e[0m"
-						TRANSMISSION_CREATE_NGINX_SITE
-						OUTPUT_HTTPS_LOGIN_ADDR="true"
-					else 
-						echo -e "\e[31m\e[1m找不到证书，取消配置WEBUI HTTPS\e[0m"
-					fi
+				echo "输入文件下载服务器路径(不能为空,不带斜杠)"
+				read TRRNA_FILE_SERVER_PATH
+				if [[ $"TRRNA_FILE_SERVER_PATH" ]]; then
 					break
 				fi
 			done
+			acme.sh $TRANSMISSION_DOMAIN
+			if [[ -e "/ssl/${TRANSMISSION_DOMAIN}.key" ]]; then
+				echo -e "\e[32m\e[1m已检测到证书\e[0m"
+				TRANSMISSION_CREATE_NGINX_SITE
+				OUTPUT_HTTPS_LOGIN_ADDR="true"
+			else 
+				echo -e "\e[31m\e[1m找不到证书，取消配置WEBUI HTTPS\e[0m"
+			fi
 		else 
 			echo -e "\e[31m\e[1m已确认取消HTTPS WEBUI配置\e[0m"
 		fi
-		
 	fi
 
 	if [[ "$(type -P apt)" ]]; then
@@ -902,10 +909,12 @@ function Project_X(){
 		XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
 		read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
 		XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
-		echo "请输入域名(project_x.com)"
-		echo "稍后配合acme.sh申请SSL证书"
-		read  XRAY_DOMAIN
-		XRAY_DOMAIN=${XRAY_DOMAIN:-project_x.com}
+
+		echo "请输入xray域名"
+		FORAM_DOMAIN
+		XRAY_DOMAIN=$RETURN_DOMAIN
+		# read  XRAY_DOMAIN
+		# XRAY_DOMAIN=${XRAY_DOMAIN:-project_x.com}
 		INSTALL_BINARY
 		if [[ "$(type -P /usr/local/bin/xray)" ]]; then
 			XRAY_UUID=$(/usr/local/bin/xray uuid)
@@ -1035,14 +1044,17 @@ function trojan(){
 		fi
 	fi
 	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
-	while [[ true ]]; do
-		echo "输入Trojan域名"
-		read ENTER_TROJAN_DOMAIN
-		if [[ "$ENTER_TROJAN_DOMAIN" ]]; then
-			TROJAN_DOMAIN="$ENTER_TROJAN_DOMAIN"
-			break
-		fi
-	done
+	echo "输入trojan域名"
+	FORAM_DOMAIN
+	TROJAN_DOMAIN=$RETURN_DOMAIN
+	# while [[ true ]]; do
+	# 	echo "输入Trojan域名"
+	# 	read ENTER_TROJAN_DOMAIN
+	# 	if [[ "$ENTER_TROJAN_DOMAIN" ]]; then
+	# 		TROJAN_DOMAIN="$ENTER_TROJAN_DOMAIN"
+	# 		break
+	# 	fi
+	# done
 	CHECK_NGINX_443=`ss -lnp|grep ":443 "|grep nginx`
 	if [[ "$CHECK_NGINX_443" ]]; then
 		echo -e "\e[32m\e[1mNGINX正在监听443端口，检查SNI配置\e[0m"
@@ -1157,6 +1169,10 @@ function INSTALL_NGINX(){
 		fi
 	fi
 
+	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
+	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
+	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
+
 	##安装依赖
 	if [[ "$(type -P apt)" ]]; then
 		$PKGMANAGER_INSTALL build-essential libpcre3 libpcre3-dev zlib1g-dev git openssl wget libssl-dev
@@ -1166,9 +1182,6 @@ function INSTALL_NGINX(){
 		echo "error: The script does not support the package manager in this operating system."
 		exit 1
 	fi
-	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
-	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
-	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
 	#开始编译
 	NGINX_BINARY
 
@@ -1222,11 +1235,8 @@ function INSTALL_NGINX(){
 	echo "是否开启SSL配置?(Y/n) "
 	read ENAGLE_NGINX_SSL
 	if [[ "" == "$ENAGLE_NGINX_SSL" ]] || [[ "y" == "$ENAGLE_NGINX_SSL" ]]; then
-		read -p "输入域名: " NGINX_DOMAIN
-		if [[ "" == "$NGINX_DOMAIN" ]]; then
-			echo "空域名！退出。"
-			systemctl start nginx
-		else 
+			FORAM_DOMAIN
+			NGINX_DOMAIN=$RETURN_DOMAIN
 			systemctl start nginx
 			#开始申请SSL证书
 			acme.sh "$NGINX_DOMAIN"
@@ -1255,21 +1265,15 @@ function INSTALL_NGINX(){
 			else
 				echo "证书申请失败，ssl配置未写入"
 			fi
-		fi
 	else 
 		systemctl start nginx
 	fi
 }
 #脚本开始安装caddy
 function caddy(){
-	while [[ true ]]; do
-		read -p "输入域名(不能为空)： " CADDY_DOMAIN
-		if ! [[ "$CADDY_DOMAIN" ]]; then
-			echo "域名不能为空，重新输入！"
-		else 
-			break
-		fi		
-	done
+	echo "输入Caddy域名"
+	FORAM_DOMAIN
+	CADDY_DOMAIN=$RETURN_DOMAIN
 	read -p "设置用户名(禁止@:): " CADDY_USER
 	CADDY_USER=${CADDY_USER:-Oieu!ji330}
 	read -p "设置密码(禁止@:): " CADDY_PASSWD
@@ -1384,13 +1388,9 @@ function caddy(){
 }
 #hysteria
 function hysteria(){
-	while [[ true ]]; do
-		echo "输入域名，非空"
-		read hysteria_DOMAIN
-		if [[ "$hysteria_DOMAIN" ]]; then
-			break
-		fi
-	done
+	echo "输入Hysteria域名"
+	FORAM_DOMAIN
+	hysteria_DOMAIN=$RETURN_DOMAIN
 	read -p "输入obfs混淆(io!jioOhu8eH)" hysteria_OBFS
 	hysteria_OBFS=${hysteria_OBFS:-io!jioOhu8eH}
 	read -p "输入认证密码(ieLj3fhG!o34)" hysteria_AUTH
@@ -1433,11 +1433,9 @@ function hysteria(){
 		EOF
 		systemctl daemon-reload
 		systemctl start hysteria.service
-		echo 1
 		systemctl is-active hysteria.service
 		if [[ "active" == "`systemctl is-active hysteria.service`" ]]; then
-			echo 2
-			systemctl is-active hysteria.service
+			systemctl enable hysteria.service
 			echo -e "\e[32m\e[1mhysteria已成功启动\e[0m"
 			echo $hysteria_DOMAIN
 			echo "obfs: "$hysteria_OBFS
@@ -1449,7 +1447,9 @@ function hysteria(){
 		echo -e "\e[31m\e[1m检测不到证书，安装退出\e[0m"
 	fi
 }
-
+echo "enter your domain"
+FORAM_DOMAIN
+exit
 echo -e "\e[31m\e[1m输入对应的数字选项:\e[0m"
 select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy" "hysteria"
 do
