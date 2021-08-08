@@ -1447,9 +1447,6 @@ function hysteria(){
 		echo -e "\e[31m\e[1m检测不到证书，安装退出\e[0m"
 	fi
 }
-echo "enter your domain"
-FORAM_DOMAIN
-exit
 echo -e "\e[31m\e[1m输入对应的数字选项:\e[0m"
 select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy" "hysteria"
 do
