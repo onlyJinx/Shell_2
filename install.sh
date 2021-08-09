@@ -82,11 +82,11 @@ function CHECK_PORT(){
 				##关闭进程
 				if [[ $(echo $myport | grep nginx) ]]; then
 					systemctl stop nginx
-					sleep 1
 				else 
 					ss -lnp|grep :$port|awk -F "pid=" '{print $2}'|sed 's/,.*//'|xargs kill -9
 				fi
-				if [ -z "$(ss -lnp|grep :$port)" ]; then
+				#exclude udp port
+				if [ -z "$(ss -lnp|grep :$port|grep tcp)" ]; then
 					echo -e "\e[32m\e[1m已终止占用端口进程\e[0m"
 					break
 				else
