@@ -1186,7 +1186,12 @@ function INSTALL_NGINX(){
 		NGINX_DOMAIN=$RETURN_DOMAIN
 		ENAGLE_NGINX_SSL_=true
 	fi
-
+	#检测openssl版本
+	CURRENT_OPENSSL_VERSION=`openssl version|cut -d ' ' -f2`
+	if [[ "$CURRENT_OPENSSL_VERSION" != "1.1.1k" ]]; then
+		echo -e "\e[31m\e[1m当前openssl版本为${CURRENT_OPENSSL_VERSION},是否更新至1.1.1k(Y/n)?\e[0m"
+		read CONFIRM_OPENSSL
+	fi
 	##安装依赖
 	if [[ "$(type -P apt)" ]]; then
 		$PKGMANAGER_INSTALL build-essential libpcre3 libpcre3-dev zlib1g-dev git openssl wget libssl-dev
@@ -1197,6 +1202,23 @@ function INSTALL_NGINX(){
 		exit 1
 	fi
 	#开始编译
+	if [[ "$CONFIRM_OPENSSL" == "" || "$CONFIRM_OPENSSL" == "y" ]]; then
+		wget https://www.openssl.org/source/openssl-1.1.1k.tar.gz
+		tar xf openssl-1.1.1k.tar.gz
+		cd openssl-1.1.1k
+		./config
+		make test && make install
+		check "OPENSSL更新失败"
+		mv /usr/bin/openssl /usr/bin/openssl.bak
+		mv /usr/include/openssl /usr/include/openssl.bak
+		ln -s /usr/local/bin/openssl /usr/bin/openssl
+		ln -s /usr/local/include/openssl /usr/include/openssl
+		echo "/usr/local/ssl/lib" >> /etc/ld.so.conf
+		ldconfig -v
+		echo -e "\e[32m\e[1m当前openssl版本号: \e[0m"`openssl version`
+		sleep 2
+	fi
+
 	NGINX_BINARY
 
 	ln -s /etc/nginx/sbin/nginx /usr/bin/nginx
@@ -1398,6 +1420,25 @@ function caddy(){
 }
 #hysteria
 function hysteria(){
+	DESTINATION_PATH="/etc/hysteria"
+	HYSTERIA_BIN="/etc/hysteria/hysteria"
+	hysteria_LATEST=`curl -s https://api.github.com/repos/HyNetwork/hysteria/releases/latest | grep tag_name|cut -f4 -d "\""`
+	hysteria_DOWNLOAD_LINK=https://github.com/HyNetwork/hysteria/releases/download/${hysteria_LATEST}/hysteria-linux-amd64
+	if [[ -a "$HYSTERIA_BIN" ]]; then
+		CHRRENT_HYSTERIA_VERSION=`$HYSTERIA_BIN -v|cut -d ' ' -f3`
+		if [[ "$CHRRENT_HYSTERIA_VERSION" != "$hysteria_LATEST" ]]; then
+			echo "当前版本为${CHRRENT_HYSTERIA_VERSION},服务端已有新版${hysteria_LATEST},是否更新?(Y/n)"
+			read UPDATE_HYSTERIA_VERSION
+			if [[ "$UPDATE_HYSTERIA_VERSION" == "" || "$UPDATE_HYSTERIA_VERSION" == "y" ]]; then
+				systemctl stop hysteria.service
+				wget -O ${DESTINATION_PATH}/hysteria $hysteria_DOWNLOAD_LINK
+				chmod +x ${DESTINATION_PATH}/hysteria
+				systemctl start hysteria.service
+				echo -e "\e[32m\e[1m已更新，当前版本为：`$HYSTERIA_BIN -v|cut -d ' ' -f3`\e[0m"
+				return 0
+			fi
+		fi
+	fi
 	echo "输入Hysteria域名"
 	FORAM_DOMAIN
 	hysteria_DOMAIN=$RETURN_DOMAIN
@@ -1408,9 +1449,6 @@ function hysteria(){
 	acme.sh "$hysteria_DOMAIN"
 	if [[ -e "/ssl/${hysteria_DOMAIN}.key" ]]; then
 		echo "已检测到证书"
-		hysteria_LATEST=`curl -s https://api.github.com/repos/HyNetwork/hysteria/releases/latest | grep tag_name|cut -f4 -d "\""`
-		hysteria_DOWNLOAD_LINK=https://github.com/HyNetwork/hysteria/releases/download/${hysteria_LATEST}/hysteria-linux-amd64
-		DESTINATION_PATH="/etc/hysteria"
 		mkdir $DESTINATION_PATH
 		wget -O ${DESTINATION_PATH}/hysteria $hysteria_DOWNLOAD_LINK
 		chmod +x ${DESTINATION_PATH}/hysteria
