@@ -1301,7 +1301,7 @@ function INSTALL_NGINX(){
 		systemctl start nginx
 	fi
 }
-#脚本开始安装caddy
+#caddy
 function caddy(){
 	echo "输入Caddy域名"
 	FORAM_DOMAIN
@@ -1402,7 +1402,7 @@ function caddy(){
 				systemctl enable caddy
 				NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
 				systemctl restart nginx
-				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
+				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go /root/go
 				echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
 			else
 				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
