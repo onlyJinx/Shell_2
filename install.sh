@@ -805,6 +805,8 @@ function aria2(){
 
 #脚本开始安装内核更新
 function Up_kernel(){
+	echo -e "\e[32m\e[1m更新后是否重启电脑?(Y/n): \e[0m"
+	read REBOOT_FOR_UPDATE
 	if [[ "$(type -P apt)" ]]; then
 		if ! [[ "$(cat /etc/apt/sources.list | grep buster-backports)" ]]; then
 			echo "deb https://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
@@ -857,9 +859,7 @@ function Up_kernel(){
 	###使修改的内核配置生效
 	echo net.core.default_qdisc=fq >> /etc/sysctl.conf
 	echo net.ipv4.tcp_congestion_control=bbr >> /etc/sysctl.conf
-	echo -e "\e[32m\e[1m重启电脑生效，是否现在重启? (y/N): \e[0m"
-	read sureReboot
-	if [[ "y" == "$sureReboot" ]]; then
+	if [[ "" == "$REBOOT_FOR_UPDATE" || "y" == "$REBOOT_FOR_UPDATE" ]]; then
 		reboot
 	fi
 
@@ -1189,7 +1189,7 @@ function INSTALL_NGINX(){
 	#检测openssl版本
 	CURRENT_OPENSSL_VERSION=`openssl version|cut -d ' ' -f2`
 	if [[ "$CURRENT_OPENSSL_VERSION" != "1.1.1k" ]]; then
-		echo -e "\e[31m\e[1m当前openssl版本为${CURRENT_OPENSSL_VERSION},是否更新至1.1.1k(Y/n)?\e[0m"
+		echo -e "\e[32m\e[1m当前openssl版本为${CURRENT_OPENSSL_VERSION},是否更新至1.1.1k(Y/n)?\e[0m"
 		read CONFIRM_OPENSSL
 	fi
 	##安装依赖
