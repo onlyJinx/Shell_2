@@ -1010,9 +1010,10 @@ function Project_X(){
 		echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls&sni=$XRAY_DOMAIN&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
 
 		echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
-
+		echo vless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC >> /etc/sub/trojan.sys
 		echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
-	fi
+		echo vless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS >> /etc/sub/trojan.sys
+	fi	
 }
 #trojan
 function trojan(){
@@ -1113,6 +1114,7 @@ function trojan(){
 			systemctl restart nginx
 			systemctl enable trojan
 			echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
+			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan>> /etc/sub/trojan.sys
 		fi
 	else 
 		"检测不到证书，退出"
@@ -1127,7 +1129,10 @@ function INSTALL_NGINX(){
 	NGINX_CONFIG=/etc/nginx/conf/nginx.conf
 	NGINX_BIN=/etc/nginx/sbin/nginx
 	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
-
+	SUBSCRIPTION_PATH=`openssl rand -base64 20`
+	SUBSCRIPTION_PATH=${SUBSCRIPTION_PATH//\//_}
+	SUBSCRIPTION_FILE="/etc/sub/trojan.sys"
+	mkdir /etc/sub
 	function NGINX_BINARY(){
 		wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${NGINX_VERSION}.tar.gz -C /tmp/ && cd /tmp/nginx-$NGINX_VERSION
 		if [[ -e "/tmp/nginx-${NGINX_VERSION}.tar.gz" ]]; then
@@ -1289,11 +1294,16 @@ function INSTALL_NGINX(){
 			        root   html;
 			        index  index.html index.htm;
 			    }
+			    location /${SUBSCRIPTION_PATH}/ {
+			        alias /etc/sub/;
+			        index trojan.sys
+			    }
 			}
 			EOF
 			#开启80端口强制重定向443
 			sed -i 's/#ENABLE_REDIRECT//' $NGINX_CONFIG
 			systemctl restart nginx
+			echo "订阅地址: https://${NGINX_DOMAIN}/${SUBSCRIPTION_PATH}/trojan.sys"
 		else
 			echo "证书申请失败，ssl配置未写入"
 		fi
@@ -1404,6 +1414,7 @@ function caddy(){
 				systemctl restart nginx
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go /root/go
 				echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
+				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive >> /etc/sub/trojan.sys
 			else
 				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
