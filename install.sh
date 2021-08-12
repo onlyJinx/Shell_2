@@ -163,6 +163,7 @@ function CKECK_FILE_EXIST(){
 }
 #脚本开始安装acme.sh
 ##acme.sh "域名(直接调用http)"
+##acme.sh "域名(直接调用http)" "NGINX网站目录"
 function acme.sh(){
 	WEB_ROOT=""
 	STANDALONE=""
@@ -214,10 +215,15 @@ function acme.sh(){
 			fi
 			STANDALONE="--standalone"
 		else
-			echo -e "\e[32m\e[1m检测到80端口占用，尝试列出所有html目录。\e[0m"
-			find / -name html
-			read -p "输入网站根目录(${NGINX_WEBROOT}): " ENTER_NGINX_PTAH
-			ENTER_NGINX_PTAH=${ENTER_NGINX_PTAH:-$DEFAULT_WEB_ROOT}
+			#检测是否传入WEB_ROOT参数,如有,跳过网站根目录输入
+			if [[ "$2" ]]; then
+				ENTER_NGINX_PTAH=$2
+			else 
+				echo -e "\e[32m\e[1m检测到80端口占用，尝试列出所有html目录。\e[0m"
+				find / -name html
+				read -p "输入网站根目录(${NGINX_WEBROOT}): " ENTER_NGINX_PTAH
+				ENTER_NGINX_PTAH=${ENTER_NGINX_PTAH:-$DEFAULT_WEB_ROOT}
+			fi
 			WEB_ROOT="--webroot "$ENTER_NGINX_PTAH
 			if ! [[ -d "$ENTER_NGINX_PTAH" ]]; then
 				echo "输入的非目录，退出！"
@@ -590,7 +596,7 @@ function transmission(){
 			echo "输入文件下载服务器路径(downloads)"
 			read TRRNA_FILE_SERVER_PATH
 			TRRNA_FILE_SERVER_PATH=${TRRNA_FILE_SERVER_PATH:-downloads}
-			acme.sh $TRANSMISSION_DOMAIN
+			acme.sh $TRANSMISSION_DOMAIN "/etc/nginx/html"
 			if [[ -e "/ssl/${TRANSMISSION_DOMAIN}.key" ]]; then
 				echo -e "\e[32m\e[1m已检测到证书\e[0m"
 				TRANSMISSION_CREATE_NGINX_SITE
@@ -908,15 +914,15 @@ function Project_X(){
 	else
 		#不再支持自定义端口,Path,Service Name
 		#CHECK_PORT "XRAY_XTLS 监听端口(1000)?  " 1000
-		CHECK_PORT "NOINPUT" 1000
+		CHECK_PORT "NOINPUT" 15423
 		XRAY_XTLS_PORT=$port
 		#read -p "回落端口(5555)?  " XRAY_DESP_PORT
 		XRAY_DESP_PORT=${XRAY_DESP_PORT:-5555}
 		#CHECK_PORT "GRPC 监听端口(2002)?  " 2002
-		CHECK_PORT "NOINPUT" 2002
+		CHECK_PORT "NOINPUT" 8845
 		XRAY_GRPC_PORT=$port
 		#CHECK_PORT "WebSocks 监听端口(1234)?  " 1234
-		CHECK_PORT "NOINPUT" 1234
+		CHECK_PORT "NOINPUT" 35446
 		XRAY_WS_PORT=$port
 		#read -p "Grpc Name(grpcforward)?  " XRAY_GRPC_NAME
 		#XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
@@ -1012,7 +1018,7 @@ function Project_X(){
 			EOF
 		fi
 
-		acme.sh "$XRAY_DOMAIN"
+		acme.sh "$XRAY_DOMAIN" "/etc/nginx/html"
 		systemctl daemon-reload
 		systemctl start xray
 		systemctl enable xray
@@ -1097,7 +1103,7 @@ function trojan(){
 	TROJAN_PASSWD=${TROJAN_PASSWD//\//_}
 
 	##申请SSL证书
-	acme.sh $TROJAN_DOMAIN
+	acme.sh $TROJAN_DOMAIN "/etc/nginx/html"
 	if [[ -e "/ssl/${TROJAN_DOMAIN}.key" ]]; then
 		echo -e "\e[32m\e[1m已检测到证书\e[0m"
 		mkdir /etc/trojan
@@ -1149,10 +1155,10 @@ function INSTALL_NGINX(){
 	SUBSCRIPTION_PATH=`openssl rand -base64 20`
 	SUBSCRIPTION_PATH=${SUBSCRIPTION_PATH//\//_}
 	SUBSCRIPTION_FILE="/etc/sub/trojan.sys"
-	touch $SUBSCRIPTION_FILE
 	if ! [[ -d /etc/sub ]]; then
 		mkdir /etc/sub
 	fi
+	touch $SUBSCRIPTION_FILE
 	function NGINX_BINARY(){
 		wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${NGINX_VERSION}.tar.gz -C /tmp/ && cd /tmp/nginx-$NGINX_VERSION
 		if [[ -e "/tmp/nginx-${NGINX_VERSION}.tar.gz" ]]; then
@@ -1297,7 +1303,7 @@ function INSTALL_NGINX(){
 	if [[ "$ENAGLE_NGINX_SSL_" ]]; then
 		systemctl start nginx
 		#开始申请SSL证书
-		acme.sh "$NGINX_DOMAIN"
+		acme.sh "$NGINX_DOMAIN" "/etc/nginx/html"
 		if [[ -e "/ssl/${NGINX_DOMAIN}".key ]]; then
 			echo -e "\e[32m\e[1m证书申请成功，开始写入ssl配置\e[0m"
 			cat >${NGINX_SITE_ENABLED}/Default<<-EOF
@@ -1356,7 +1362,7 @@ function caddy(){
 		CADDY_HTTP_PORT=$port
 		#证书申请完之后再重启NGINX使SNI分流生效
 		#否则会因分流回落端口无响应导致申请证书失败
-		acme.sh "$CADDY_DOMAIN"
+		acme.sh "$CADDY_DOMAIN" "/etc/nginx/html"
 		CADDY_TLS="tls /ssl/${CADDY_DOMAIN}.cer /ssl/${CADDY_DOMAIN}.key"
 		if [[ -e "/ssl/${CADDY_DOMAIN}.key" ]]; then
 			echo "已检测到SSL证书，安装继续"
@@ -1484,7 +1490,7 @@ function hysteria(){
 	hysteria_OBFS=${hysteria_OBFS:-io!jioOhu8eH}
 	read -p "输入认证密码(ieLj3fhG!o34)" hysteria_AUTH
 	hysteria_AUTH=${hysteria_AUTH:-ieLj3fhG!o34}
-	acme.sh "$hysteria_DOMAIN"
+	acme.sh "$hysteria_DOMAIN" "/etc/nginx/html"
 	if [[ -e "/ssl/${hysteria_DOMAIN}.key" ]]; then
 		echo "已检测到证书"
 		mkdir $DESTINATION_PATH
