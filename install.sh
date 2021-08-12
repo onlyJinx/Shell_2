@@ -72,39 +72,45 @@ function CHECK_PORT(){
 		else
 			read -p "$1" port
 			port=${port:-$2}
-		fi
-		myport=$(ss -lnp|grep :$port)
-		if [ -n "$myport" ];then
-			echo "端口${port}已被占用,回车关闭占用进程,输入n退出程序"
-			echo "直接输入端口号更换其他端口"
-			read sel
-			if [[ "$sel" == "" ]]; then
-				##关闭进程
-				if [[ $(echo $myport | grep nginx) ]]; then
-					systemctl stop nginx
-				else 
-					ss -lnp|grep :$port|awk -F "pid=" '{print $2}'|sed 's/,.*//'|xargs kill -9
-				fi
-				#exclude udp port
-				if [ -z "$(ss -lnp|grep :$port|grep tcp)" ]; then
-					echo -e "\e[32m\e[1m已终止占用端口进程\e[0m"
-					break
+			if [[ "$port" -gt "0" ]]; then
+				myport=$(ss -lnp|grep :$port)
+				if [ -n "$myport" ];then
+					echo "端口${port}已被占用,回车关闭占用进程,输入n退出程序"
+					echo "直接输入端口号更换其他端口"
+					read sel
+					if [[ "$sel" == "" ]]; then
+						##关闭进程
+						if [[ $(echo $myport | grep nginx) ]]; then
+							systemctl stop nginx
+						else 
+							ss -lnp|grep :$port|awk -F "pid=" '{print $2}'|sed 's/,.*//'|xargs kill -9
+						fi
+						#exclude udp port
+						if [ -z "$(ss -lnp|grep :$port|grep tcp)" ]; then
+							echo -e "\e[32m\e[1m已终止占用端口进程\e[0m"
+							break
+						else
+							echo -e "\e[31m\e[1m进程关闭失败,请手动关闭\e[0m"
+							exit 1
+						fi
+					elif [ "$sel" == "n" ] || [ "$sel" == "N" ]; then
+						echo "已取消操作"
+						exit 0
+					elif [[ $sel -gt 0 ]]; then
+						CHECK_PORT "NOINPUT" $sel
+						break
+					else 
+						echo "非法操作！"
+						exit -1
+					fi
 				else
-					echo -e "\e[31m\e[1m进程关闭失败,请手动关闭\e[0m"
-					exit 1
+					break
 				fi
-			elif [ "$sel" == "n" ] || [ "$sel" == "N" ]; then
-				echo "已取消操作"
-				exit 0
-			elif [[ $sel -gt 0 ]]; then
-				CHECK_PORT "NOINPUT" $sel
-				break
 			else 
-				echo "非法操作！"
-				exit -1
+				echo  -e "\e[31m\e[1m输入端口必须大于0\e[0m"
+				CHECK_PORT "重新输入端口号"
+				return 0
 			fi
-		else
-			break
 		fi
 	done
 }
