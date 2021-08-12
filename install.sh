@@ -905,18 +905,26 @@ function Project_X(){
 			exit 1
 		fi
 	else
-		CHECK_PORT "XRAY_XTLS 监听端口(1000)?  " 1000
+		#不再支持自定义端口,Path,Service Name
+		#CHECK_PORT "XRAY_XTLS 监听端口(1000)?  " 1000
+		CHECK_PORT "NOINPUT" 1000
 		XRAY_XTLS_PORT=$port
-		read -p "回落端口(5555)?  " XRAY_DESP_PORT
+		#read -p "回落端口(5555)?  " XRAY_DESP_PORT
 		XRAY_DESP_PORT=${XRAY_DESP_PORT:-5555}
-		CHECK_PORT "GRPC 监听端口(2002)?  " 2002
+		#CHECK_PORT "GRPC 监听端口(2002)?  " 2002
+		CHECK_PORT "NOINPUT" 2002
 		XRAY_GRPC_PORT=$port
-		CHECK_PORT "WebSocks 监听端口(1234)?  " 1234
+		#CHECK_PORT "WebSocks 监听端口(1234)?  " 1234
+		CHECK_PORT "NOINPUT" 1234
 		XRAY_WS_PORT=$port
-		read -p "Grpc Name(grpcforward)?  " XRAY_GRPC_NAME
-		XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
-		read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
-		XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
+		#read -p "Grpc Name(grpcforward)?  " XRAY_GRPC_NAME
+		#XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
+		XRAY_GRPC_NAME=`openssl rand -base64 20`
+		XRAY_GRPC_NAME=${XRAY_GRPC_NAME//\//_}
+		#read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
+		#XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
+		XRAY_WS_PATH=`openssl rand -base64 20`
+		XRAY_WS_PATH=${XRAY_WS_PATH//\//_}
 
 		echo "请输入xray域名"
 		FORAM_DOMAIN
@@ -1066,23 +1074,26 @@ function trojan(){
 	# 	fi
 	# done
 	CHECK_NGINX_443=`ss -lnp|grep ":443 "|grep nginx`
+	#不再支持端口，密码自定义
 	if [[ "$CHECK_NGINX_443" ]]; then
 		echo -e "\e[32m\e[1mNGINX正在监听443端口，检查SNI配置\e[0m"
-		echo "输入Trojan分流端口(非443)"
-		read TROJAN_HTTPS_PORT
-		CHECK_PORT "NOINPUT" $TROJAN_HTTPS_PORT
+		#echo "输入Trojan分流端口(非443)"
+		#read TROJAN_HTTPS_PORT
+		CHECK_PORT "NOINPUT" 5978
 		TROJAN_HTTPS_PORT=$port
 	else 
 		CHECK_PORT "NOINPUT" 443
 		TROJAN_HTTPS_PORT="443"
 	fi
-	echo "Trojan 回落端口(5555): "
-	read TROJAN_CALLBACK_PORT
+	#echo "Trojan 回落端口(5555): "
+	#read TROJAN_CALLBACK_PORT
 	TROJAN_HTTP_PORT=${TROJAN_CALLBACK_PORT:-5555}
-	echo "设置trojan密码(默认trojanWdai1)"
-	echo "不可以包含#@?"
-	read TROJAN_PASSWD
-	TROJAN_PASSWD=${TROJAN_PASSWD:-trojanWdai1}
+	#echo "设置trojan密码(默认trojanWdai1)"
+	#echo "不可以包含#@?"
+	#read TROJAN_PASSWD
+	#TROJAN_PASSWD=${TROJAN_PASSWD:-trojanWdai1}
+	TROJAN_PASSWD=`openssl rand -base64 20`
+	TROJAN_PASSWD=${TROJAN_PASSWD//\//_}
 
 	##申请SSL证书
 	acme.sh $TROJAN_DOMAIN
@@ -1323,16 +1334,20 @@ function caddy(){
 	echo "输入Caddy域名"
 	FORAM_DOMAIN
 	CADDY_DOMAIN=$RETURN_DOMAIN
-	read -p "设置用户名(禁止@:): " CADDY_USER
-	CADDY_USER=${CADDY_USER:-Oieu!ji330}
-	read -p "设置密码(禁止@:): " CADDY_PASSWD
-	CADDY_PASSWD=${CADDY_PASSWD:-5eele9P!il_}
+	#read -p "设置用户名(禁止@:): " CADDY_USER
+	#CADDY_USER=${CADDY_USER:-Oieu!ji330}
+	CADDY_USER=`openssl rand -base64 20`
+	CADDY_USER=${CADDY_USER//\//_}
+	#read -p "设置密码(禁止@:): " CADDY_PASSWD
+	#CADDY_PASSWD=${CADDY_PASSWD:-5eele9P!il_}
+	CADDY_PASSWD=`openssl rand -base64 20`
+	CADDY_PASSWD=${CADDY_PASSWD//\//_}
 	CHECK_NGINX_443=`ss -lnp|grep ":443 "|grep nginx`
 	if [[ "$CHECK_NGINX_443" ]]; then
 		echo "NGINX正在监听443端口，检查SNI配置"
-		echo "输入Caddy分流端口(非443)"
-		read CADDY_HTTPS_PORT
-		CHECK_PORT "NOINPUT" $CADDY_HTTPS_PORT
+		#echo "输入Caddy分流端口(非443)"
+		#read CADDY_HTTPS_PORT
+		CHECK_PORT "NOINPUT" 15486
 		CADDY_HTTPS_PORT=$port
 		CHECK_PORT "NOINPUT" 16254
 		CADDY_HTTP_PORT=$port
