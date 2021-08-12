@@ -580,13 +580,9 @@ function transmission(){
 			echo "输入transmission域名"
 			FORAM_DOMAIN
 			TRANSMISSION_DOMAIN=$RETURN_DOMAIN
-			while [[ true ]]; do
-				echo "输入文件下载服务器路径(不能为空,不带斜杠)"
-				read TRRNA_FILE_SERVER_PATH
-				if [[ $"TRRNA_FILE_SERVER_PATH" ]]; then
-					break
-				fi
-			done
+			echo "输入文件下载服务器路径(downloads)"
+			read TRRNA_FILE_SERVER_PATH
+			TRRNA_FILE_SERVER_PATH=${TRRNA_FILE_SERVER_PATH:-downloads}
 			acme.sh $TRANSMISSION_DOMAIN
 			if [[ -e "/ssl/${TRANSMISSION_DOMAIN}.key" ]]; then
 				echo -e "\e[32m\e[1m已检测到证书\e[0m"
@@ -1010,9 +1006,9 @@ function Project_X(){
 		#echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls&sni=$XRAY_DOMAIN&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
 		base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
 		#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
-		echo vless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=$XRAY_DOMAIN#GRPC >> /etc/sub/trojan.tmp
+		echo vless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=$XRAY_DOMAIN#⛩ GRPC >> /etc/sub/trojan.tmp
 		#echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
-		echo vless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws\&security=tls\&path=/$XRAY_WS_PATH?ed=2048\&host=$XRAY_DOMAIN\&sni=$XRAY_DOMAIN#WS >> /etc/sub/trojan.tmp
+		echo vless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws\&security=tls\&path=/$XRAY_WS_PATH?ed=2048\&host=$XRAY_DOMAIN\&sni=$XRAY_DOMAIN#🌋 WS >> /etc/sub/trojan.tmp
 		base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 	fi	
 }
@@ -1116,7 +1112,7 @@ function trojan(){
 			systemctl enable trojan
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
 			#echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
-			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan >> /etc/sub/trojan.tmp
+			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🌂 Trojan >> /etc/sub/trojan.tmp
 			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 		fi
 	else 
@@ -1135,6 +1131,7 @@ function INSTALL_NGINX(){
 	SUBSCRIPTION_PATH=`openssl rand -base64 20`
 	SUBSCRIPTION_PATH=${SUBSCRIPTION_PATH//\//_}
 	SUBSCRIPTION_FILE="/etc/sub/trojan.sys"
+	touch $SUBSCRIPTION_FILE
 	mkdir /etc/sub
 	function NGINX_BINARY(){
 		wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${NGINX_VERSION}.tar.gz -C /tmp/ && cd /tmp/nginx-$NGINX_VERSION
@@ -1419,7 +1416,7 @@ function caddy(){
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go /root/go
 				base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
 				#echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
-				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive >> /etc/sub/trojan.tmp
+				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#🏎 Naive >> /etc/sub/trojan.tmp
 				base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 			else
 				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
