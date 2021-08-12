@@ -1007,12 +1007,13 @@ function Project_X(){
 		systemctl enable xray
 		systemctl restart nginx
 
-		echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls&sni=$XRAY_DOMAIN&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
-
-		echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
-		echo vless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=$XRAY_DOMAIN#GRPC >> /etc/sub/trojan.sys
-		echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
-		echo vless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws\&security=tls\&path=/$XRAY_WS_PATH?ed=2048\&host=$XRAY_DOMAIN\&sni=$XRAY_DOMAIN#WS >> /etc/sub/trojan.sys
+		#echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls&sni=$XRAY_DOMAIN&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
+		base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
+		#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
+		echo vless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=$XRAY_DOMAIN#GRPC >> /etc/sub/trojan.tmp
+		#echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
+		echo vless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws\&security=tls\&path=/$XRAY_WS_PATH?ed=2048\&host=$XRAY_DOMAIN\&sni=$XRAY_DOMAIN#WS >> /etc/sub/trojan.tmp
+		base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 	fi	
 }
 #trojan
@@ -1113,8 +1114,10 @@ function trojan(){
 			NGINX_SNI $TROJAN_DOMAIN $TROJAN_HTTPS_PORT
 			systemctl restart nginx
 			systemctl enable trojan
-			echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
-			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan>> /etc/sub/trojan.sys
+			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
+			#echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
+			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan >> /etc/sub/trojan.tmp
+			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 		fi
 	else 
 		"检测不到证书，退出"
@@ -1414,8 +1417,10 @@ function caddy(){
 				NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
 				systemctl restart nginx
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go /root/go
-				echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
-				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive >> /etc/sub/trojan.sys
+				base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
+				#echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
+				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive >> /etc/sub/trojan.tmp
+				base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 			else
 				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
