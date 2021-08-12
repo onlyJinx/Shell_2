@@ -935,9 +935,11 @@ function Project_X(){
 		#read -p "Grpc Name(grpcforward)?  " XRAY_GRPC_NAME
 		#XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
 		XRAY_GRPC_NAME=`GET_RANDOM_STRING`
+		echo "XRAY_GRPC_NAME: "$XRAY_GRPC_NAME
 		#read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
 		#XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
 		XRAY_WS_PATH=`GET_RANDOM_STRING`
+		echo "XRAY_WS_PATH: "$XRAY_WS_PATH
 
 		echo "请输入xray域名"
 		FORAM_DOMAIN
@@ -1033,9 +1035,9 @@ function Project_X(){
 		#echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls&sni=$XRAY_DOMAIN&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
 		base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
 		#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
-		echo vless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=$XRAY_DOMAIN#⛩ GRPC >> /etc/sub/trojan.tmp
+		echo vless://${XRAY_GRPC_UUID}@${XRAY_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${XRAY_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
 		#echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
-		echo vless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws\&security=tls\&path=/$XRAY_WS_PATH?ed=2048\&host=$XRAY_DOMAIN\&sni=$XRAY_DOMAIN#🌋 WS >> /etc/sub/trojan.tmp
+		echo vless://${XRAY_WS_UUID}@${XRAY_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${XRAY_DOMAIN}\&sni=${XRAY_DOMAIN}#🌋 WS >> /etc/sub/trojan.tmp
 		base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 	fi	
 }
