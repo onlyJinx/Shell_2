@@ -13,6 +13,7 @@ function NGINX_SNI(){
 	NGINX_BIN="$(command -v nginx)"
 	if [[ "$NGINX_BIN" ]]; then
 		NGINX_SNI_CONFIG="$NGINX_CONFIG"
+		sed -i "/$1/d" $NGINX_SNI_CONFIG
 		if [[ `cat $NGINX_SNI_CONFIG | grep ssl_preread_server_name` ]];then
 			echo "检测到NGINX_SNI配置"
 			sed -i "/ssl_preread_server_name/a\ \ \ \ \ \ \ \ $1 127.0.0.1:$2;" $NGINX_SNI_CONFIG
@@ -26,6 +27,22 @@ function NGINX_SNI(){
 		echo "找不到NGINX配置文件"
 		return -1
 	fi
+}
+function FORAM_DOMAIN(){
+	read FORAM_DOMAIN_ENTER
+	if [[ "" == "$FORAM_DOMAIN_ENTER" ]]; then
+		echo -e "\e[31m\e[1m域名不可为空,重新输入！\e[0m"
+		FORAM_DOMAIN
+		return 0
+	elif ! [[ `echo $FORAM_DOMAIN_ENTER|grep '\.'` ]]; then
+		echo -e "\e[31m\e[1m输入的域名不规范,重新输入！\e[0m"
+		FORAM_DOMAIN
+		return 0		
+	elif [[ `echo $FORAM_DOMAIN_ENTER | grep http` ]]; then
+		FORAM_DOMAIN_ENTER=`echo $FORAM_DOMAIN_ENTER | cut -d '/' -f3`
+	fi
+	RETURN_DOMAIN=$FORAM_DOMAIN_ENTER
+	echo -e "\e[31m\e[1m已格式化域名${RETURN_DOMAIN}\e[0m"
 }
 function packageManager(){
 	SYSTEMD_SERVICES="/etc/systemd/system"
@@ -63,12 +80,17 @@ function CHECK_PORT(){
 			read sel
 			if [[ "$sel" == "" ]]; then
 				##关闭进程
-				ss -lnp|grep :$port|awk -F "pid=" '{print $2}'|sed 's/,.*//'|xargs kill -9
-				if ! [ -n "$(ss -lnp|grep :$port)" ]; then
-					echo "已终止占用端口进程"
+				if [[ $(echo $myport | grep nginx) ]]; then
+					systemctl stop nginx
+				else 
+					ss -lnp|grep :$port|awk -F "pid=" '{print $2}'|sed 's/,.*//'|xargs kill -9
+				fi
+				#exclude udp port
+				if [ -z "$(ss -lnp|grep :$port|grep tcp)" ]; then
+					echo -e "\e[32m\e[1m已终止占用端口进程\e[0m"
 					break
 				else
-					echo "进程关闭失败,请手动关闭"
+					echo -e "\e[31m\e[1m进程关闭失败,请手动关闭\e[0m"
 					exit 1
 				fi
 			elif [ "$sel" == "n" ] || [ "$sel" == "N" ]; then
@@ -333,7 +355,7 @@ function acme.sh(){
 			mkdir $CERT_INSTALL_PATH
 		fi
 		if ! [[ -e $ACME_PATH_RUN ]]; then
-			echo "未找到acme.sh脚本，尝试在线安装"
+			echo -e "\e[31m\e[1m未找到acme.sh脚本，尝试在线安装\e[0m"
 			cd /tmp
 			read -p "输入email(回车跳过)? " ACME_EMAIL
 			ACME_EMAIL=${ACME_EMAIL:-no_email@gmail.com}
@@ -555,31 +577,27 @@ function transmission(){
 		OUTPUT_HTTPS_LOGIN_ADDR=""
 		read ENABLE_HTTPS_TS
 		if [[ "" == "$ENABLE_HTTPS_TS" ]] || [[ "y" == "$ENABLE_HTTPS_TS" ]]; then
+			echo "输入transmission域名"
+			FORAM_DOMAIN
+			TRANSMISSION_DOMAIN=$RETURN_DOMAIN
 			while [[ true ]]; do
-				read -p "输入域名(ctrl+c强制终止) " TRANSMISSION_DOMAIN
-				if [[ "$TRANSMISSION_DOMAIN" ]]; then
-					while [[ true ]]; do
-						echo "输入文件下载服务器路径(不能为空,不带斜杠)"
-						read TRRNA_FILE_SERVER_PATH
-						if [[ $"TRRNA_FILE_SERVER_PATH" ]]; then
-							break
-						fi
-					done
-					acme.sh $TRANSMISSION_DOMAIN
-					if [[ -e "/ssl/${TRANSMISSION_DOMAIN}.key" ]]; then
-						echo -e "\e[32m\e[1m已检测到证书\e[0m"
-						TRANSMISSION_CREATE_NGINX_SITE
-						OUTPUT_HTTPS_LOGIN_ADDR="true"
-					else 
-						echo -e "\e[31m\e[1m找不到证书，取消配置WEBUI HTTPS\e[0m"
-					fi
+				echo "输入文件下载服务器路径(不能为空,不带斜杠)"
+				read TRRNA_FILE_SERVER_PATH
+				if [[ $"TRRNA_FILE_SERVER_PATH" ]]; then
 					break
 				fi
 			done
+			acme.sh $TRANSMISSION_DOMAIN
+			if [[ -e "/ssl/${TRANSMISSION_DOMAIN}.key" ]]; then
+				echo -e "\e[32m\e[1m已检测到证书\e[0m"
+				TRANSMISSION_CREATE_NGINX_SITE
+				OUTPUT_HTTPS_LOGIN_ADDR="true"
+			else 
+				echo -e "\e[31m\e[1m找不到证书，取消配置WEBUI HTTPS\e[0m"
+			fi
 		else 
 			echo -e "\e[31m\e[1m已确认取消HTTPS WEBUI配置\e[0m"
 		fi
-		
 	fi
 
 	if [[ "$(type -P apt)" ]]; then
@@ -787,6 +805,8 @@ function aria2(){
 
 #脚本开始安装内核更新
 function Up_kernel(){
+	echo -e "\e[32m\e[1m更新后是否重启电脑?(Y/n): \e[0m"
+	read REBOOT_FOR_UPDATE
 	if [[ "$(type -P apt)" ]]; then
 		if ! [[ "$(cat /etc/apt/sources.list | grep buster-backports)" ]]; then
 			echo "deb https://deb.debian.org/debian buster-backports main" >> /etc/apt/sources.list
@@ -839,9 +859,7 @@ function Up_kernel(){
 	###使修改的内核配置生效
 	echo net.core.default_qdisc=fq >> /etc/sysctl.conf
 	echo net.ipv4.tcp_congestion_control=bbr >> /etc/sysctl.conf
-	echo -e "\e[32m\e[1m重启电脑生效，是否现在重启? (y/N): \e[0m"
-	read sureReboot
-	if [[ "y" == "$sureReboot" ]]; then
+	if [[ "" == "$REBOOT_FOR_UPDATE" || "y" == "$REBOOT_FOR_UPDATE" ]]; then
 		reboot
 	fi
 
@@ -856,7 +874,7 @@ function Project_X(){
 		fi
 		unzip -o /tmp/Xray-linux-64.zip -d /tmp
 		if ! [[ -d /usr/local/share/xray ]];then
-			mkdir /usr/local/share/xray
+			mkdir -p /usr/local/share/xray
 		fi
 		alias mv='mv -i'
 		mv /tmp/geoip.dat /usr/local/share/xray/geoip.dat
@@ -897,10 +915,12 @@ function Project_X(){
 		XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
 		read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
 		XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
-		echo "请输入域名(project_x.com)"
-		echo "稍后配合acme.sh申请SSL证书"
-		read  XRAY_DOMAIN
-		XRAY_DOMAIN=${XRAY_DOMAIN:-project_x.com}
+
+		echo "请输入xray域名"
+		FORAM_DOMAIN
+		XRAY_DOMAIN=$RETURN_DOMAIN
+		# read  XRAY_DOMAIN
+		# XRAY_DOMAIN=${XRAY_DOMAIN:-project_x.com}
 		INSTALL_BINARY
 		if [[ "$(type -P /usr/local/bin/xray)" ]]; then
 			XRAY_UUID=$(/usr/local/bin/xray uuid)
@@ -996,14 +1016,51 @@ function Project_X(){
 }
 #trojan
 function trojan(){
-	while [[ true ]]; do
-		echo "输入Trojan域名"
-		read ENTER_TROJAN_DOMAIN
-		if [[ "$ENTER_TROJAN_DOMAIN" ]]; then
-			TROJAN_DOMAIN="$ENTER_TROJAN_DOMAIN"
-			break
+	TROJAN_LAEST_VERSION=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
+	TROJAN_CONFIG=/etc/trojan/config.json
+	function TROJAN_BINARY(){
+		cd /tmp
+		wget https://github.com/trojan-gfw/trojan/releases/download/v${TROJAN_LAEST_VERSION}/trojan-${TROJAN_LAEST_VERSION}-linux-amd64.tar.xz 
+		tar xvJf trojan-${TROJAN_LAEST_VERSION}-linux-amd64.tar.xz
+		mv /tmp/trojan/trojan /etc/trojan/trojan
+		if ! [[ -e "/etc/trojan/config.json" ]]; then
+			mv /tmp/trojan/config.json /etc/trojan/config.json
 		fi
-	done
+		ln -s /etc/trojan/trojan /usr/bin/trojan
+		rm -fr trojan-${TROJAN_LAEST_VERSION}-linux-amd64.tar.xz trojan
+	}
+	if [[ "$(type -P trojan)" ]]; then
+		TROJAN_CURRENT_CERSION=$(/etc/trojan/trojan -v 2>&1 | grep Welcome | cut -d ' ' -f4)
+		echo -e "检测到已安装trojan v\e[32m\e[1m${TROJAN_CURRENT_CERSION}\e[0m"
+		echo -e "当前服务端最新版v\e[32m\e[1m${TROJAN_LAEST_VERSION}\e[0m"
+		echo "回车只更新binary(不丢配置),输入new全新安装,输入其他任意键退出"
+		read TROJAN_CONFIRM
+		if [[ "" == "$TROJAN_CONFIRM" ]]; then
+			TROJAN_BINARY
+			echo -e "\e[32m\e[1m已更新成功,版本信息显示\e[0m"
+			systemctl restart trojan
+			/etc/trojan/trojan -v 2>&1 | grep Welcome
+			exit 0
+		elif [[ "new" == "$TROJAN_CONFIRM" ]]; then
+			rm -f $TROJAN_CONFIG
+			echo "开始安装Trojan"
+		else 
+			echo "已取消安装"
+			exit 0
+		fi
+	fi
+	#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
+	echo "输入trojan域名"
+	FORAM_DOMAIN
+	TROJAN_DOMAIN=$RETURN_DOMAIN
+	# while [[ true ]]; do
+	# 	echo "输入Trojan域名"
+	# 	read ENTER_TROJAN_DOMAIN
+	# 	if [[ "$ENTER_TROJAN_DOMAIN" ]]; then
+	# 		TROJAN_DOMAIN="$ENTER_TROJAN_DOMAIN"
+	# 		break
+	# 	fi
+	# done
 	CHECK_NGINX_443=`ss -lnp|grep ":443 "|grep nginx`
 	if [[ "$CHECK_NGINX_443" ]]; then
 		echo -e "\e[32m\e[1mNGINX正在监听443端口，检查SNI配置\e[0m"
@@ -1027,14 +1084,8 @@ function trojan(){
 	acme.sh $TROJAN_DOMAIN
 	if [[ -e "/ssl/${TROJAN_DOMAIN}.key" ]]; then
 		echo -e "\e[32m\e[1m已检测到证书\e[0m"
-		trojan_version=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
-		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
-
-		wget https://github.com/trojan-gfw/trojan/releases/download/v${trojan_version}/trojan-${trojan_version}-linux-amd64.tar.xz && tar xvJf trojan-${trojan_version}-linux-amd64.tar.xz -C /etc
-		ln -s /etc/trojan/trojan /usr/bin/trojan
-		rm -f trojan-${trojan_version}-linux-amd64.tar.xz
-
-		TROJAN_CONFIG=/etc/trojan/config.json
+		mkdir /etc/trojan
+		TROJAN_BINARY
 		sed -i '/password2/ d' $TROJAN_CONFIG
 		sed -i "/remote_port/ s/80/$TROJAN_HTTP_PORT/" $TROJAN_CONFIG
 		sed -i "/local_port/ s/443/$TROJAN_HTTPS_PORT/" $TROJAN_CONFIG
@@ -1073,13 +1124,74 @@ function trojan(){
 function INSTALL_NGINX(){
 	CHECK_PORT "NOINPUT" 443
 	CHECK_PORT "NOINPUT" 80
-	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
-	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
-	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
 	NGINX_CONFIG=/etc/nginx/conf/nginx.conf
 	NGINX_BIN=/etc/nginx/sbin/nginx
 	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
 
+	function NGINX_BINARY(){
+		wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${NGINX_VERSION}.tar.gz -C /tmp/ && cd /tmp/nginx-$NGINX_VERSION
+		if [[ -e "/tmp/nginx-${NGINX_VERSION}.tar.gz" ]]; then
+			./configure \
+			--prefix=/etc/nginx \
+			--pid-path=/run/nginx.pid \
+			--lock-path=/run/nginx.lock \
+			--with-http_ssl_module \
+			--with-http_stub_status_module \
+			--with-http_realip_module \
+			--with-threads \
+			--with-stream_ssl_module \
+			--with-http_v2_module \
+			--with-stream_ssl_preread_module \
+			--with-stream=dynamic
+
+			make && make install
+			check "编译nginx失败！"
+			#清理残留
+			rm -fr /tmp/nginx-$NGINX_VERSION
+		else 
+			echo -e "\e[32m\e[1m找不到nginx压缩包,检查是否下载成功。\e[0m"
+			exit 0
+		fi
+
+	}
+	if [[ -e $NGINX_BIN ]]; then
+		NGINX_CURRENT_VERSION=`$NGINX_BIN -v 2>&1 | cut -d '/' -f2`
+		echo -e "已检测到nginx v\e[32m\e[1m${NGINX_CURRENT_VERSION}\e[0m,是否继续编译更新版本?(Y/n)"
+		read NGINX_UPDATE_COMFIRM
+		if [[ "" == "$NGINX_UPDATE_COMFIRM" ]]; then
+			read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
+			NGINX_VERSION=${NGINX_VERSION:-1.21.1}
+			nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
+			systemctl stop nginx
+			NGINX_BINARY
+			systemctl start nginx
+			NGINX_CURRENT_VERSION=`$NGINX_BIN -v 2>&1 | cut -d '/' -f2`
+			echo -e "\e[32m\e[1m编译完成,当前版本号: ${NGINX_CURRENT_VERSION}\e[0m"
+			return 0
+		else 
+			echo -e "\e[32m\e[1m已取消操作！\e[0m"
+			systemctl start nginx
+			exit 0
+		fi
+	fi
+
+	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
+	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
+	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
+	echo "是否开启SSL配置?(Y/n) "
+	read ENAGLE_NGINX_SSL
+	if [[ "" == "$ENAGLE_NGINX_SSL" ]] || [[ "y" == "$ENAGLE_NGINX_SSL" ]]; then
+		echo "输入NGING 域名"
+		FORAM_DOMAIN
+		NGINX_DOMAIN=$RETURN_DOMAIN
+		ENAGLE_NGINX_SSL_=true
+	fi
+	#检测openssl版本
+	CURRENT_OPENSSL_VERSION=`openssl version|cut -d ' ' -f2`
+	if [[ "$CURRENT_OPENSSL_VERSION" != "1.1.1k" ]]; then
+		echo -e "\e[32m\e[1m当前openssl版本为${CURRENT_OPENSSL_VERSION},是否更新至1.1.1k(Y/n)?\e[0m"
+		read CONFIRM_OPENSSL
+	fi
 	##安装依赖
 	if [[ "$(type -P apt)" ]]; then
 		$PKGMANAGER_INSTALL build-essential libpcre3 libpcre3-dev zlib1g-dev git openssl wget libssl-dev
@@ -1089,26 +1201,25 @@ function INSTALL_NGINX(){
 		echo "error: The script does not support the package manager in this operating system."
 		exit 1
 	fi
+	#开始编译
+	if [[ "$CONFIRM_OPENSSL" == "" || "$CONFIRM_OPENSSL" == "y" ]]; then
+		wget https://www.openssl.org/source/openssl-1.1.1k.tar.gz
+		tar xf openssl-1.1.1k.tar.gz
+		cd openssl-1.1.1k
+		./config
+		make test && make install
+		check "OPENSSL更新失败"
+		mv /usr/bin/openssl /usr/bin/openssl.bak
+		mv /usr/include/openssl /usr/include/openssl.bak
+		ln -s /usr/local/bin/openssl /usr/bin/openssl
+		ln -s /usr/local/include/openssl /usr/include/openssl
+		echo "/usr/local/ssl/lib" >> /etc/ld.so.conf
+		ldconfig -v
+		echo -e "\e[32m\e[1m当前openssl版本号: \e[0m"`openssl version`
+		sleep 2
+	fi
 
-	wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${NGINX_VERSION}.tar.gz -C /tmp/ && cd /tmp/nginx-$NGINX_VERSION
-	./configure \
-	--prefix=/etc/nginx \
-	--pid-path=/run/nginx.pid \
-	--lock-path=/run/nginx.lock \
-	--with-http_ssl_module \
-	--with-http_stub_status_module \
-	--with-http_realip_module \
-	--with-threads \
-	--with-stream_ssl_module \
-	--with-http_v2_module \
-	--with-stream_ssl_preread_module \
-	--with-stream=dynamic
-
-	make && make install
-	check "编译nginx失败！"
-
-	#清理残留
-	rm -fr /tmp/nginx-$NGINX_VERSION
+	NGINX_BINARY
 
 	ln -s /etc/nginx/sbin/nginx /usr/bin/nginx
 	mv $NGINX_CONFIG ${NGINX_CONFIG}_backup
@@ -1157,57 +1268,44 @@ function INSTALL_NGINX(){
 	###systemctl status nginx
 	clear
 	echo -e "\e[32m\e[1m编译nginx成功\e[0m"
-	echo "是否开启SSL配置?(Y/n) "
-	read ENAGLE_NGINX_SSL
-	if [[ "" == "$ENAGLE_NGINX_SSL" ]] || [[ "y" == "$ENAGLE_NGINX_SSL" ]]; then
-		read -p "输入域名: " NGINX_DOMAIN
-		if [[ "" == "$NGINX_DOMAIN" ]]; then
-			echo "空域名！退出。"
-			systemctl start nginx
-		else 
-			systemctl start nginx
-			#开始申请SSL证书
-			acme.sh "$NGINX_DOMAIN"
-			if [[ -e "/ssl/${NGINX_DOMAIN}".key ]]; then
-				echo -e "\e[32m\e[1m证书申请成功，开始写入ssl配置\e[0m"
-				cat >${NGINX_SITE_ENABLED}/Default<<-EOF
-				server {
-				    listen       4433 http2 ssl;
-				    server_name  ${NGINX_DOMAIN} default;
-				    ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
-				    ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
-				    ssl_session_cache    shared:SSL:1m;
-				    ssl_session_timeout  5m;
-				    ssl_protocols TLSv1.2 TLSv1.3;
-				    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-				    ssl_prefer_server_ciphers  on;
-				    location / {
-				        root   html;
-				        index  index.html index.htm;
-				    }
-				}
-				EOF
-				#开启80端口强制重定向443
-				sed -i 's/#ENABLE_REDIRECT//' $NGINX_CONFIG
-				systemctl restart nginx
-			else
-				echo "证书申请失败，ssl配置未写入"
-			fi
+	if [[ "$ENAGLE_NGINX_SSL_" ]]; then
+		systemctl start nginx
+		#开始申请SSL证书
+		acme.sh "$NGINX_DOMAIN"
+		if [[ -e "/ssl/${NGINX_DOMAIN}".key ]]; then
+			echo -e "\e[32m\e[1m证书申请成功，开始写入ssl配置\e[0m"
+			cat >${NGINX_SITE_ENABLED}/Default<<-EOF
+			server {
+			    listen       4433 http2 ssl;
+			    server_name  ${NGINX_DOMAIN} default;
+			    ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
+			    ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
+			    ssl_session_cache    shared:SSL:1m;
+			    ssl_session_timeout  5m;
+			    ssl_protocols TLSv1.2 TLSv1.3;
+			    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+			    ssl_prefer_server_ciphers  on;
+			    location / {
+			        root   html;
+			        index  index.html index.htm;
+			    }
+			}
+			EOF
+			#开启80端口强制重定向443
+			sed -i 's/#ENABLE_REDIRECT//' $NGINX_CONFIG
+			systemctl restart nginx
+		else
+			echo "证书申请失败，ssl配置未写入"
 		fi
 	else 
 		systemctl start nginx
 	fi
 }
-#脚本开始安装caddy
+#caddy
 function caddy(){
-	while [[ true ]]; do
-		read -p "输入域名(不能为空)： " CADDY_DOMAIN
-		if ! [[ "$CADDY_DOMAIN" ]]; then
-			echo "域名不能为空，重新输入！"
-		else 
-			break
-		fi		
-	done
+	echo "输入Caddy域名"
+	FORAM_DOMAIN
+	CADDY_DOMAIN=$RETURN_DOMAIN
 	read -p "设置用户名(禁止@:): " CADDY_USER
 	CADDY_USER=${CADDY_USER:-Oieu!ji330}
 	read -p "设置密码(禁止@:): " CADDY_PASSWD
@@ -1304,7 +1402,7 @@ function caddy(){
 				systemctl enable caddy
 				NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
 				systemctl restart nginx
-				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
+				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go /root/go
 				echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
 			else
 				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
@@ -1322,13 +1420,28 @@ function caddy(){
 }
 #hysteria
 function hysteria(){
-	while [[ true ]]; do
-		echo "输入域名，非空"
-		read hysteria_DOMAIN
-		if [[ "$hysteria_DOMAIN" ]]; then
-			break
+	DESTINATION_PATH="/etc/hysteria"
+	HYSTERIA_BIN="/etc/hysteria/hysteria"
+	hysteria_LATEST=`curl -s https://api.github.com/repos/HyNetwork/hysteria/releases/latest | grep tag_name|cut -f4 -d "\""`
+	hysteria_DOWNLOAD_LINK=https://github.com/HyNetwork/hysteria/releases/download/${hysteria_LATEST}/hysteria-linux-amd64
+	if [[ -a "$HYSTERIA_BIN" ]]; then
+		CHRRENT_HYSTERIA_VERSION=`$HYSTERIA_BIN -v|cut -d ' ' -f3`
+		if [[ "$CHRRENT_HYSTERIA_VERSION" != "$hysteria_LATEST" ]]; then
+			echo "当前版本为${CHRRENT_HYSTERIA_VERSION},服务端已有新版${hysteria_LATEST},是否更新?(Y/n)"
+			read UPDATE_HYSTERIA_VERSION
+			if [[ "$UPDATE_HYSTERIA_VERSION" == "" || "$UPDATE_HYSTERIA_VERSION" == "y" ]]; then
+				systemctl stop hysteria.service
+				wget -O ${DESTINATION_PATH}/hysteria $hysteria_DOWNLOAD_LINK
+				chmod +x ${DESTINATION_PATH}/hysteria
+				systemctl start hysteria.service
+				echo -e "\e[32m\e[1m已更新，当前版本为：`$HYSTERIA_BIN -v|cut -d ' ' -f3`\e[0m"
+				return 0
+			fi
 		fi
-	done
+	fi
+	echo "输入Hysteria域名"
+	FORAM_DOMAIN
+	hysteria_DOMAIN=$RETURN_DOMAIN
 	read -p "输入obfs混淆(io!jioOhu8eH)" hysteria_OBFS
 	hysteria_OBFS=${hysteria_OBFS:-io!jioOhu8eH}
 	read -p "输入认证密码(ieLj3fhG!o34)" hysteria_AUTH
@@ -1336,9 +1449,6 @@ function hysteria(){
 	acme.sh "$hysteria_DOMAIN"
 	if [[ -e "/ssl/${hysteria_DOMAIN}.key" ]]; then
 		echo "已检测到证书"
-		hysteria_LATEST=`curl -s https://api.github.com/repos/HyNetwork/hysteria/releases/latest | grep tag_name|cut -f4 -d "\""`
-		hysteria_DOWNLOAD_LINK=https://github.com/HyNetwork/hysteria/releases/download/${hysteria_LATEST}/hysteria-linux-amd64
-		DESTINATION_PATH="/etc/hysteria"
 		mkdir $DESTINATION_PATH
 		wget -O ${DESTINATION_PATH}/hysteria $hysteria_DOWNLOAD_LINK
 		chmod +x ${DESTINATION_PATH}/hysteria
@@ -1371,11 +1481,9 @@ function hysteria(){
 		EOF
 		systemctl daemon-reload
 		systemctl start hysteria.service
-		echo 1
 		systemctl is-active hysteria.service
 		if [[ "active" == "`systemctl is-active hysteria.service`" ]]; then
-			echo 2
-			systemctl is-active hysteria.service
+			systemctl enable hysteria.service
 			echo -e "\e[32m\e[1mhysteria已成功启动\e[0m"
 			echo $hysteria_DOMAIN
 			echo "obfs: "$hysteria_OBFS
@@ -1387,7 +1495,6 @@ function hysteria(){
 		echo -e "\e[31m\e[1m检测不到证书，安装退出\e[0m"
 	fi
 }
-
 echo -e "\e[31m\e[1m输入对应的数字选项:\e[0m"
 select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy" "hysteria"
 do
