@@ -1010,9 +1010,9 @@ function Project_X(){
 		echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls&sni=$XRAY_DOMAIN&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
 
 		echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
-		echo vless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC >> /etc/sub/trojan.sys
+		echo vless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc\&encryption=none\&serviceName=$XRAY_GRPC_NAME\&security=tls\&sni=$XRAY_DOMAIN#GRPC >> /etc/sub/trojan.sys
 		echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
-		echo vless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS >> /etc/sub/trojan.sys
+		echo vless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws\&security=tls\&path=/$XRAY_WS_PATH?ed=2048\&host=$XRAY_DOMAIN\&sni=$XRAY_DOMAIN#WS >> /etc/sub/trojan.sys
 	fi	
 }
 #trojan
@@ -1213,6 +1213,7 @@ function INSTALL_NGINX(){
 		cd openssl-1.1.1k
 		./config
 		make test && make install
+		rm -fr openssl-1.1.1k.tar.gz openssl-1.1.1k
 		check "OPENSSL更新失败"
 		mv /usr/bin/openssl /usr/bin/openssl.bak
 		mv /usr/include/openssl /usr/include/openssl.bak
@@ -1296,7 +1297,7 @@ function INSTALL_NGINX(){
 			    }
 			    location /${SUBSCRIPTION_PATH}/ {
 			        alias /etc/sub/;
-			        index trojan.sys
+			        index trojan.sys;
 			    }
 			}
 			EOF
