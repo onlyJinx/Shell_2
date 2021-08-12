@@ -28,6 +28,13 @@ function NGINX_SNI(){
 		return -1
 	fi
 }
+function GET_RANDOM_STRING(){
+	GET_RANDOM_STR=`openssl rand -base64 25`
+	GET_RANDOM_STR=${GET_RANDOM_STR//\//_}
+	GET_RANDOM_STR=${GET_RANDOM_STR// /_}
+	GET_RANDOM_STR=${GET_RANDOM_STR//=/N}
+	echo $GET_RANDOM_STR
+}
 function FORAM_DOMAIN(){
 	read FORAM_DOMAIN_ENTER
 	if [[ "" == "$FORAM_DOMAIN_ENTER" ]]; then
@@ -216,8 +223,8 @@ function acme.sh(){
 			STANDALONE="--standalone"
 		else
 			#检测是否传入WEB_ROOT参数,如有,跳过网站根目录输入
-			if [[ "$2" ]]; then
-				ENTER_NGINX_PTAH=$2
+			if [[ "$HTTP_CALL_FUNCTION_WEB_ROOT" ]]; then
+				ENTER_NGINX_PTAH=$HTTP_CALL_FUNCTION_WEB_ROOT
 			else 
 				echo -e "\e[32m\e[1m检测到80端口占用，尝试列出所有html目录。\e[0m"
 				find / -name html
@@ -315,6 +322,7 @@ function acme.sh(){
 		if [[ "$CALL_FUNCTION" ]]; then
 			ENTER_APPLY_DOMAIN=$CALL_FUNCTION
 			APPLY_DOMAIN=$CALL_FUNCTION
+			HTTP_CALL_FUNCTION_WEB_ROOT="/etc/nginx/html"
 			Wildcard=""
 			ACME_HTTP
 		else
@@ -926,12 +934,10 @@ function Project_X(){
 		XRAY_WS_PORT=$port
 		#read -p "Grpc Name(grpcforward)?  " XRAY_GRPC_NAME
 		#XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
-		XRAY_GRPC_NAME=`openssl rand -base64 20`
-		XRAY_GRPC_NAME=${XRAY_GRPC_NAME//\//_}
+		XRAY_GRPC_NAME=`GET_RANDOM_STRING`
 		#read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
 		#XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
-		XRAY_WS_PATH=`openssl rand -base64 20`
-		XRAY_WS_PATH=${XRAY_WS_PATH//\//_}
+		XRAY_WS_PATH=`GET_RANDOM_STRING`
 
 		echo "请输入xray域名"
 		FORAM_DOMAIN
@@ -1099,8 +1105,7 @@ function trojan(){
 	#echo "不可以包含#@?"
 	#read TROJAN_PASSWD
 	#TROJAN_PASSWD=${TROJAN_PASSWD:-trojanWdai1}
-	TROJAN_PASSWD=`openssl rand -base64 20`
-	TROJAN_PASSWD=${TROJAN_PASSWD//\//_}
+	TROJAN_PASSWD=`GET_RANDOM_STRING`
 
 	##申请SSL证书
 	acme.sh $TROJAN_DOMAIN "/etc/nginx/html"
@@ -1152,8 +1157,7 @@ function INSTALL_NGINX(){
 	NGINX_CONFIG=/etc/nginx/conf/nginx.conf
 	NGINX_BIN=/etc/nginx/sbin/nginx
 	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
-	SUBSCRIPTION_PATH=`openssl rand -base64 20`
-	SUBSCRIPTION_PATH=${SUBSCRIPTION_PATH//\//_}
+	SUBSCRIPTION_PATH=`GET_RANDOM_STRING`
 	SUBSCRIPTION_FILE="/etc/sub/trojan.sys"
 	if ! [[ -d /etc/sub ]]; then
 		mkdir /etc/sub
@@ -1298,7 +1302,6 @@ function INSTALL_NGINX(){
 	systemctl daemon-reload
 	systemctl enable nginx
 	###systemctl status nginx
-	clear
 	echo -e "\e[32m\e[1m编译nginx成功\e[0m"
 	if [[ "$ENAGLE_NGINX_SSL_" ]]; then
 		systemctl start nginx
@@ -1345,11 +1348,11 @@ function caddy(){
 	CADDY_DOMAIN=$RETURN_DOMAIN
 	#read -p "设置用户名(禁止@:): " CADDY_USER
 	#CADDY_USER=${CADDY_USER:-Oieu!ji330}
-	CADDY_USER=`openssl rand -base64 20`
+	CADDY_USER=`GET_RANDOM_STRING`
 	CADDY_USER=${CADDY_USER//\//_}
 	#read -p "设置密码(禁止@:): " CADDY_PASSWD
 	#CADDY_PASSWD=${CADDY_PASSWD:-5eele9P!il_}
-	CADDY_PASSWD=`openssl rand -base64 20`
+	CADDY_PASSWD=`GET_RANDOM_STRING`
 	CADDY_PASSWD=${CADDY_PASSWD//\//_}
 	CHECK_NGINX_443=`ss -lnp|grep ":443 "|grep nginx`
 	if [[ "$CHECK_NGINX_443" ]]; then
