@@ -884,7 +884,7 @@ function Up_kernel(){
 }
 #xray
 function Project_X(){
-	function INSTALL_BINARY(){
+	function INSTALL_XRAY_BINARY(){
 		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 		wget -P /tmp https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
 		if ! [[ "$(type -P unzip)" ]];then
@@ -899,6 +899,7 @@ function Project_X(){
 		mv /tmp/geosite.dat /usr/local/share/xray/geosite.dat
 		mv /tmp/xray /usr/local/bin/xray
 		rm -f /tmp/README.md /tmp/LICENSE Xray-linux-64.zip
+		#https://github.com/v2fly/v2ray-core/releases/download/v4.41.1/v2ray-linux-64.zip
 	}
 
 	if [[ "$(type -P xray)" ]]; then
@@ -908,7 +909,7 @@ function Project_X(){
 	CHECK_VERSION xray Xray $XTLS_INSTALLED_VERSION $XRAY_RELEASE_LATEST
 
 	if [[ "$NEED_UPDATE" == "1" ]]; then
-		INSTALL_BINARY
+		INSTALL_XRAY_BINARY
 		##格式化版本号，去掉小数点
 		TMP_VERSION=$(xray version|sed -n 1p|cut -d ' ' -f 2|sed 's/\.//g')
 		XRAY_RELEASE_LATEST_FORMAT=$(echo $XRAY_RELEASE_LATEST | sed 's/\.//g')
@@ -948,7 +949,7 @@ function Project_X(){
 			echo -e "\e[32m\e[1m已检测到证书文件\e[0m"
 			# read  XRAY_DOMAIN
 			# XRAY_DOMAIN=${XRAY_DOMAIN:-project_x.com}
-			INSTALL_BINARY
+			INSTALL_XRAY_BINARY
 			if [[ "$(type -P /usr/local/bin/xray)" ]]; then
 				XRAY_UUID=$(/usr/local/bin/xray uuid)
 				XRAY_GRPC_UUID=$(/usr/local/bin/xray uuid)
@@ -1059,14 +1060,15 @@ function Project_X(){
 			systemctl restart nginx
 
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
-			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?security=xtls\&sni=${XRAY_DOMAIN}\&flow=xtls-rprx-direct#🍭 VLESS_xtls >> /etc/sub/trojan.tmp
+			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?security=xtls\&sni=${XRAY_DOMAIN}\&flow=xtls-rprx-direct#🍭 XTLS[洛杉矶] >> /etc/sub/trojan.tmp
 			#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
 			###echo vless://${XRAY_GRPC_UUID}@${XRAY_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${XRAY_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
-			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC >> /etc/sub/trojan.tmp
+			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC[洛杉矶] >> /etc/sub/trojan.tmp
 			#echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
-			echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks >> /etc/sub/trojan.tmp
+			echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks[洛杉矶] >> /etc/sub/trojan.tmp
 			###echo vless://${XRAY_WS_UUID}@${XRAY_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${XRAY_DOMAIN}\&sni=${XRAY_DOMAIN}#🌋 WebSocks >> /etc/sub/trojan.tmp
 			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
+			rm -f /etc/sub/trojan.tmp
 		else 
 			echo -e "\e[31m\e[1m找不到证书文件,退出安装！\e[0m"
 		fi
@@ -1174,7 +1176,7 @@ function trojan(){
 			systemctl enable trojan
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
 			#echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
-			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🍹 Trojan-gfw >> /etc/sub/trojan.tmp
+			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🍹 Trojan-gfw[洛杉矶] >> /etc/sub/trojan.tmp
 			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 		fi
 	else 
@@ -1482,7 +1484,7 @@ function caddy(){
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go /root/go
 				base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
 				#echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
-				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#🌶️ NaiveProxy >> /etc/sub/trojan.tmp
+				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#🌶️ NaiveProxy[洛杉矶] >> /etc/sub/trojan.tmp
 				base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 			else
 				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
