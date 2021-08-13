@@ -884,48 +884,77 @@ function Up_kernel(){
 }
 #xray
 function Project_X(){
+	#检测安装v2ray/xray
+	PROJECT_BIN_VERSION=$1
 	function INSTALL_XRAY_BINARY(){
-		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
-		wget -P /tmp https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
 		if ! [[ "$(type -P unzip)" ]];then
 			$PKGMANAGER_INSTALL unzip
 		fi
-		unzip -o /tmp/Xray-linux-64.zip -d /tmp
-		if ! [[ -d /usr/local/share/xray ]];then
-			mkdir -p /usr/local/share/xray
+		if [[ "xray" == $PROJECT_BIN_VERSION ]]; then
+			wget -O /tmp/ray.zip https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
+		elif [[ "v2ray" == $PROJECT_BIN_VERSION ]]; then
+			#statements
+			echo "输入v2ray版本号(4.41.1)"
+			read V2RAY_BIN_VERSION
+			V2RAY_BIN_VERSION=${V2RAY_BIN_VERSION:-4.41.1}
+			wget -O /tmp/ray.zip https://github.com/v2fly/v2ray-core/releases/download/v${V2RAY_BIN_VERSION}/v2ray-linux-64.zip
+		else 
+			echo "未知参数,退出！"
+			exit -1
 		fi
-		alias mv='mv -i'
-		mv /tmp/geoip.dat /usr/local/share/xray/geoip.dat
-		mv /tmp/geosite.dat /usr/local/share/xray/geosite.dat
-		mv /tmp/xray /usr/local/bin/xray
-		rm -f /tmp/README.md /tmp/LICENSE Xray-linux-64.zip
-		#https://github.com/v2fly/v2ray-core/releases/download/v4.41.1/v2ray-linux-64.zip
+		mkdir /etc/${PROJECT_BIN_VERSION}
+		unzip -o /tmp/ray.zip -d /tmp
+		mv /tmp/geoip.dat /etc/${PROJECT_BIN_VERSION}/geoip.dat
+		mv /tmp/geosite.dat /etc/${PROJECT_BIN_VERSION}/geosite.dat
+		mv /tmp/${PROJECT_BIN_VERSION} /etc/${PROJECT_BIN_VERSION}/
+		rm -f /tmp/README.md /tmp/LICENSE ray.zip
+		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 	}
 
-	if [[ "$(type -P xray)" ]]; then
-		XTLS_INSTALLED_VERSION=$(xray version|sed -n 1p|cut -d ' ' -f 2)
+	if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
+		if [[ "$(type -P v2ray)" ]]; then
+			V2ray_INSTALLED_VERSION=$(v2ray -version|grep V2Ray|cut -d ' ' -f2)
+			CHECK_VERSION v2ray v2fly $V2ray_INSTALLED_VERSION "N-A"
+		fi
+	elif [[ "xray" == "$PROJECT_BIN_VERSION" ]]; then
+		if [[ "$(type -P xray)" ]]; then
+			XTLS_INSTALLED_VERSION=$(xray version|sed -n 1p|cut -d ' ' -f 2)
+			XRAY_RELEASE_LATEST=`wget -q -O - https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
+			CHECK_VERSION xray Xray $XTLS_INSTALLED_VERSION $XRAY_RELEASE_LATEST
+		fi
+	else 
+		echo "错误！"
+		exit -1
 	fi
-	XRAY_RELEASE_LATEST=`wget -q -O - https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
-	CHECK_VERSION xray Xray $XTLS_INSTALLED_VERSION $XRAY_RELEASE_LATEST
+
 
 	if [[ "$NEED_UPDATE" == "1" ]]; then
 		INSTALL_XRAY_BINARY
-		##格式化版本号，去掉小数点
-		TMP_VERSION=$(xray version|sed -n 1p|cut -d ' ' -f 2|sed 's/\.//g')
-		XRAY_RELEASE_LATEST_FORMAT=$(echo $XRAY_RELEASE_LATEST | sed 's/\.//g')
-		if [[ "$TMP_VERSION" == "$XRAY_RELEASE_LATEST_FORMAT" ]]; then
-			echo "Xray已更新(v$XRAY_RELEASE_LATEST)"
-			systemctl restart xray
-			xray version
-		else
-			echo "更新失败"
-			exit 1
+		if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
+			echo "已更新V2fly,版本信息如下"
+			v2ray -version
+		elif [[ "xray" == "$PROJECT_BIN_VERSION" ]]; then
+			##格式化版本号，去掉小数点
+			TMP_VERSION=$(xray version|sed -n 1p|cut -d ' ' -f 2|sed 's/\.//g')
+			XRAY_RELEASE_LATEST_FORMAT=$(echo $XRAY_RELEASE_LATEST | sed 's/\.//g')
+			if [[ "$TMP_VERSION" == "$XRAY_RELEASE_LATEST_FORMAT" ]]; then
+				echo "Xray已更新(v$XRAY_RELEASE_LATEST)"
+				systemctl restart xray
+				xray version
+			else
+				echo "更新失败"
+				exit 1
+			fi
+		else 
+			echo "错误！"
+			exit -1
 		fi
+
 	else
 		#不再支持自定义端口,Path,Service Name
 		#CHECK_PORT "XRAY_XTLS 监听端口(1000)?  " 1000
 		CHECK_PORT "NOINPUT" 15423
-		XRAY_XTLS_PORT=$port
+		RAY_TCP_PORT=$port
 		#read -p "回落端口(5555)?  " XRAY_DESP_PORT
 		XRAY_DESP_PORT=${XRAY_DESP_PORT:-5555}
 		#CHECK_PORT "GRPC 监听端口(2002)?  " 2002
@@ -941,7 +970,11 @@ function Project_X(){
 		#XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
 		XRAY_WS_PATH=`GET_RANDOM_STRING`
 
-		echo "请输入xray域名"
+		XRAY_UUID=$(cat /proc/sys/kernel/random/uuid)
+		XRAY_GRPC_UUID=$(cat /proc/sys/kernel/random/uuid)
+		XRAY_WS_UUID=$(cat /proc/sys/kernel/random/uuid)
+
+		echo "请输入xray/v2fly域名"
 		FORAM_DOMAIN
 		XRAY_DOMAIN=$RETURN_DOMAIN
 		acme.sh "$XRAY_DOMAIN" "/etc/nginx/html"
@@ -950,20 +983,9 @@ function Project_X(){
 			# read  XRAY_DOMAIN
 			# XRAY_DOMAIN=${XRAY_DOMAIN:-project_x.com}
 			INSTALL_XRAY_BINARY
-			if [[ "$(type -P /usr/local/bin/xray)" ]]; then
-				XRAY_UUID=$(/usr/local/bin/xray uuid)
-				XRAY_GRPC_UUID=$(/usr/local/bin/xray uuid)
-				XRAY_WS_UUID=$(/usr/local/bin/xray uuid)
-			else 
-				echo "XRAY安装失败！"
-				exit 1
-			fi
-			if ! [[ -d /usr/local/etc/xray ]];then
-				mkdir /usr/local/etc/xray
-			fi
-			XRAY_CONFIG=/usr/local/etc/xray/config.json
-			wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/xtls_tcp_grpc_ws.json
-			sed -i "s/XTLS_PORT/$XRAY_XTLS_PORT/" $XRAY_CONFIG
+			XRAY_CONFIG=/etc/${PROJECT_BIN_VERSION}/config.json
+			wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/test/xtls_tcp_grpc_ws.json
+			sed -i "s/XTLS_PORT/$RAY_TCP_PORT/" $XRAY_CONFIG
 			sed -i "s/DESP_PORT/$XRAY_DESP_PORT/" $XRAY_CONFIG
 			sed -i "s/GRPC_PORT/$XRAY_GRPC_PORT/" $XRAY_CONFIG
 			sed -i "s/GRPC_NAME/$XRAY_GRPC_NAME/" $XRAY_CONFIG
@@ -975,7 +997,14 @@ function Project_X(){
 			sed -i "s/XtlsForUUID/$XRAY_UUID/" $XRAY_CONFIG
 			sed -i "s/GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
 			sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
-
+			#流控,用于订阅生成
+			RAY_FLOW='flow=xtls-rprx-direct&'
+			if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
+				sed -i '/xtls-rprx-direct/d' $XRAY_CONFIG
+				sed -i 's/"xtls"/"tls"/' $XRAY_CONFIG
+				sed -i 's/"grpc"/"gun"/' $XRAY_CONFIG
+				RAY_FLOW=""
+			fi
 			cat > $SYSTEMD_SERVICES/xray.service <<-EOF
 			[Unit]
 			Description=Xray Service
@@ -986,7 +1015,7 @@ function Project_X(){
 			#CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 			#AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 			#NoNewPrivileges=true
-			ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
+			ExecStart=/etc/${PROJECT_BIN_VERSION}/${PROJECT_BIN_VERSION} run -config $XRAY_CONFIG
 			Restart=on-failure
 			RestartPreventExitStatus=23
 			LimitNPROC=10000
@@ -1053,14 +1082,14 @@ function Project_X(){
 				EOF
 			fi
 			NGINX_HTPTS_DOMAIN=`cat $NGINX_HTTPS_DEFAULT | grep server_name | awk '{print $2}'`
-			NGINX_SNI "${XRAY_DOMAIN}" "$XRAY_XTLS_PORT"
+			NGINX_SNI "${XRAY_DOMAIN}" "$RAY_TCP_PORT"
 			systemctl daemon-reload
 			systemctl start xray
 			systemctl enable xray
 			systemctl restart nginx
 
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
-			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?security=xtls\&sni=${XRAY_DOMAIN}\&flow=xtls-rprx-direct#🍭 XTLS[洛杉矶] >> /etc/sub/trojan.tmp
+			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?security=xtls\&sni=${XRAY_DOMAIN}${RAY_FLOW}#🍭 XTLS[洛杉矶] >> /etc/sub/trojan.tmp
 			#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
 			###echo vless://${XRAY_GRPC_UUID}@${XRAY_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${XRAY_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
 			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC[洛杉矶] >> /etc/sub/trojan.tmp
