@@ -1058,12 +1058,12 @@ function Project_X(){
 			systemctl restart nginx
 
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
-			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?security=xtls\&sni=${XRAY_DOMAIN}\&flow=xtls-rprx-direct#VLESS_xtls >> /etc/sub/trojan.tmp
+			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?security=xtls\&sni=${XRAY_DOMAIN}\&flow=xtls-rprx-direct#🍭 VLESS_xtls >> /etc/sub/trojan.tmp
 			#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
 			###echo vless://${XRAY_GRPC_UUID}@${XRAY_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${XRAY_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
-			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
+			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC >> /etc/sub/trojan.tmp
 			#echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
-			echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🌋 WebSocks >> /etc/sub/trojan.tmp
+			echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks >> /etc/sub/trojan.tmp
 			###echo vless://${XRAY_WS_UUID}@${XRAY_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${XRAY_DOMAIN}\&sni=${XRAY_DOMAIN}#🌋 WebSocks >> /etc/sub/trojan.tmp
 			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 		else 
@@ -1173,7 +1173,7 @@ function trojan(){
 			systemctl enable trojan
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
 			#echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
-			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🌂 Trojan-gfw >> /etc/sub/trojan.tmp
+			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🍹 Trojan-gfw >> /etc/sub/trojan.tmp
 			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 		fi
 	else 
@@ -1482,7 +1482,7 @@ function caddy(){
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go /root/go
 				base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
 				#echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
-				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#🏎 Naive >> /etc/sub/trojan.tmp
+				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#🌶️ NaiveProxy >> /etc/sub/trojan.tmp
 				base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 			else
 				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
