@@ -999,11 +999,14 @@ function Project_X(){
 			sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
 			#流控,用于订阅生成
 			RAY_FLOW='flow=xtls-rprx-direct&'
+			TRANS_FLOW='security=xtls'
 			if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
 				sed -i '/xtls-rprx-direct/d' $XRAY_CONFIG
 				sed -i 's/"xtls"/"tls"/' $XRAY_CONFIG
 				sed -i 's/"grpc"/"gun"/' $XRAY_CONFIG
+				sed -i 's/"xtlsSettings"/"tlsSettings"/' $XRAY_CONFIG
 				RAY_FLOW=""
+				TRANS_FLOW='security=tls'
 			fi
 			cat > $SYSTEMD_SERVICES/xray.service <<-EOF
 			[Unit]
@@ -1089,7 +1092,7 @@ function Project_X(){
 			systemctl restart nginx
 
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
-			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?security=xtls\&sni=${XRAY_DOMAIN}${RAY_FLOW}#🍭 XTLS[洛杉矶] >> /etc/sub/trojan.tmp
+			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${TRANS_FLOW}\&sni=${XRAY_DOMAIN}${RAY_FLOW}#🍭 XTLS[洛杉矶] >> /etc/sub/trojan.tmp
 			#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
 			###echo vless://${XRAY_GRPC_UUID}@${XRAY_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${XRAY_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
 			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC[洛杉矶] >> /etc/sub/trojan.tmp
@@ -1607,7 +1610,7 @@ function hysteria(){
 	fi
 }
 echo -e "\e[31m\e[1m输入对应的数字选项:\e[0m"
-select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy" "hysteria"
+select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy" "hysteria" "Project_V"
 do
 	case $option in
 		"acme.sh")
@@ -1632,7 +1635,10 @@ do
 			INSTALL_NGINX
 			break;;
 		"Project_X")
-			Project_X
+			Project_X "xray"
+			break;;
+		"Project_V")
+			Project_X "v2ray"
 			break;;
 		"caddy")
 			caddy
