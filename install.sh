@@ -936,136 +936,139 @@ function Project_X(){
 		#read -p "Grpc Name(grpcforward)?  " XRAY_GRPC_NAME
 		#XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
 		XRAY_GRPC_NAME=`GET_RANDOM_STRING`
-		echo "XRAY_GRPC_NAME: "$XRAY_GRPC_NAME
 		#read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
 		#XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
 		XRAY_WS_PATH=`GET_RANDOM_STRING`
-		echo "XRAY_WS_PATH: "$XRAY_WS_PATH
 
 		echo "请输入xray域名"
 		FORAM_DOMAIN
 		XRAY_DOMAIN=$RETURN_DOMAIN
-		# read  XRAY_DOMAIN
-		# XRAY_DOMAIN=${XRAY_DOMAIN:-project_x.com}
-		INSTALL_BINARY
-		if [[ "$(type -P /usr/local/bin/xray)" ]]; then
-			XRAY_UUID=$(/usr/local/bin/xray uuid)
-			XRAY_GRPC_UUID=$(/usr/local/bin/xray uuid)
-			XRAY_WS_UUID=$(/usr/local/bin/xray uuid)
-		else 
-			echo "XRAY安装失败！"
-			exit 1
-		fi
-		if ! [[ -d /usr/local/etc/xray ]];then
-			mkdir /usr/local/etc/xray
-		fi
-		XRAY_CONFIG=/usr/local/etc/xray/config.json
-		wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/xtls_tcp_grpc_ws.json
-		sed -i "s/XTLS_PORT/$XRAY_XTLS_PORT/" $XRAY_CONFIG
-		sed -i "s/DESP_PORT/$XRAY_DESP_PORT/" $XRAY_CONFIG
-		sed -i "s/GRPC_PORT/$XRAY_GRPC_PORT/" $XRAY_CONFIG
-		sed -i "s/GRPC_NAME/$XRAY_GRPC_NAME/" $XRAY_CONFIG
-		sed -i "s/WS_PORT/$XRAY_WS_PORT/" $XRAY_CONFIG
-		sed -i "s/WS_PATH/$XRAY_WS_PATH/" $XRAY_CONFIG
-		sed -i "s/SSL_XRAY_CER/$XRAY_DOMAIN/" $XRAY_CONFIG
-		sed -i "s/SSL_XRAY_KEY/$XRAY_DOMAIN/" $XRAY_CONFIG
-
-		sed -i "s/XtlsForUUID/$XRAY_UUID/" $XRAY_CONFIG
-		sed -i "s/GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
-		sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
-
-		cat > $SYSTEMD_SERVICES/xray.service <<-EOF
-		[Unit]
-		Description=Xray Service
-		Documentation=https://github.com/xtls
-		After=network.target nss-lookup.target
-		[Service]
-		User=root
-		#CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-		#AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-		#NoNewPrivileges=true
-		ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
-		Restart=on-failure
-		RestartPreventExitStatus=23
-		LimitNPROC=10000
-		LimitNOFILE=1000000
-		[Install]
-		WantedBy=multi-user.target
-		EOF
-
-		# XRAY_NGINX_CONFIG=$NGINX_CONFIG
-		# if [[ -e $XRAY_NGINX_CONFIG ]];then
-		# 	cat >$NGINX_SITE_ENABLED/${XRAY_DOMAIN}<<-EOF
-		# 	server {
-		# 	    listen       4433 http2 ssl;
-		# 	    server_name  ${XRAY_DOMAIN};
-		# 	    ssl_certificate      /ssl/${XRAY_DOMAIN}.cer;
-		# 	    ssl_certificate_key  /ssl/${XRAY_DOMAIN}.key;
-		# 	    ssl_session_cache    shared:SSL:1m;
-		# 	    ssl_session_timeout  5m;
-		# 	    ssl_protocols TLSv1.2 TLSv1.3;
-		# 	    ssl_prefer_server_ciphers  on;
-		# 	    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-		# 	    location /${XRAY_GRPC_NAME} {
-		# 	        if (\$content_type !~ "application/grpc") {
-		# 	            return 404;
-		# 	        }
-		# 	        client_max_body_size 0;
-		# 	        client_body_timeout 1071906480m;
-		# 	        grpc_read_timeout 1071906480m;
-		# 	        grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
-		# 	    }
-		# 	    location /${XRAY_WS_PATH} {
-		# 	        proxy_redirect off;
-		# 	        proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
-		# 	        proxy_http_version 1.1;
-		# 	        proxy_set_header Upgrade \$http_upgrade;
-		# 	        proxy_set_header Connection "upgrade";
-		# 	        proxy_set_header Host \$http_host;
-		# 	    }
-		# 	}
-		# 	EOF
-		# fi
-		NGINX_HTTPS_DEFAULT=${NGINX_SITE_ENABLED}/Default
-		if [[ -e "$NGINX_HTTPS_DEFAULT" ]]; then
-			sed -i '/^}/d' $NGINX_HTTPS_DEFAULT
-			cat >>$NGINX_HTTPS_DEFAULT<<-EOF
-			    location /${XRAY_GRPC_NAME} {
-			        if (\$content_type !~ "application/grpc") {
-			            return 404;
-			        }
-			        client_max_body_size 0;
-			        client_body_timeout 1071906480m;
-			        grpc_read_timeout 1071906480m;
-			        grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
-			    }
-			    location /${XRAY_WS_PATH} {
-			        proxy_redirect off;
-			        proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
-			        proxy_http_version 1.1;
-			        proxy_set_header Upgrade \$http_upgrade;
-			        proxy_set_header Connection "upgrade";
-			        proxy_set_header Host \$http_host;
-			    }
-			}
-			EOF
-		fi
-		NGINX_HTPTS_DOMAIN=`cat $NGINX_HTTPS_DEFAULT | grep server_name | awk '{print $2}'`
 		acme.sh "$XRAY_DOMAIN" "/etc/nginx/html"
-		systemctl daemon-reload
-		systemctl start xray
-		systemctl enable xray
-		systemctl restart nginx
+		if [[ -a "/ssl/${XRAY_DOMAIN}.key" ]]; then
+			echo -e "\e[32m\e[1m已检测到证书文件\e[0m"
+			# read  XRAY_DOMAIN
+			# XRAY_DOMAIN=${XRAY_DOMAIN:-project_x.com}
+			INSTALL_BINARY
+			if [[ "$(type -P /usr/local/bin/xray)" ]]; then
+				XRAY_UUID=$(/usr/local/bin/xray uuid)
+				XRAY_GRPC_UUID=$(/usr/local/bin/xray uuid)
+				XRAY_WS_UUID=$(/usr/local/bin/xray uuid)
+			else 
+				echo "XRAY安装失败！"
+				exit 1
+			fi
+			if ! [[ -d /usr/local/etc/xray ]];then
+				mkdir /usr/local/etc/xray
+			fi
+			XRAY_CONFIG=/usr/local/etc/xray/config.json
+			wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/xtls_tcp_grpc_ws.json
+			sed -i "s/XTLS_PORT/$XRAY_XTLS_PORT/" $XRAY_CONFIG
+			sed -i "s/DESP_PORT/$XRAY_DESP_PORT/" $XRAY_CONFIG
+			sed -i "s/GRPC_PORT/$XRAY_GRPC_PORT/" $XRAY_CONFIG
+			sed -i "s/GRPC_NAME/$XRAY_GRPC_NAME/" $XRAY_CONFIG
+			sed -i "s/WS_PORT/$XRAY_WS_PORT/" $XRAY_CONFIG
+			sed -i "s/WS_PATH/$XRAY_WS_PATH/" $XRAY_CONFIG
+			sed -i "s/SSL_XRAY_CER/$XRAY_DOMAIN/" $XRAY_CONFIG
+			sed -i "s/SSL_XRAY_KEY/$XRAY_DOMAIN/" $XRAY_CONFIG
 
-		#echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls&sni=$XRAY_DOMAIN&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
-		base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
-		#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
-		###echo vless://${XRAY_GRPC_UUID}@${XRAY_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${XRAY_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
-		echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
-		#echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
-		echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🌋 WebSocks >> /etc/sub/trojan.tmp
-		###echo vless://${XRAY_WS_UUID}@${XRAY_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${XRAY_DOMAIN}\&sni=${XRAY_DOMAIN}#🌋 WebSocks >> /etc/sub/trojan.tmp
-		base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
+			sed -i "s/XtlsForUUID/$XRAY_UUID/" $XRAY_CONFIG
+			sed -i "s/GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
+			sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
+
+			cat > $SYSTEMD_SERVICES/xray.service <<-EOF
+			[Unit]
+			Description=Xray Service
+			Documentation=https://github.com/xtls
+			After=network.target nss-lookup.target
+			[Service]
+			User=root
+			#CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+			#AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+			#NoNewPrivileges=true
+			ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
+			Restart=on-failure
+			RestartPreventExitStatus=23
+			LimitNPROC=10000
+			LimitNOFILE=1000000
+			[Install]
+			WantedBy=multi-user.target
+			EOF
+
+			# XRAY_NGINX_CONFIG=$NGINX_CONFIG
+			# if [[ -e $XRAY_NGINX_CONFIG ]];then
+			# 	cat >$NGINX_SITE_ENABLED/${XRAY_DOMAIN}<<-EOF
+			# 	server {
+			# 	    listen       4433 http2 ssl;
+			# 	    server_name  ${XRAY_DOMAIN};
+			# 	    ssl_certificate      /ssl/${XRAY_DOMAIN}.cer;
+			# 	    ssl_certificate_key  /ssl/${XRAY_DOMAIN}.key;
+			# 	    ssl_session_cache    shared:SSL:1m;
+			# 	    ssl_session_timeout  5m;
+			# 	    ssl_protocols TLSv1.2 TLSv1.3;
+			# 	    ssl_prefer_server_ciphers  on;
+			# 	    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+			# 	    location /${XRAY_GRPC_NAME} {
+			# 	        if (\$content_type !~ "application/grpc") {
+			# 	            return 404;
+			# 	        }
+			# 	        client_max_body_size 0;
+			# 	        client_body_timeout 1071906480m;
+			# 	        grpc_read_timeout 1071906480m;
+			# 	        grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
+			# 	    }
+			# 	    location /${XRAY_WS_PATH} {
+			# 	        proxy_redirect off;
+			# 	        proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
+			# 	        proxy_http_version 1.1;
+			# 	        proxy_set_header Upgrade \$http_upgrade;
+			# 	        proxy_set_header Connection "upgrade";
+			# 	        proxy_set_header Host \$http_host;
+			# 	    }
+			# 	}
+			# 	EOF
+			# fi
+			NGINX_HTTPS_DEFAULT=${NGINX_SITE_ENABLED}/Default
+			if [[ -e "$NGINX_HTTPS_DEFAULT" ]]; then
+				sed -i '/^}/d' $NGINX_HTTPS_DEFAULT
+				cat >>$NGINX_HTTPS_DEFAULT<<-EOF
+				    location /${XRAY_GRPC_NAME} {
+				        if (\$content_type !~ "application/grpc") {
+				            return 404;
+				        }
+				        client_max_body_size 0;
+				        client_body_timeout 1071906480m;
+				        grpc_read_timeout 1071906480m;
+				        grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
+				    }
+				    location /${XRAY_WS_PATH} {
+				        proxy_redirect off;
+				        proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
+				        proxy_http_version 1.1;
+				        proxy_set_header Upgrade \$http_upgrade;
+				        proxy_set_header Connection "upgrade";
+				        proxy_set_header Host \$http_host;
+				    }
+				}
+				EOF
+			fi
+			NGINX_HTPTS_DOMAIN=`cat $NGINX_HTTPS_DEFAULT | grep server_name | awk '{print $2}'`
+			systemctl daemon-reload
+			systemctl start xray
+			systemctl enable xray
+			systemctl restart nginx
+
+			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
+			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?security=xtls\&sni=${XRAY_DOMAIN}\&flow=xtls-rprx-direct#VLESS_xtls >> /etc/sub/trojan.tmp
+			#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
+			###echo vless://${XRAY_GRPC_UUID}@${XRAY_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${XRAY_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
+			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
+			#echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
+			echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🌋 WebSocks >> /etc/sub/trojan.tmp
+			###echo vless://${XRAY_WS_UUID}@${XRAY_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${XRAY_DOMAIN}\&sni=${XRAY_DOMAIN}#🌋 WebSocks >> /etc/sub/trojan.tmp
+			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
+		else 
+			echo -e "\e[31m\e[1m找不到证书文件,退出安装！\e[0m"
+		fi
 	fi	
 }
 #trojan
