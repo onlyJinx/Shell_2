@@ -28,6 +28,14 @@ function NGINX_SNI(){
 		return -1
 	fi
 }
+function GET_RANDOM_STRING(){
+	GET_RANDOM_STR=`openssl rand -base64 25`
+	GET_RANDOM_STR=${GET_RANDOM_STR//\//_}
+	GET_RANDOM_STR=${GET_RANDOM_STR// /_}
+	GET_RANDOM_STR=${GET_RANDOM_STR//=/}
+	GET_RANDOM_STR=${GET_RANDOM_STR//+/!}
+	echo $GET_RANDOM_STR
+}
 function FORAM_DOMAIN(){
 	read FORAM_DOMAIN_ENTER
 	if [[ "" == "$FORAM_DOMAIN_ENTER" ]]; then
@@ -72,7 +80,13 @@ function CHECK_PORT(){
 		else
 			read -p "$1" port
 			port=${port:-$2}
+			if [[ ! "$port" -gt "0" ]]; then
+				echo  -e "\e[31m\e[1m输入端口必须大于0\e[0m"
+				CHECK_PORT "重新输入端口号"
+				return 0
+			fi
 		fi
+
 		myport=$(ss -lnp|grep :$port)
 		if [ -n "$myport" ];then
 			echo "端口${port}已被占用,回车关闭占用进程,输入n退出程序"
@@ -107,6 +121,7 @@ function CHECK_PORT(){
 			break
 		fi
 	done
+	echo "当前端口已设置为: "$port
 }
 
 function CHECK_VERSION(){
@@ -156,6 +171,7 @@ function CKECK_FILE_EXIST(){
 }
 #脚本开始安装acme.sh
 ##acme.sh "域名(直接调用http)"
+##acme.sh "域名(直接调用http)" "NGINX网站目录"
 function acme.sh(){
 	WEB_ROOT=""
 	STANDALONE=""
@@ -207,10 +223,15 @@ function acme.sh(){
 			fi
 			STANDALONE="--standalone"
 		else
-			echo -e "\e[32m\e[1m检测到80端口占用，尝试列出所有html目录。\e[0m"
-			find / -name html
-			read -p "输入网站根目录(${NGINX_WEBROOT}): " ENTER_NGINX_PTAH
-			ENTER_NGINX_PTAH=${ENTER_NGINX_PTAH:-$DEFAULT_WEB_ROOT}
+			#检测是否传入WEB_ROOT参数,如有,跳过网站根目录输入
+			if [[ "$HTTP_CALL_FUNCTION_WEB_ROOT" ]]; then
+				ENTER_NGINX_PTAH=$HTTP_CALL_FUNCTION_WEB_ROOT
+			else 
+				echo -e "\e[32m\e[1m检测到80端口占用，尝试列出所有html目录。\e[0m"
+				find / -name html
+				read -p "输入网站根目录(${NGINX_WEBROOT}): " ENTER_NGINX_PTAH
+				ENTER_NGINX_PTAH=${ENTER_NGINX_PTAH:-$DEFAULT_WEB_ROOT}
+			fi
 			WEB_ROOT="--webroot "$ENTER_NGINX_PTAH
 			if ! [[ -d "$ENTER_NGINX_PTAH" ]]; then
 				echo "输入的非目录，退出！"
@@ -302,6 +323,7 @@ function acme.sh(){
 		if [[ "$CALL_FUNCTION" ]]; then
 			ENTER_APPLY_DOMAIN=$CALL_FUNCTION
 			APPLY_DOMAIN=$CALL_FUNCTION
+			HTTP_CALL_FUNCTION_WEB_ROOT="/etc/nginx/html"
 			Wildcard=""
 			ACME_HTTP
 		else
@@ -580,14 +602,10 @@ function transmission(){
 			echo "输入transmission域名"
 			FORAM_DOMAIN
 			TRANSMISSION_DOMAIN=$RETURN_DOMAIN
-			while [[ true ]]; do
-				echo "输入文件下载服务器路径(不能为空,不带斜杠)"
-				read TRRNA_FILE_SERVER_PATH
-				if [[ $"TRRNA_FILE_SERVER_PATH" ]]; then
-					break
-				fi
-			done
-			acme.sh $TRANSMISSION_DOMAIN
+			echo "输入文件下载服务器路径(downloads)"
+			read TRRNA_FILE_SERVER_PATH
+			TRRNA_FILE_SERVER_PATH=${TRRNA_FILE_SERVER_PATH:-downloads}
+			acme.sh $TRANSMISSION_DOMAIN "/etc/nginx/html"
 			if [[ -e "/ssl/${TRANSMISSION_DOMAIN}.key" ]]; then
 				echo -e "\e[32m\e[1m已检测到证书\e[0m"
 				TRANSMISSION_CREATE_NGINX_SITE
@@ -866,7 +884,7 @@ function Up_kernel(){
 }
 #xray
 function Project_X(){
-	function INSTALL_BINARY(){
+	function INSTALL_XRAY_BINARY(){
 		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 		wget -P /tmp https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
 		if ! [[ "$(type -P unzip)" ]];then
@@ -881,6 +899,7 @@ function Project_X(){
 		mv /tmp/geosite.dat /usr/local/share/xray/geosite.dat
 		mv /tmp/xray /usr/local/bin/xray
 		rm -f /tmp/README.md /tmp/LICENSE Xray-linux-64.zip
+		#https://github.com/v2fly/v2ray-core/releases/download/v4.41.1/v2ray-linux-64.zip
 	}
 
 	if [[ "$(type -P xray)" ]]; then
@@ -890,7 +909,7 @@ function Project_X(){
 	CHECK_VERSION xray Xray $XTLS_INSTALLED_VERSION $XRAY_RELEASE_LATEST
 
 	if [[ "$NEED_UPDATE" == "1" ]]; then
-		INSTALL_BINARY
+		INSTALL_XRAY_BINARY
 		##格式化版本号，去掉小数点
 		TMP_VERSION=$(xray version|sed -n 1p|cut -d ' ' -f 2|sed 's/\.//g')
 		XRAY_RELEASE_LATEST_FORMAT=$(echo $XRAY_RELEASE_LATEST | sed 's/\.//g')
@@ -903,116 +922,157 @@ function Project_X(){
 			exit 1
 		fi
 	else
-		CHECK_PORT "XRAY_XTLS 监听端口(1000)?  " 1000
+		#不再支持自定义端口,Path,Service Name
+		#CHECK_PORT "XRAY_XTLS 监听端口(1000)?  " 1000
+		CHECK_PORT "NOINPUT" 15423
 		XRAY_XTLS_PORT=$port
-		read -p "回落端口(5555)?  " XRAY_DESP_PORT
+		#read -p "回落端口(5555)?  " XRAY_DESP_PORT
 		XRAY_DESP_PORT=${XRAY_DESP_PORT:-5555}
-		CHECK_PORT "GRPC 监听端口(2002)?  " 2002
+		#CHECK_PORT "GRPC 监听端口(2002)?  " 2002
+		CHECK_PORT "NOINPUT" 8845
 		XRAY_GRPC_PORT=$port
-		CHECK_PORT "WebSocks 监听端口(1234)?  " 1234
+		#CHECK_PORT "WebSocks 监听端口(1234)?  " 1234
+		CHECK_PORT "NOINPUT" 35446
 		XRAY_WS_PORT=$port
-		read -p "Grpc Name(grpcforward)?  " XRAY_GRPC_NAME
-		XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
-		read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
-		XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
+		#read -p "Grpc Name(grpcforward)?  " XRAY_GRPC_NAME
+		#XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
+		XRAY_GRPC_NAME=`GET_RANDOM_STRING`
+		#read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
+		#XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
+		XRAY_WS_PATH=`GET_RANDOM_STRING`
 
 		echo "请输入xray域名"
 		FORAM_DOMAIN
 		XRAY_DOMAIN=$RETURN_DOMAIN
-		# read  XRAY_DOMAIN
-		# XRAY_DOMAIN=${XRAY_DOMAIN:-project_x.com}
-		INSTALL_BINARY
-		if [[ "$(type -P /usr/local/bin/xray)" ]]; then
-			XRAY_UUID=$(/usr/local/bin/xray uuid)
-			XRAY_GRPC_UUID=$(/usr/local/bin/xray uuid)
-			XRAY_WS_UUID=$(/usr/local/bin/xray uuid)
-		else 
-			echo "XRAY安装失败！"
-			exit 1
-		fi
-		if ! [[ -d /usr/local/etc/xray ]];then
-			mkdir /usr/local/etc/xray
-		fi
-		XRAY_CONFIG=/usr/local/etc/xray/config.json
-		wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/xtls_tcp_grpc_ws.json
-		sed -i "s/XTLS_PORT/$XRAY_XTLS_PORT/" $XRAY_CONFIG
-		sed -i "s/DESP_PORT/$XRAY_DESP_PORT/" $XRAY_CONFIG
-		sed -i "s/GRPC_PORT/$XRAY_GRPC_PORT/" $XRAY_CONFIG
-		sed -i "s/GRPC_NAME/$XRAY_GRPC_NAME/" $XRAY_CONFIG
-		sed -i "s/WS_PORT/$XRAY_WS_PORT/" $XRAY_CONFIG
-		sed -i "s/WS_PATH/$XRAY_WS_PATH/" $XRAY_CONFIG
-		sed -i "s/SSL_XRAY_CER/$XRAY_DOMAIN/" $XRAY_CONFIG
-		sed -i "s/SSL_XRAY_KEY/$XRAY_DOMAIN/" $XRAY_CONFIG
+		acme.sh "$XRAY_DOMAIN" "/etc/nginx/html"
+		if [[ -a "/ssl/${XRAY_DOMAIN}.key" ]]; then
+			echo -e "\e[32m\e[1m已检测到证书文件\e[0m"
+			# read  XRAY_DOMAIN
+			# XRAY_DOMAIN=${XRAY_DOMAIN:-project_x.com}
+			INSTALL_XRAY_BINARY
+			if [[ "$(type -P /usr/local/bin/xray)" ]]; then
+				XRAY_UUID=$(/usr/local/bin/xray uuid)
+				XRAY_GRPC_UUID=$(/usr/local/bin/xray uuid)
+				XRAY_WS_UUID=$(/usr/local/bin/xray uuid)
+			else 
+				echo "XRAY安装失败！"
+				exit 1
+			fi
+			if ! [[ -d /usr/local/etc/xray ]];then
+				mkdir /usr/local/etc/xray
+			fi
+			XRAY_CONFIG=/usr/local/etc/xray/config.json
+			wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/xtls_tcp_grpc_ws.json
+			sed -i "s/XTLS_PORT/$XRAY_XTLS_PORT/" $XRAY_CONFIG
+			sed -i "s/DESP_PORT/$XRAY_DESP_PORT/" $XRAY_CONFIG
+			sed -i "s/GRPC_PORT/$XRAY_GRPC_PORT/" $XRAY_CONFIG
+			sed -i "s/GRPC_NAME/$XRAY_GRPC_NAME/" $XRAY_CONFIG
+			sed -i "s/WS_PORT/$XRAY_WS_PORT/" $XRAY_CONFIG
+			sed -i "s/WS_PATH/$XRAY_WS_PATH/" $XRAY_CONFIG
+			sed -i "s/SSL_XRAY_CER/$XRAY_DOMAIN/" $XRAY_CONFIG
+			sed -i "s/SSL_XRAY_KEY/$XRAY_DOMAIN/" $XRAY_CONFIG
 
-		sed -i "s/XtlsForUUID/$XRAY_UUID/" $XRAY_CONFIG
-		sed -i "s/GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
-		sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
+			sed -i "s/XtlsForUUID/$XRAY_UUID/" $XRAY_CONFIG
+			sed -i "s/GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
+			sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
 
-		cat > $SYSTEMD_SERVICES/xray.service <<-EOF
-		[Unit]
-		Description=Xray Service
-		Documentation=https://github.com/xtls
-		After=network.target nss-lookup.target
-		[Service]
-		User=root
-		#CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-		#AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-		#NoNewPrivileges=true
-		ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
-		Restart=on-failure
-		RestartPreventExitStatus=23
-		LimitNPROC=10000
-		LimitNOFILE=1000000
-		[Install]
-		WantedBy=multi-user.target
-		EOF
-
-		XRAY_NGINX_CONFIG=$NGINX_CONFIG
-		if [[ -e $XRAY_NGINX_CONFIG ]];then
-			cat >$NGINX_SITE_ENABLED/${XRAY_DOMAIN}<<-EOF
-			server {
-			    listen       4433 http2 ssl;
-			    server_name  ${XRAY_DOMAIN};
-			    ssl_certificate      /ssl/${XRAY_DOMAIN}.cer;
-			    ssl_certificate_key  /ssl/${XRAY_DOMAIN}.key;
-			    ssl_session_cache    shared:SSL:1m;
-			    ssl_session_timeout  5m;
-			    ssl_protocols TLSv1.2 TLSv1.3;
-			    ssl_prefer_server_ciphers  on;
-			    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-			    location /${XRAY_GRPC_NAME} {
-			        if (\$content_type !~ "application/grpc") {
-			            return 404;
-			        }
-			        client_max_body_size 0;
-			        client_body_timeout 1071906480m;
-			        grpc_read_timeout 1071906480m;
-			        grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
-			    }
-			    location /${XRAY_WS_PATH} {
-			        proxy_redirect off;
-			        proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
-			        proxy_http_version 1.1;
-			        proxy_set_header Upgrade \$http_upgrade;
-			        proxy_set_header Connection "upgrade";
-			        proxy_set_header Host \$http_host;
-			    }
-			}
+			cat > $SYSTEMD_SERVICES/xray.service <<-EOF
+			[Unit]
+			Description=Xray Service
+			Documentation=https://github.com/xtls
+			After=network.target nss-lookup.target
+			[Service]
+			User=root
+			#CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+			#AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+			#NoNewPrivileges=true
+			ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
+			Restart=on-failure
+			RestartPreventExitStatus=23
+			LimitNPROC=10000
+			LimitNOFILE=1000000
+			[Install]
+			WantedBy=multi-user.target
 			EOF
+
+			# XRAY_NGINX_CONFIG=$NGINX_CONFIG
+			# if [[ -e $XRAY_NGINX_CONFIG ]];then
+			# 	cat >$NGINX_SITE_ENABLED/${XRAY_DOMAIN}<<-EOF
+			# 	server {
+			# 	    listen       4433 http2 ssl;
+			# 	    server_name  ${XRAY_DOMAIN};
+			# 	    ssl_certificate      /ssl/${XRAY_DOMAIN}.cer;
+			# 	    ssl_certificate_key  /ssl/${XRAY_DOMAIN}.key;
+			# 	    ssl_session_cache    shared:SSL:1m;
+			# 	    ssl_session_timeout  5m;
+			# 	    ssl_protocols TLSv1.2 TLSv1.3;
+			# 	    ssl_prefer_server_ciphers  on;
+			# 	    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+			# 	    location /${XRAY_GRPC_NAME} {
+			# 	        if (\$content_type !~ "application/grpc") {
+			# 	            return 404;
+			# 	        }
+			# 	        client_max_body_size 0;
+			# 	        client_body_timeout 1071906480m;
+			# 	        grpc_read_timeout 1071906480m;
+			# 	        grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
+			# 	    }
+			# 	    location /${XRAY_WS_PATH} {
+			# 	        proxy_redirect off;
+			# 	        proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
+			# 	        proxy_http_version 1.1;
+			# 	        proxy_set_header Upgrade \$http_upgrade;
+			# 	        proxy_set_header Connection "upgrade";
+			# 	        proxy_set_header Host \$http_host;
+			# 	    }
+			# 	}
+			# 	EOF
+			# fi
+			NGINX_HTTPS_DEFAULT=${NGINX_SITE_ENABLED}/Default
+			if [[ -e "$NGINX_HTTPS_DEFAULT" ]]; then
+				sed -i '/^}/d' $NGINX_HTTPS_DEFAULT
+				cat >>$NGINX_HTTPS_DEFAULT<<-EOF
+				    location /${XRAY_GRPC_NAME} {
+				        if (\$content_type !~ "application/grpc") {
+				            return 404;
+				        }
+				        client_max_body_size 0;
+				        client_body_timeout 1071906480m;
+				        grpc_read_timeout 1071906480m;
+				        grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
+				    }
+				    location /${XRAY_WS_PATH} {
+				        proxy_redirect off;
+				        proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
+				        proxy_http_version 1.1;
+				        proxy_set_header Upgrade \$http_upgrade;
+				        proxy_set_header Connection "upgrade";
+				        proxy_set_header Host \$http_host;
+				    }
+				}
+				EOF
+			fi
+			NGINX_HTPTS_DOMAIN=`cat $NGINX_HTTPS_DEFAULT | grep server_name | awk '{print $2}'`
+			NGINX_SNI "${XRAY_DOMAIN}" "$XRAY_XTLS_PORT"
+			systemctl daemon-reload
+			systemctl start xray
+			systemctl enable xray
+			systemctl restart nginx
+
+			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
+			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?security=xtls\&sni=${XRAY_DOMAIN}\&flow=xtls-rprx-direct#🍭 XTLS[洛杉矶] >> /etc/sub/trojan.tmp
+			#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
+			###echo vless://${XRAY_GRPC_UUID}@${XRAY_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${XRAY_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
+			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC[洛杉矶] >> /etc/sub/trojan.tmp
+			#echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
+			echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks[洛杉矶] >> /etc/sub/trojan.tmp
+			###echo vless://${XRAY_WS_UUID}@${XRAY_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${XRAY_DOMAIN}\&sni=${XRAY_DOMAIN}#🌋 WebSocks >> /etc/sub/trojan.tmp
+			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
+			rm -f /etc/sub/trojan.tmp
+		else 
+			echo -e "\e[31m\e[1m找不到证书文件,退出安装！\e[0m"
 		fi
-
-		acme.sh "$XRAY_DOMAIN"
-		systemctl daemon-reload
-		systemctl start xray
-		systemctl enable xray
-		systemctl restart nginx
-
-		echo -e "\e[32m\e[1mvless://$XRAY_UUID@$XRAY_DOMAIN:443?security=xtls&sni=$XRAY_DOMAIN&flow=xtls-rprx-direct#VLESS_xtls(需要配置好SNI转发才能用)\e[0m"
-
-		echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
-
-		echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
-	fi
+	fi	
 }
 #trojan
 function trojan(){
@@ -1062,26 +1122,28 @@ function trojan(){
 	# 	fi
 	# done
 	CHECK_NGINX_443=`ss -lnp|grep ":443 "|grep nginx`
+	#不再支持端口，密码自定义
 	if [[ "$CHECK_NGINX_443" ]]; then
 		echo -e "\e[32m\e[1mNGINX正在监听443端口，检查SNI配置\e[0m"
-		echo "输入Trojan分流端口(非443)"
-		read TROJAN_HTTPS_PORT
-		CHECK_PORT "NOINPUT" $TROJAN_HTTPS_PORT
+		#echo "输入Trojan分流端口(非443)"
+		#read TROJAN_HTTPS_PORT
+		CHECK_PORT "NOINPUT" 5978
 		TROJAN_HTTPS_PORT=$port
 	else 
 		CHECK_PORT "NOINPUT" 443
 		TROJAN_HTTPS_PORT="443"
 	fi
-	echo "Trojan 回落端口(5555): "
-	read TROJAN_CALLBACK_PORT
+	#echo "Trojan 回落端口(5555): "
+	#read TROJAN_CALLBACK_PORT
 	TROJAN_HTTP_PORT=${TROJAN_CALLBACK_PORT:-5555}
-	echo "设置trojan密码(默认trojanWdai1)"
-	echo "不可以包含#@?"
-	read TROJAN_PASSWD
-	TROJAN_PASSWD=${TROJAN_PASSWD:-trojanWdai1}
+	#echo "设置trojan密码(默认trojanWdai1)"
+	#echo "不可以包含#@?"
+	#read TROJAN_PASSWD
+	#TROJAN_PASSWD=${TROJAN_PASSWD:-trojanWdai1}
+	TROJAN_PASSWD=`GET_RANDOM_STRING`
 
 	##申请SSL证书
-	acme.sh $TROJAN_DOMAIN
+	acme.sh $TROJAN_DOMAIN "/etc/nginx/html"
 	if [[ -e "/ssl/${TROJAN_DOMAIN}.key" ]]; then
 		echo -e "\e[32m\e[1m已检测到证书\e[0m"
 		mkdir /etc/trojan
@@ -1112,7 +1174,10 @@ function trojan(){
 			NGINX_SNI $TROJAN_DOMAIN $TROJAN_HTTPS_PORT
 			systemctl restart nginx
 			systemctl enable trojan
-			echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
+			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
+			#echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
+			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🍹 Trojan-gfw[洛杉矶] >> /etc/sub/trojan.tmp
+			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 		fi
 	else 
 		"检测不到证书，退出"
@@ -1127,7 +1192,13 @@ function INSTALL_NGINX(){
 	NGINX_CONFIG=/etc/nginx/conf/nginx.conf
 	NGINX_BIN=/etc/nginx/sbin/nginx
 	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
-
+	#SUBSCRIPTION_PATH=`GET_RANDOM_STRING`
+	SUBSCRIPTION_PATH="baEgIFbgmXo8yuGJ1MujZFA9H9c477gofgNN"
+	SUBSCRIPTION_FILE="/etc/sub/trojan.sys"
+	if ! [[ -d /etc/sub ]]; then
+		mkdir /etc/sub
+	fi
+	touch $SUBSCRIPTION_FILE
 	function NGINX_BINARY(){
 		wget -P /tmp $nginx_url && tar zxf /tmp/nginx-${NGINX_VERSION}.tar.gz -C /tmp/ && cd /tmp/nginx-$NGINX_VERSION
 		if [[ -e "/tmp/nginx-${NGINX_VERSION}.tar.gz" ]]; then
@@ -1178,8 +1249,7 @@ function INSTALL_NGINX(){
 	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
 	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
 	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
-	echo "是否开启SSL配置?(Y/n) "
-	read ENAGLE_NGINX_SSL
+	read -p "是否开启SSL配置?(Y/n) " ENAGLE_NGINX_SSL
 	if [[ "" == "$ENAGLE_NGINX_SSL" ]] || [[ "y" == "$ENAGLE_NGINX_SSL" ]]; then
 		echo "输入NGING 域名"
 		FORAM_DOMAIN
@@ -1208,6 +1278,7 @@ function INSTALL_NGINX(){
 		cd openssl-1.1.1k
 		./config
 		make test && make install
+		rm -fr openssl-1.1.1k.tar.gz openssl-1.1.1k
 		check "OPENSSL更新失败"
 		mv /usr/bin/openssl /usr/bin/openssl.bak
 		mv /usr/include/openssl /usr/include/openssl.bak
@@ -1266,12 +1337,11 @@ function INSTALL_NGINX(){
 	systemctl daemon-reload
 	systemctl enable nginx
 	###systemctl status nginx
-	clear
 	echo -e "\e[32m\e[1m编译nginx成功\e[0m"
 	if [[ "$ENAGLE_NGINX_SSL_" ]]; then
 		systemctl start nginx
 		#开始申请SSL证书
-		acme.sh "$NGINX_DOMAIN"
+		acme.sh "$NGINX_DOMAIN" "/etc/nginx/html"
 		if [[ -e "/ssl/${NGINX_DOMAIN}".key ]]; then
 			echo -e "\e[32m\e[1m证书申请成功，开始写入ssl配置\e[0m"
 			cat >${NGINX_SITE_ENABLED}/Default<<-EOF
@@ -1289,11 +1359,16 @@ function INSTALL_NGINX(){
 			        root   html;
 			        index  index.html index.htm;
 			    }
+			    location /${SUBSCRIPTION_PATH}/ {
+			        alias /etc/sub/;
+			        index trojan.sys;
+			    }
 			}
 			EOF
 			#开启80端口强制重定向443
 			sed -i 's/#ENABLE_REDIRECT//' $NGINX_CONFIG
 			systemctl restart nginx
+			echo "订阅地址: https://${NGINX_DOMAIN}/${SUBSCRIPTION_PATH}/trojan.sys"
 		else
 			echo "证书申请失败，ssl配置未写入"
 		fi
@@ -1306,22 +1381,26 @@ function caddy(){
 	echo "输入Caddy域名"
 	FORAM_DOMAIN
 	CADDY_DOMAIN=$RETURN_DOMAIN
-	read -p "设置用户名(禁止@:): " CADDY_USER
-	CADDY_USER=${CADDY_USER:-Oieu!ji330}
-	read -p "设置密码(禁止@:): " CADDY_PASSWD
-	CADDY_PASSWD=${CADDY_PASSWD:-5eele9P!il_}
+	#read -p "设置用户名(禁止@:): " CADDY_USER
+	#CADDY_USER=${CADDY_USER:-Oieu!ji330}
+	CADDY_USER=`GET_RANDOM_STRING`
+	CADDY_USER=${CADDY_USER//\//_}
+	#read -p "设置密码(禁止@:): " CADDY_PASSWD
+	#CADDY_PASSWD=${CADDY_PASSWD:-5eele9P!il_}
+	CADDY_PASSWD=`GET_RANDOM_STRING`
+	CADDY_PASSWD=${CADDY_PASSWD//\//_}
 	CHECK_NGINX_443=`ss -lnp|grep ":443 "|grep nginx`
 	if [[ "$CHECK_NGINX_443" ]]; then
 		echo "NGINX正在监听443端口，检查SNI配置"
-		echo "输入Caddy分流端口(非443)"
-		read CADDY_HTTPS_PORT
-		CHECK_PORT "NOINPUT" $CADDY_HTTPS_PORT
+		#echo "输入Caddy分流端口(非443)"
+		#read CADDY_HTTPS_PORT
+		CHECK_PORT "NOINPUT" 15486
 		CADDY_HTTPS_PORT=$port
 		CHECK_PORT "NOINPUT" 16254
 		CADDY_HTTP_PORT=$port
 		#证书申请完之后再重启NGINX使SNI分流生效
 		#否则会因分流回落端口无响应导致申请证书失败
-		acme.sh "$CADDY_DOMAIN"
+		acme.sh "$CADDY_DOMAIN" "/etc/nginx/html"
 		CADDY_TLS="tls /ssl/${CADDY_DOMAIN}.cer /ssl/${CADDY_DOMAIN}.key"
 		if [[ -e "/ssl/${CADDY_DOMAIN}.key" ]]; then
 			echo "已检测到SSL证书，安装继续"
@@ -1403,7 +1482,10 @@ function caddy(){
 				NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
 				systemctl restart nginx
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go /root/go
-				echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
+				base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
+				#echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
+				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#🌶️ NaiveProxy[洛杉矶] >> /etc/sub/trojan.tmp
+				base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 			else
 				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
@@ -1446,7 +1528,7 @@ function hysteria(){
 	hysteria_OBFS=${hysteria_OBFS:-io!jioOhu8eH}
 	read -p "输入认证密码(ieLj3fhG!o34)" hysteria_AUTH
 	hysteria_AUTH=${hysteria_AUTH:-ieLj3fhG!o34}
-	acme.sh "$hysteria_DOMAIN"
+	acme.sh "$hysteria_DOMAIN" "/etc/nginx/html"
 	if [[ -e "/ssl/${hysteria_DOMAIN}.key" ]]; then
 		echo "已检测到证书"
 		mkdir $DESTINATION_PATH
@@ -1534,3 +1616,4 @@ do
 			break;;
 	esac
 done
+
