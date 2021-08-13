@@ -1160,7 +1160,8 @@ function INSTALL_NGINX(){
 	NGINX_CONFIG=/etc/nginx/conf/nginx.conf
 	NGINX_BIN=/etc/nginx/sbin/nginx
 	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
-	SUBSCRIPTION_PATH=`GET_RANDOM_STRING`
+	#SUBSCRIPTION_PATH=`GET_RANDOM_STRING`
+	SUBSCRIPTION_PATH="baEgIFbgmXo8yuGJ1MujZFA9H9c477gofgNN"
 	SUBSCRIPTION_FILE="/etc/sub/trojan.sys"
 	if ! [[ -d /etc/sub ]]; then
 		mkdir /etc/sub
