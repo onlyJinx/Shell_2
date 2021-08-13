@@ -1052,6 +1052,7 @@ function Project_X(){
 				EOF
 			fi
 			NGINX_HTPTS_DOMAIN=`cat $NGINX_HTTPS_DEFAULT | grep server_name | awk '{print $2}'`
+			NGINX_SNI "${XRAY_DOMAIN}" "$XRAY_XTLS_PORT"
 			systemctl daemon-reload
 			systemctl start xray
 			systemctl enable xray
@@ -1246,8 +1247,7 @@ function INSTALL_NGINX(){
 	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
 	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
 	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
-	echo "是否开启SSL配置?(Y/n) "
-	read ENAGLE_NGINX_SSL
+	read -p "是否开启SSL配置?(Y/n) " ENAGLE_NGINX_SSL
 	if [[ "" == "$ENAGLE_NGINX_SSL" ]] || [[ "y" == "$ENAGLE_NGINX_SSL" ]]; then
 		echo "输入NGING 域名"
 		FORAM_DOMAIN
