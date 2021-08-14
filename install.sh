@@ -1093,16 +1093,15 @@ function Project_X(){
 			systemctl enable ${PROJECT_BIN_VERSION}
 			systemctl restart nginx
 
-			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
-			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${V2RAY_TRANSPORT}\&${RAY_FLOW}sni=${XRAY_DOMAIN}#🍭 ${V2RAY_TCP_NODENAME}${NODE_SUFFIX} >> /etc/sub/trojan.tmp
+			base64 -d -i /etc/sub/trojan.sys > /etc/sub/subscription_tmp
+			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${V2RAY_TRANSPORT}\&${RAY_FLOW}sni=${XRAY_DOMAIN}#🍭 ${V2RAY_TCP_NODENAME}${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
-			###echo vless://${XRAY_GRPC_UUID}@${XRAY_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${XRAY_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
-			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC${NODE_SUFFIX} >> /etc/sub/trojan.tmp
+			###echo vless://${XRAY_GRPC_UUID}@${XRAY_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${XRAY_DOMAIN}#⛩ GRPC >> /etc/sub/subscription_tmp
+			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			#echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
-			echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks${NODE_SUFFIX} >> /etc/sub/trojan.tmp
-			###echo vless://${XRAY_WS_UUID}@${XRAY_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${XRAY_DOMAIN}\&sni=${XRAY_DOMAIN}#🌋 WebSocks >> /etc/sub/trojan.tmp
-			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
-			rm -f /etc/sub/trojan.tmp
+			echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			###echo vless://${XRAY_WS_UUID}@${XRAY_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${XRAY_DOMAIN}\&sni=${XRAY_DOMAIN}#🌋 WebSocks >> /etc/sub/subscription_tmp
+			base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
 		else 
 			echo -e "\e[31m\e[1m找不到证书文件,退出安装！\e[0m"
 		fi
@@ -1209,10 +1208,10 @@ function trojan(){
 			NGINX_SNI $TROJAN_DOMAIN $TROJAN_HTTPS_PORT
 			systemctl restart nginx
 			systemctl enable trojan
-			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
+			base64 -d -i /etc/sub/trojan.sys > /etc/sub/subscription_tmp
 			#echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
-			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🍹 Trojan-gfw${NODE_SUFFIX} >> /etc/sub/trojan.tmp
-			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
+			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🍹 Trojan-gfw${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
 		fi
 	else 
 		"检测不到证书，退出"
@@ -1518,10 +1517,10 @@ function caddy(){
 				NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
 				systemctl restart nginx
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go /root/go
-				base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
+				base64 -d -i /etc/sub/trojan.sys > /etc/sub/subscription_tmp
 				#echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
-				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#🌶️ NaiveProxy${NODE_SUFFIX} >> /etc/sub/trojan.tmp
-				base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
+				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#🌶️ NaiveProxy${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+				base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
 			else
 				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
