@@ -886,6 +886,7 @@ function Up_kernel(){
 function Project_X(){
 	#检测安装v2ray/xray
 	PROJECT_BIN_VERSION=$1
+	read -p "输入节点名后缀,回车则不设置: " NODE_SUFFIX
 	function INSTALL_XRAY_BINARY(){
 		if ! [[ "$(type -P unzip)" ]];then
 			$PKGMANAGER_INSTALL unzip
@@ -1008,9 +1009,9 @@ function Project_X(){
 				RAY_FLOW=""
 				TRANS_FLOW='security=tls'
 			fi
-			cat > $SYSTEMD_SERVICES/xray.service <<-EOF
+			cat > $SYSTEMD_SERVICES/${PROJECT_BIN_VERSION}.service <<-EOF
 			[Unit]
-			Description=Xray Service
+			Description=${PROJECT_BIN_VERSION} Service
 			Documentation=https://github.com/xtls
 			After=network.target nss-lookup.target
 			[Service]
@@ -1064,7 +1065,7 @@ function Project_X(){
 			if [[ -e "$NGINX_HTTPS_DEFAULT" ]]; then
 				sed -i '/^}/d' $NGINX_HTTPS_DEFAULT
 				cat >>$NGINX_HTTPS_DEFAULT<<-EOF
-				    location /${XRAY_GRPC_NAME} {
+				    location /${XRAY_GRPC_NAME}/Tun {
 				        if (\$content_type !~ "application/grpc") {
 				            return 404;
 				        }
@@ -1087,17 +1088,17 @@ function Project_X(){
 			NGINX_HTPTS_DOMAIN=`cat $NGINX_HTTPS_DEFAULT | grep server_name | awk '{print $2}'`
 			NGINX_SNI "${XRAY_DOMAIN}" "$RAY_TCP_PORT"
 			systemctl daemon-reload
-			systemctl start xray
-			systemctl enable xray
+			systemctl start ${PROJECT_BIN_VERSION}
+			systemctl enable ${PROJECT_BIN_VERSION}
 			systemctl restart nginx
 
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
-			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${TRANS_FLOW}\&sni=${XRAY_DOMAIN}${RAY_FLOW}#🍭 XTLS[洛杉矶] >> /etc/sub/trojan.tmp
+			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${TRANS_FLOW}\&sni=${XRAY_DOMAIN}${RAY_FLOW}#🍭 TCP${NODE_SUFFIX} >> /etc/sub/trojan.tmp
 			#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
 			###echo vless://${XRAY_GRPC_UUID}@${XRAY_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${XRAY_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
-			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC[洛杉矶] >> /etc/sub/trojan.tmp
+			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC${NODE_SUFFIX} >> /etc/sub/trojan.tmp
 			#echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
-			echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks[洛杉矶] >> /etc/sub/trojan.tmp
+			echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks${NODE_SUFFIX} >> /etc/sub/trojan.tmp
 			###echo vless://${XRAY_WS_UUID}@${XRAY_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${XRAY_DOMAIN}\&sni=${XRAY_DOMAIN}#🌋 WebSocks >> /etc/sub/trojan.tmp
 			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 			rm -f /etc/sub/trojan.tmp
@@ -1108,6 +1109,7 @@ function Project_X(){
 }
 #trojan
 function trojan(){
+	read -p "输入节点名后缀,回车则不设置: " NODE_SUFFIX
 	TROJAN_LAEST_VERSION=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
 	TROJAN_CONFIG=/etc/trojan/config.json
 	function TROJAN_BINARY(){
@@ -1208,7 +1210,7 @@ function trojan(){
 			systemctl enable trojan
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
 			#echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
-			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🍹 Trojan-gfw[洛杉矶] >> /etc/sub/trojan.tmp
+			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🍹 Trojan-gfw${NODE_SUFFIX} >> /etc/sub/trojan.tmp
 			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 		fi
 	else 
@@ -1413,6 +1415,7 @@ function caddy(){
 	echo "输入Caddy域名"
 	FORAM_DOMAIN
 	CADDY_DOMAIN=$RETURN_DOMAIN
+	read -p "输入节点名后缀,回车则不设置: " NODE_SUFFIX
 	#read -p "设置用户名(禁止@:): " CADDY_USER
 	#CADDY_USER=${CADDY_USER:-Oieu!ji330}
 	CADDY_USER=`GET_RANDOM_STRING`
@@ -1516,7 +1519,7 @@ function caddy(){
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go /root/go
 				base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
 				#echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
-				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#🌶️ NaiveProxy[洛杉矶] >> /etc/sub/trojan.tmp
+				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#🌶️ NaiveProxy${NODE_SUFFIX} >> /etc/sub/trojan.tmp
 				base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
 			else
 				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
