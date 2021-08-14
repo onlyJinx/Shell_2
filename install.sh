@@ -534,6 +534,8 @@ function shadowsocks-libev(){
 }
 #transmission
 function transmission(){
+	TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
+	TRANSMISSION_NGINX_CONFIG=$NGINX_CONFIG
 	function MODIFY_CONFIG(){
 		sed -i '/rpc-whitelist-enabled/ s/true/false/' $1
 		sed -i '/rpc-host-whitelist-enabled/ s/true/false/' $1
@@ -587,17 +589,12 @@ function transmission(){
 	CHECK_VERSION transmission-daemon transmission
 	clear
 	CHECK_PORT "请输入端口号(9091)" 9091
-	clear
 	read -p "请输入用户名(transmission):  " TRANSMISSION_USER_NAME
 	TRANSMISSION_USER_NAME=${TRANSMISSION_USER_NAME:-transmission}
-	clear
 	read -p "请输入密码(transmission2020):  " TRANSMISSION_PASSWD
 	TRANSMISSION_PASSWD=${TRANSMISSION_PASSWD:-transmission2020}
-	clear
 	DOWNLOAD_PTAH "文件保存路径(默认/usr/downloads): " "/usr/downloads"
-	check "downloads文件夹创建失败！"
 
-	TRANSMISSION_NGINX_CONFIG=$NGINX_CONFIG
 	if [[ -e $TRANSMISSION_NGINX_CONFIG ]];then
 		echo "检测到NGINX配置文件，是否开启https WEBUI反代?(Y/n) "
 		OUTPUT_HTTPS_LOGIN_ADDR=""
@@ -670,34 +667,48 @@ function transmission(){
 	TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
 	if [[ "active" == "$TRANSMISSION_SERVICE_LIFE" ]]; then
 		echo -e "\e[32m\e[1mtransmission服务已启动\e[0m"
-		systemctl stop transmission.service
-		echo -e "\e[31m\e[1m休眠5s\e[0m"
-		sleep 5
-		TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
-		if [[ "inactive" == "$TRANSMISSION_SERVICE_LIFE" ]]; then
-			TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
-			MODIFY_CONFIG "$TRANSMISSION_CONFIG"
-			## change config  sed引用 https://segmentfault.com/a/1190000020613397
-			##替换webUI
-			cd ~
-			git clone https://github.com/ronggang/transmission-web-control.git
-			mv /etc/transmission/share/transmission/web/index.html /etc/transmission/share/transmission/web/index.original.html
-			mv /root/transmission-web-control/src/* /etc/transmission/share/transmission/web/
-			rm -fr transmission-web-control
-			systemctl start transmission.service
-			systemctl enable transmission.service
-			if [[ "$OUTPUT_HTTPS_LOGIN_ADDR" ]]; then
-				systemctl restart nginx
-				echo -e "\e[32m\e[1m打开网址  https://${TRANSMISSION_DOMAIN}  测试登录  \e[0m"
-				echo -e "\e[32m\e[1m文件下载服务器地址  https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/\e[0m"
+		# echo -e "\e[31m\e[1m休眠5s\e[0m"
+		# sleep 5
+		TRANSMISSION_COUNT=1
+		while [[ true ]]; do
+			systemctl stop transmission.service
+			TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
+			if [[ "inactive" == "$TRANSMISSION_SERVICE_LIFE" && -e "$TRANSMISSION_CONFIG" ]]; then
+				echo -e "\e[32m\e[1m检测到transmission配置文件\e[0m"
+				MODIFY_CONFIG "$TRANSMISSION_CONFIG"
+				break
 			else 
-				echo -e port:"          ""\e[32m\e[1m$port\e[0m"
+				if [[ $TRANSMISSION_COUNT -gt 11 ]]; then
+					echo "循环次数过多,停止修改配置文件"
+					break
+				else
+					echo "transmission服务未停止或找不到配置文件, 1秒后重试"
+					echo "当前重试次数: " $TRANSMISSION_COUNT
+					let TRANSMISSION_COUNT ++
+					sleep 1
+				fi
 			fi
-			echo -e password:"      ""\e[32m\e[1m$TRANSMISSION_PASSWD\e[0m"
-			echo -e username:"      ""\e[32m\e[1m$TRANSMISSION_USER_NAME\e[0m"
-			echo -e DOWNLOAD_PTAH:"      ""\e[32m\e[1m$dir\e[0m"
-			echo -e config.json:"   ""\e[32m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
+		done
+		## change config  sed引用 https://segmentfault.com/a/1190000020613397
+		##替换webUI
+		cd ~
+		git clone https://github.com/ronggang/transmission-web-control.git
+		mv /etc/transmission/share/transmission/web/index.html /etc/transmission/share/transmission/web/index.original.html
+		mv /root/transmission-web-control/src/* /etc/transmission/share/transmission/web/
+		rm -fr transmission-web-control
+		systemctl start transmission.service
+		systemctl enable transmission.service
+		if [[ "$OUTPUT_HTTPS_LOGIN_ADDR" ]]; then
+			systemctl restart nginx
+			echo -e "\e[32m\e[1m打开网址  https://${TRANSMISSION_DOMAIN}  测试登录  \e[0m"
+			echo -e "\e[32m\e[1m文件下载服务器地址  https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/\e[0m"
+		else 
+			echo -e port:"          ""\e[32m\e[1m$port\e[0m"
 		fi
+		echo -e password:"      ""\e[32m\e[1m$TRANSMISSION_PASSWD\e[0m"
+		echo -e username:"      ""\e[32m\e[1m$TRANSMISSION_USER_NAME\e[0m"
+		echo -e DOWNLOAD_PTAH:"      ""\e[32m\e[1m$dir\e[0m"
+		echo -e config.json:"   ""\e[32m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
 	else 
 		echo -e "\e[31m\e[1mtransmission首次启动失败。\e[0m"
 	fi
