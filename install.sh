@@ -1569,6 +1569,12 @@ function hysteria(){
 				echo -e "\e[32m\e[1m已更新，当前版本为：`$HYSTERIA_BIN -v|cut -d ' ' -f3`\e[0m"
 				return 0
 			fi
+		else 
+			read -p "当前版本已与服务端保持最新($CHRRENT_HYSTERIA_VERSION),是否全新编译?(y/N)" HYSTERIA_REBUILD_CONFIRM
+			if [[ "y" != "$HYSTERIA_REBUILD_CONFIRM" ]]; then
+				echo  -e "\e[32m\e[1m已取消操作\e[0m"
+				return 0
+			fi
 		fi
 	fi
 	echo "输入Hysteria域名"
@@ -1627,8 +1633,50 @@ function hysteria(){
 		echo -e "\e[31m\e[1m检测不到证书，安装退出\e[0m"
 	fi
 }
+function REMOVE_SOFTWARE(){
+	function REMOVE_SOFTWARE_BIN(){
+		REMOVE_SOFTWARE_NAME=$1
+		systemctl disable $REMOVE_SOFTWARE_NAME
+		systemctl stop $REMOVE_SOFTWARE_NAME
+		rm -fr /etc/$REMOVE_SOFTWARE_NAME /etc/systemd/system/${REMOVE_SOFTWARE_NAME}.service
+		echo -e "\e[31m\e[1m一些列出可能的残留文件,按照需要手动清理\e[0m"
+		find / -name $REMOVE_SOFTWARE_NAME
+	}
+	select option in "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "aria2"
+	do
+		case $option in
+			"transmission")
+				REMOVE_SOFTWARE_BIN "transmission"
+				break;;
+			"aria2")
+				REMOVE_SOFTWARE_BIN "aria2"
+				break;;
+			"trojan")
+				REMOVE_SOFTWARE_BIN "trojan"
+				break;;
+			"nginx")
+				REMOVE_SOFTWARE_BIN "nginx"
+				break;;
+			"Project_X")
+				REMOVE_SOFTWARE_BIN "xray"
+				break;;
+			"Project_V")
+				REMOVE_SOFTWARE_BIN "v2ray"
+				break;;
+			"caddy")
+				REMOVE_SOFTWARE_BIN "caddy"
+				break;;
+			"hysteria")
+				REMOVE_SOFTWARE_BIN "hysteria"
+				break;;
+			*)
+				echo "nothink to do"
+				break;;
+		esac
+	done
+}
 echo -e "\e[31m\e[1m输入对应的数字选项:\e[0m"
-select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy" "hysteria" "Project_V"
+select option in "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "acme.sh" "shadowsocks-libev" "aria2" "Up_kernel" "uninstall_software"
 do
 	case $option in
 		"acme.sh")
@@ -1663,6 +1711,9 @@ do
 			break;;
 		"hysteria")
 			hysteria
+			break;;
+		"uninstall_software")
+			REMOVE_SOFTWARE
 			break;;
 		*)
 			echo "nothink to do"
