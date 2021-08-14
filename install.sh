@@ -107,12 +107,12 @@ function CHECK_PORT(){
 					echo -e "\e[31m\e[1m进程关闭失败,请手动关闭\e[0m"
 					exit 1
 				fi
-			elif [ "$sel" == "n" ] || [ "$sel" == "N" ]; then
+			elif [[ "$sel" == "n" ]]; then
 				echo "已取消操作"
 				exit 0
 			elif [[ $sel -gt 0 ]]; then
 				CHECK_PORT "NOINPUT" $sel
-				break
+				return 0
 			else 
 				echo "非法操作！"
 				exit -1
@@ -894,7 +894,6 @@ function Project_X(){
 		if [[ "xray" == $PROJECT_BIN_VERSION ]]; then
 			wget -O /tmp/ray.zip https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
 		elif [[ "v2ray" == $PROJECT_BIN_VERSION ]]; then
-			#statements
 			echo "输入v2ray版本号(4.41.1)"
 			read V2RAY_BIN_VERSION
 			V2RAY_BIN_VERSION=${V2RAY_BIN_VERSION:-4.41.1}
@@ -1000,14 +999,16 @@ function Project_X(){
 			sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
 			#流控,用于订阅生成
 			RAY_FLOW='flow=xtls-rprx-direct&'
-			TRANS_FLOW='security=xtls'
+			V2RAY_TRANSPORT='security=xtls'
+			V2RAY_TCP_NODENAME="TCP_xTLS"
 			if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
 				sed -i '/xtls-rprx-direct/d' $XRAY_CONFIG
 				sed -i 's/"xtls"/"tls"/' $XRAY_CONFIG
 				sed -i 's/"grpc"/"gun"/' $XRAY_CONFIG
 				sed -i 's/"xtlsSettings"/"tlsSettings"/' $XRAY_CONFIG
 				RAY_FLOW=""
-				TRANS_FLOW='security=tls'
+				V2RAY_TRANSPORT='security=tls'
+				V2RAY_TCP_NODENAME="TCP_TLS"
 			fi
 			cat > $SYSTEMD_SERVICES/${PROJECT_BIN_VERSION}.service <<-EOF
 			[Unit]
@@ -1093,7 +1094,7 @@ function Project_X(){
 			systemctl restart nginx
 
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
-			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${TRANS_FLOW}\&sni=${XRAY_DOMAIN}${RAY_FLOW}#🍭 TCP${NODE_SUFFIX} >> /etc/sub/trojan.tmp
+			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${V2RAY_TRANSPORT}\&sni=${XRAY_DOMAIN}${RAY_FLOW}#🍭 ${V2RAY_TCP_NODENAME}${NODE_SUFFIX} >> /etc/sub/trojan.tmp
 			#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
 			###echo vless://${XRAY_GRPC_UUID}@${XRAY_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${XRAY_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
 			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC${NODE_SUFFIX} >> /etc/sub/trojan.tmp
