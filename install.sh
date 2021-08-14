@@ -1109,13 +1109,9 @@ function Project_X(){
 			systemctl restart nginx
 
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/subscription_tmp
-			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${V2RAY_TRANSPORT}\&${RAY_FLOW}sni=${XRAY_DOMAIN}#🍭 ${V2RAY_TCP_NODENAME}${NODE_SUFFIX} >> /etc/sub/subscription_tmp
-			#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
-			###echo vless://${XRAY_GRPC_UUID}@${XRAY_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${XRAY_DOMAIN}#⛩ GRPC >> /etc/sub/subscription_tmp
 			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC${NODE_SUFFIX} >> /etc/sub/subscription_tmp
-			#echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
+			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${V2RAY_TRANSPORT}\&${RAY_FLOW}sni=${XRAY_DOMAIN}#🍭 ${V2RAY_TCP_NODENAME}${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks${NODE_SUFFIX} >> /etc/sub/subscription_tmp
-			###echo vless://${XRAY_WS_UUID}@${XRAY_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${XRAY_DOMAIN}\&sni=${XRAY_DOMAIN}#🌋 WebSocks >> /etc/sub/subscription_tmp
 			base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
 		else 
 			echo -e "\e[31m\e[1m找不到证书文件,退出安装！\e[0m"
@@ -1241,8 +1237,8 @@ function INSTALL_NGINX(){
 	NGINX_CONFIG=/etc/nginx/conf/nginx.conf
 	NGINX_BIN=/etc/nginx/sbin/nginx
 	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
-	#SUBSCRIPTION_PATH=`GET_RANDOM_STRING`
-	SUBSCRIPTION_PATH="baEgIFbgmXo8yuGJ1MujZFA9H9c477gofgNN"
+	SUBSCRIPTION_PATH=`GET_RANDOM_STRING`
+	#SUBSCRIPTION_PATH="baEgIFbgmXo8yuGJ1MujZFA9H9c477gofgNN"
 	SUBSCRIPTION_FILE="/etc/sub/trojan.sys"
 	if ! [[ -d /etc/sub ]]; then
 		mkdir /etc/sub
