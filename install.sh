@@ -397,7 +397,13 @@ function acme.sh(){
 			echo -e "\e[32m\e[1m将上面的txt解析到对应的域名上再重新运行脚本\e[0m"
 			echo -e "\e[32m\e[1m第二次运行时自动校验解析\e[0m"
 			echo "休眠30秒"
-			sleep 30
+			count=30
+			while [[ $count -gt 0 ]];do
+			echo -ne "\e[31m\e[1m$count\e[0m"
+			let count--
+			sleep 1
+			echo -ne "\r   \r"
+			done
 		fi
 	fi
 	#卸载Socat残留
