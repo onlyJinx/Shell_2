@@ -1041,7 +1041,7 @@ function Project_X(){
 			if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
 				sed -i '/xtls-rprx-direct/d' $XRAY_CONFIG
 				sed -i 's/"xtls"/"tls"/' $XRAY_CONFIG
-				sed -i 's/"grpc"/"gun"/' $XRAY_CONFIG
+				sed -i 's/"grpc"/"gun"/g' $XRAY_CONFIG
 				sed -i 's/"xtlsSettings"/"tlsSettings"/' $XRAY_CONFIG
 				RAY_FLOW=""
 				V2RAY_TRANSPORT='security=tls'
