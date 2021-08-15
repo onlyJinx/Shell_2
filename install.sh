@@ -1019,9 +1019,9 @@ function Project_X(){
 			sed -i "s/XTLS_UUID/$XRAY_UUID/" $XRAY_CONFIG
 			sed -i "s/DESP_PORT/$XRAY_DESP_PORT/" $XRAY_CONFIG
 
-			sed -i "s/GRPC_PORT/$XRAY_GRPC_PORT/" $XRAY_CONFIG
-			sed -i "s/GRPC_NAME/$XRAY_GRPC_NAME/" $XRAY_CONFIG
-			sed -i "s/GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
+			sed -i "s/VLESS_GRPC_PORT/$XRAY_GRPC_PORT/" $XRAY_CONFIG
+			sed -i "s/VLESS_GRPC_NAME/$XRAY_GRPC_NAME/" $XRAY_CONFIG
+			sed -i "s/VLESS_GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
 
 			sed -i "s/WS_PORT/$XRAY_WS_PORT/" $XRAY_CONFIG
 			sed -i "s/WS_PATH/$XRAY_WS_PATH/" $XRAY_CONFIG
@@ -1121,7 +1121,7 @@ function Project_X(){
 				        proxy_set_header Host \$http_host;
 				    }
 				    location /${XRAY_TROJAN_GRPC_NAME}/Tun {
-				        if ($content_type !~ "application/grpc") {
+				        if (\$content_type !~ "application/grpc") {
 				            return 404;
 				        }
 				        client_max_body_size 0;

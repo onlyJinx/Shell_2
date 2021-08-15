@@ -40,13 +40,13 @@
             }
         },
         {
-            "port": GRPC_PORT,
+            "port": VLESS_GRPC_PORT,
             "listen": "127.0.0.1",
             "protocol": "vless",
             "settings": {
                 "clients": [
                     {
-                        "id": "GRPC_UUID"
+                        "id": "VLESS_GRPC_UUID"
                     }
                 ],
                 "decryption": "none"
@@ -54,7 +54,7 @@
             "streamSettings": {
                 "network": "grpc",
                 "grpcSettings": {
-                    "serviceName": "GRPC_NAME"
+                    "serviceName": "VLESS_GRPC_NAME"
                 }
             }
         },
