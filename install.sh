@@ -666,6 +666,7 @@ function transmission(){
 	systemctl start transmission.service
 	TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
 	if [[ "active" == "$TRANSMISSION_SERVICE_LIFE" ]]; then
+		systemctl status transmission
 		echo -e "\e[32m\e[1mtransmission服务已启动\e[0m"
 		# echo -e "\e[31m\e[1m休眠5s\e[0m"
 		# sleep 5
@@ -674,6 +675,7 @@ function transmission(){
 			systemctl stop transmission.service
 			TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
 			if [[ "inactive" == "$TRANSMISSION_SERVICE_LIFE" && -e "$TRANSMISSION_CONFIG" ]]; then
+				systemctl status transmission
 				echo -e "\e[32m\e[1m检测到transmission配置文件\e[0m"
 				MODIFY_CONFIG "$TRANSMISSION_CONFIG"
 				break
@@ -684,7 +686,10 @@ function transmission(){
 				else
 					echo "transmission服务未停止或找不到配置文件, 1秒后重试"
 					echo "当前重试次数: " $TRANSMISSION_COUNT
-					let TRANSMISSION_COUNT ++
+					let TRANSMISSION_COUNT++
+					systemctl status transmission
+					echo -e "\e[31m\e[1m[debug]====================================\e[0m"
+					cat $TRANSMISSION_CONFIG
 					sleep 1
 				fi
 			fi
@@ -703,12 +708,12 @@ function transmission(){
 			echo -e "\e[32m\e[1m打开网址  https://${TRANSMISSION_DOMAIN}  测试登录  \e[0m"
 			echo -e "\e[32m\e[1m文件下载服务器地址  https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/\e[0m"
 		else 
-			echo -e port:"          ""\e[32m\e[1m$port\e[0m"
+			echo -e "\e[32m\e[1m打开 http://your_IP:${port}  测试登录  \e[0m"
 		fi
 		echo -e password:"      ""\e[32m\e[1m$TRANSMISSION_PASSWD\e[0m"
 		echo -e username:"      ""\e[32m\e[1m$TRANSMISSION_USER_NAME\e[0m"
 		echo -e DOWNLOAD_PTAH:"      ""\e[32m\e[1m$dir\e[0m"
-		echo -e config.json:"   ""\e[32m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
+		#echo -e config.json:"   ""\e[32m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
 	else 
 		echo -e "\e[31m\e[1mtransmission首次启动失败。\e[0m"
 	fi
@@ -1636,7 +1641,7 @@ function REMOVE_SOFTWARE(){
 		systemctl stop $REMOVE_SOFTWARE_NAME
 		rm -fr /etc/$REMOVE_SOFTWARE_NAME /etc/systemd/system/${REMOVE_SOFTWARE_NAME}.service
 		echo -e "\e[31m\e[1m一些列出可能的残留文件,按照需要手动清理\e[0m"
-		find / -name $REMOVE_SOFTWARE_NAME
+		find / -name ${REMOVE_SOFTWARE_NAME}*
 	}
 	select option in "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "aria2"
 	do
