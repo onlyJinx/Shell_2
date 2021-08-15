@@ -989,9 +989,12 @@ function Project_X(){
 		#CHECK_PORT "WebSocks 监听端口(1234)?  " 1234
 		CHECK_PORT "NOINPUT" 35446
 		XRAY_WS_PORT=$port
+		CHECK_PORT "NOINPUT" 45877
+		XRAY_TROJAN_PORT=$port
 		#read -p "Grpc Name(grpcforward)?  " XRAY_GRPC_NAME
 		#XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
 		XRAY_GRPC_NAME=`GET_RANDOM_STRING`
+		XRAY_TROJAN_GRPC_NAME=`GET_RANDOM_STRING`
 		#read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
 		#XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
 		XRAY_WS_PATH=`GET_RANDOM_STRING`
@@ -999,6 +1002,7 @@ function Project_X(){
 		XRAY_UUID=$(cat /proc/sys/kernel/random/uuid)
 		XRAY_GRPC_UUID=$(cat /proc/sys/kernel/random/uuid)
 		XRAY_WS_UUID=$(cat /proc/sys/kernel/random/uuid)
+		XRAY_TROJAN_PASSWD=$(cat /proc/sys/kernel/random/uuid)
 
 		echo "请输入xray/v2fly域名"
 		FORAM_DOMAIN
@@ -1012,17 +1016,24 @@ function Project_X(){
 			XRAY_CONFIG=/etc/${PROJECT_BIN_VERSION}/config.json
 			wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/test/xtls_tcp_grpc_ws.json
 			sed -i "s/XTLS_PORT/$RAY_TCP_PORT/" $XRAY_CONFIG
+			sed -i "s/XTLS_UUID/$XRAY_UUID/" $XRAY_CONFIG
 			sed -i "s/DESP_PORT/$XRAY_DESP_PORT/" $XRAY_CONFIG
+
 			sed -i "s/GRPC_PORT/$XRAY_GRPC_PORT/" $XRAY_CONFIG
 			sed -i "s/GRPC_NAME/$XRAY_GRPC_NAME/" $XRAY_CONFIG
+			sed -i "s/GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
+
 			sed -i "s/WS_PORT/$XRAY_WS_PORT/" $XRAY_CONFIG
 			sed -i "s/WS_PATH/$XRAY_WS_PATH/" $XRAY_CONFIG
+			sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
+
+			sed -i "s/TROJAN_GRPC_PORT/$XRAY_TROJAN_PORT/" $XRAY_CONFIG
+			sed -i "s/TROJAN_GRPC_PASSWD/$XRAY_TROJAN_PASSWD/" $XRAY_CONFIG
+			sed -i "s/TROJAN_GRPC_SERVICE_NAME/$XRAY_TROJAN_GRPC_NAME/" $XRAY_CONFIG
+
 			sed -i "s/SSL_XRAY_CER/$XRAY_DOMAIN/" $XRAY_CONFIG
 			sed -i "s/SSL_XRAY_KEY/$XRAY_DOMAIN/" $XRAY_CONFIG
 
-			sed -i "s/XtlsForUUID/$XRAY_UUID/" $XRAY_CONFIG
-			sed -i "s/GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
-			sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
 			#流控,用于订阅生成
 			RAY_FLOW='flow=xtls-rprx-direct&'
 			V2RAY_TRANSPORT='security=xtls'
@@ -1109,6 +1120,15 @@ function Project_X(){
 				        proxy_set_header Connection "upgrade";
 				        proxy_set_header Host \$http_host;
 				    }
+				    location /${XRAY_TROJAN_GRPC_NAME}/Tun {
+				        if ($content_type !~ "application/grpc") {
+				            return 404;
+				        }
+				        client_max_body_size 0;
+				        client_body_timeout 1071906480m;
+				        grpc_read_timeout 1071906480m;
+				        grpc_pass grpc://127.0.0.1:${XRAY_TROJAN_PORT};
+				    }
 				}
 				EOF
 			fi
@@ -1124,6 +1144,10 @@ function Project_X(){
 			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${V2RAY_TRANSPORT}\&${RAY_FLOW}sni=${XRAY_DOMAIN}#🍭 ${V2RAY_TCP_NODENAME}${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
+			echo "trojan-grpc信息"
+			echo -e "域名: \e[32m\e[1m${NGINX_HTPTS_DOMAIN}\e[0m"
+			echo -e "密码: \e[32m\e[1m${XRAY_TROJAN_PASSWD}\e[0m"
+			echo -e "serviceName: \e[32m\e[1m${XRAY_TROJAN_GRPC_NAME}\e[0m"
 		else 
 			echo -e "\e[31m\e[1m找不到证书文件,退出安装！\e[0m"
 		fi

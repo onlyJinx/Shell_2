@@ -9,7 +9,7 @@
             "settings": {
                 "clients": [
                     {
-                        "id": "XtlsForUUID",
+                        "id": "XTLS_UUID",
                         "flow": "xtls-rprx-direct",
                         "level": 0,
                         "email": "love@example.com"
@@ -77,6 +77,25 @@
                 "security": "none",
                 "wsSettings": {
                     "path": "/WS_PATH"
+                }
+            }
+        },
+        {
+            "port": TROJAN_GRPC_PORT,
+            "listen": "127.0.0.1",
+            "protocol": "trojan",
+            "settings": {
+                "clients": [
+                    {
+                        "password":"TROJAN_GRPC_PASSWD",
+                        "email": "love@v2fly.org"
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "grpc",
+                "grpcSettings": {
+                    "serviceName": "TROJAN_GRPC_SERVICE_NAME"
                 }
             }
         }
