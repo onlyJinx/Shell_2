@@ -1359,7 +1359,7 @@ function INSTALL_NGINX(){
 	ln -s /etc/nginx/sbin/nginx /usr/bin/nginx
 	mv $NGINX_CONFIG ${NGINX_CONFIG}_backup
 	wget -O $NGINX_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/nginxForFsGrpc.conf
-	echo "export ngp=$NGINX_CONFIG" >> /etc/profile
+	echo "export ngp=$NGINX_SITE_ENABLED/Default" >> /etc/profile
 	
 	###crate service
 	#单双引号不转义，反单引号 $ 要转
