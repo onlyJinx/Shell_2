@@ -917,30 +917,48 @@ function Project_X(){
 		if ! [[ "$(type -P unzip)" ]];then
 			$PKGMANAGER_INSTALL unzip
 		fi
-		if [[ "xray" == $PROJECT_BIN_VERSION ]]; then
-			wget -O /tmp/ray.zip https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
-		elif [[ "v2ray" == $PROJECT_BIN_VERSION ]]; then
-			echo "输入v2ray版本号(4.41.1)"
-			read V2RAY_BIN_VERSION
-			V2RAY_BIN_VERSION=${V2RAY_BIN_VERSION:-4.41.1}
-			wget -O /tmp/ray.zip https://github.com/v2fly/v2ray-core/releases/download/v${V2RAY_BIN_VERSION}/v2ray-linux-64.zip
+		if [[ "xray" == "$PROJECT_BIN_VERSION" ]]; then
+			XRAY_BIN_PACKGE="Xray-linux-64.zip"
+			rm -f /tmp/$XRAY_BIN_PACKGE
+			XRAY_BIN_DOWNLOAD_LINK="https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip"
+		elif [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
+			XRAY_BIN_PACKGE="v2ray-linux-64.zip"
+			rm -f /tmp/$XRAY_BIN_PACKGE
+			XRAY_BIN_DOWNLOAD_LINK="https://github.com/v2fly/v2ray-core/releases/download/v${V2RAY_BIN_VERSION}/v2ray-linux-64.zip"
 		else 
 			echo "未知参数,退出！"
 			exit -1
 		fi
-		mkdir /etc/${PROJECT_BIN_VERSION}
-		unzip -o /tmp/ray.zip -d /tmp
-		mv /tmp/geoip.dat /etc/${PROJECT_BIN_VERSION}/geoip.dat
-		mv /tmp/geosite.dat /etc/${PROJECT_BIN_VERSION}/geosite.dat
-		mv /tmp/${PROJECT_BIN_VERSION} /etc/${PROJECT_BIN_VERSION}/
-		rm -f /tmp/README.md /tmp/LICENSE ray.zip
-		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
+		wget -P /tmp $XRAY_BIN_DOWNLOAD_LINK
+		if [[ -a "/tmp/$XRAY_BIN_PACKGE" ]]; then
+			mkdir /etc/${PROJECT_BIN_VERSION}
+			unzip -o /tmp/$XRAY_BIN_PACKGE -d /tmp
+			mv /tmp/geoip.dat /etc/${PROJECT_BIN_VERSION}/geoip.dat
+			mv /tmp/geosite.dat /etc/${PROJECT_BIN_VERSION}/geosite.dat
+			mv /tmp/${PROJECT_BIN_VERSION} /etc/${PROJECT_BIN_VERSION}/
+			rm -f /tmp/README.md /tmp/LICENSE /tmp/$XRAY_BIN_PACKGE
+			#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
+		elif [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
+				echo -e "\e[31m\e[1mv2fly版本号异常,请重新输入版本号(格式:4.41.1)\e[0m"
+				read V2RAY_BIN_VERSION
+				INSTALL_XRAY_BINARY
+				return 0
+		else
+			echo "下载异常,请检查一下下载链接"
+			echo "$XRAY_BIN_DOWNLOAD_LINK"
+			exit 0
+		fi
+
 	}
 
 	if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
+		#不放在INSTALL_XRAY_BINARY,防止申请完证书后还需要继续输入版本号
+		echo "输入v2ray版本号(4.41.1)"
+		read V2RAY_BIN_VERSION
+		V2RAY_BIN_VERSION=${V2RAY_BIN_VERSION:-4.41.1}
 		if [[ "$(type -P v2ray)" ]]; then
 			V2ray_INSTALLED_VERSION=$(v2ray -version|grep V2Ray|cut -d ' ' -f2)
-			CHECK_VERSION v2ray v2fly $V2ray_INSTALLED_VERSION "N-A"
+			CHECK_VERSION v2ray v2fly "$V2ray_INSTALLED_VERSION" "$V2RAY_BIN_VERSION"
 		fi
 	elif [[ "xray" == "$PROJECT_BIN_VERSION" ]]; then
 		if [[ "$(type -P xray)" ]]; then
@@ -1065,40 +1083,6 @@ function Project_X(){
 			[Install]
 			WantedBy=multi-user.target
 			EOF
-
-			# XRAY_NGINX_CONFIG=$NGINX_CONFIG
-			# if [[ -e $XRAY_NGINX_CONFIG ]];then
-			# 	cat >$NGINX_SITE_ENABLED/${XRAY_DOMAIN}<<-EOF
-			# 	server {
-			# 	    listen       4433 http2 ssl;
-			# 	    server_name  ${XRAY_DOMAIN};
-			# 	    ssl_certificate      /ssl/${XRAY_DOMAIN}.cer;
-			# 	    ssl_certificate_key  /ssl/${XRAY_DOMAIN}.key;
-			# 	    ssl_session_cache    shared:SSL:1m;
-			# 	    ssl_session_timeout  5m;
-			# 	    ssl_protocols TLSv1.2 TLSv1.3;
-			# 	    ssl_prefer_server_ciphers  on;
-			# 	    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-			# 	    location /${XRAY_GRPC_NAME} {
-			# 	        if (\$content_type !~ "application/grpc") {
-			# 	            return 404;
-			# 	        }
-			# 	        client_max_body_size 0;
-			# 	        client_body_timeout 1071906480m;
-			# 	        grpc_read_timeout 1071906480m;
-			# 	        grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
-			# 	    }
-			# 	    location /${XRAY_WS_PATH} {
-			# 	        proxy_redirect off;
-			# 	        proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
-			# 	        proxy_http_version 1.1;
-			# 	        proxy_set_header Upgrade \$http_upgrade;
-			# 	        proxy_set_header Connection "upgrade";
-			# 	        proxy_set_header Host \$http_host;
-			# 	    }
-			# 	}
-			# 	EOF
-			# fi
 			NGINX_HTTPS_DEFAULT=${NGINX_SITE_ENABLED}/Default
 			if [[ -e "$NGINX_HTTPS_DEFAULT" ]]; then
 				sed -i '/^}/d' $NGINX_HTTPS_DEFAULT
@@ -1670,7 +1654,7 @@ function REMOVE_SOFTWARE(){
 		systemctl disable $REMOVE_SOFTWARE_NAME
 		systemctl stop $REMOVE_SOFTWARE_NAME
 		rm -fr /etc/$REMOVE_SOFTWARE_NAME /etc/systemd/system/${REMOVE_SOFTWARE_NAME}.service
-		echo -e "\e[31m\e[1m一些列出可能的残留文件,按照需要手动清理\e[0m"
+		echo -e "\e[31m\e[1m列出一些可能的残留文件,按照需要手动清理\e[0m"
 		find / -name ${REMOVE_SOFTWARE_NAME}*
 	}
 	select option in "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "aria2"
