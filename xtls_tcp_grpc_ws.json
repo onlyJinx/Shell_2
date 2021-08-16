@@ -9,7 +9,7 @@
             "settings": {
                 "clients": [
                     {
-                        "id": "XtlsForUUID",
+                        "id": "XTLS_UUID",
                         "flow": "xtls-rprx-direct",
                         "level": 0,
                         "email": "love@example.com"
@@ -27,6 +27,7 @@
                 "security": "xtls",
                 "xtlsSettings": {
                     "alpn": [
+                        "h2",
                         "http/1.1"
                     ],
                     "certificates": [
@@ -39,13 +40,13 @@
             }
         },
         {
-            "port": GRPC_PORT,
+            "port": VLESS_GRPC_PORT,
             "listen": "127.0.0.1",
             "protocol": "vless",
             "settings": {
                 "clients": [
                     {
-                        "id": "GRPC_UUID"
+                        "id": "VLESS_GRPC_UUID"
                     }
                 ],
                 "decryption": "none"
@@ -53,7 +54,7 @@
             "streamSettings": {
                 "network": "grpc",
                 "grpcSettings": {
-                    "serviceName": "GRPC_NAME"
+                    "serviceName": "VLESS_GRPC_NAME"
                 }
             }
         },
@@ -76,6 +77,25 @@
                 "security": "none",
                 "wsSettings": {
                     "path": "/WS_PATH"
+                }
+            }
+        },
+        {
+            "port": TROJAN_GRPC_PORT,
+            "listen": "127.0.0.1",
+            "protocol": "trojan",
+            "settings": {
+                "clients": [
+                    {
+                        "password":"TROJAN_GRPC_PASSWD",
+                        "email": "love@v2fly.org"
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "grpc",
+                "grpcSettings": {
+                    "serviceName": "TROJAN_GRPC_SERVICE_NAME"
                 }
             }
         }

@@ -107,12 +107,12 @@ function CHECK_PORT(){
 					echo -e "\e[31m\e[1m进程关闭失败,请手动关闭\e[0m"
 					exit 1
 				fi
-			elif [ "$sel" == "n" ] || [ "$sel" == "N" ]; then
+			elif [[ "$sel" == "n" ]]; then
 				echo "已取消操作"
 				exit 0
 			elif [[ $sel -gt 0 ]]; then
 				CHECK_PORT "NOINPUT" $sel
-				break
+				return 0
 			else 
 				echo "非法操作！"
 				exit -1
@@ -310,11 +310,15 @@ function acme.sh(){
 					break;;
 			esac
 		done
-		SET_ACME_SERVER="--server $ACME_SERVER"
-		CURRENT_ACME_CA="$ACME_SERVER"
-		echo "已选择证书颁发机构${ACME_SERVER}"
-		echo -e "\e[32m\e[1m输入acme.sh --set-default-ca --server ServerName\e[0m"
-		echo "可以更改默认CA，下次运行无需重新指定CA"
+		read -p "是否将设置为默认CA?(Y/n)" CONFIRM_SET_DEFAULT_CA
+		if [[ "y" == "$CONFIRM_SET_DEFAULT_CA" || "" == "$CONFIRM_SET_DEFAULT_CA" ]]; then
+			$ACME_PATH_RUN --set-default-ca --server $ACME_SERVER
+			echo -e "\e[32m\e[1m已将默认证书机构更改为${ACME_SERVER}\e[0m"
+		else
+			SET_ACME_SERVER="--server $ACME_SERVER"
+			CURRENT_ACME_CA="$ACME_SERVER"
+			echo "已临时更改证书颁发机构为${ACME_SERVER}"
+		fi
 	}
 
 	#选择认证方式
@@ -393,7 +397,13 @@ function acme.sh(){
 			echo -e "\e[32m\e[1m将上面的txt解析到对应的域名上再重新运行脚本\e[0m"
 			echo -e "\e[32m\e[1m第二次运行时自动校验解析\e[0m"
 			echo "休眠30秒"
-			sleep 30
+			count=30
+			while [[ $count -gt 0 ]];do
+			echo -ne "\e[31m\e[1m$count\e[0m"
+			let count--
+			sleep 1
+			echo -ne "\r   \r"
+			done
 		fi
 	fi
 	#卸载Socat残留
@@ -530,6 +540,8 @@ function shadowsocks-libev(){
 }
 #transmission
 function transmission(){
+	TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
+	TRANSMISSION_NGINX_CONFIG=$NGINX_CONFIG
 	function MODIFY_CONFIG(){
 		sed -i '/rpc-whitelist-enabled/ s/true/false/' $1
 		sed -i '/rpc-host-whitelist-enabled/ s/true/false/' $1
@@ -583,17 +595,12 @@ function transmission(){
 	CHECK_VERSION transmission-daemon transmission
 	clear
 	CHECK_PORT "请输入端口号(9091)" 9091
-	clear
 	read -p "请输入用户名(transmission):  " TRANSMISSION_USER_NAME
 	TRANSMISSION_USER_NAME=${TRANSMISSION_USER_NAME:-transmission}
-	clear
 	read -p "请输入密码(transmission2020):  " TRANSMISSION_PASSWD
 	TRANSMISSION_PASSWD=${TRANSMISSION_PASSWD:-transmission2020}
-	clear
 	DOWNLOAD_PTAH "文件保存路径(默认/usr/downloads): " "/usr/downloads"
-	check "downloads文件夹创建失败！"
 
-	TRANSMISSION_NGINX_CONFIG=$NGINX_CONFIG
 	if [[ -e $TRANSMISSION_NGINX_CONFIG ]];then
 		echo "检测到NGINX配置文件，是否开启https WEBUI反代?(Y/n) "
 		OUTPUT_HTTPS_LOGIN_ADDR=""
@@ -665,35 +672,54 @@ function transmission(){
 	systemctl start transmission.service
 	TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
 	if [[ "active" == "$TRANSMISSION_SERVICE_LIFE" ]]; then
+		systemctl status transmission
 		echo -e "\e[32m\e[1mtransmission服务已启动\e[0m"
-		systemctl stop transmission.service
-		echo -e "\e[31m\e[1m休眠5s\e[0m"
-		sleep 5
-		TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
-		if [[ "inactive" == "$TRANSMISSION_SERVICE_LIFE" ]]; then
-			TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
-			MODIFY_CONFIG "$TRANSMISSION_CONFIG"
-			## change config  sed引用 https://segmentfault.com/a/1190000020613397
-			##替换webUI
-			cd ~
-			git clone https://github.com/ronggang/transmission-web-control.git
-			mv /etc/transmission/share/transmission/web/index.html /etc/transmission/share/transmission/web/index.original.html
-			mv /root/transmission-web-control/src/* /etc/transmission/share/transmission/web/
-			rm -fr transmission-web-control
-			systemctl start transmission.service
-			systemctl enable transmission.service
-			if [[ "$OUTPUT_HTTPS_LOGIN_ADDR" ]]; then
-				systemctl restart nginx
-				echo -e "\e[32m\e[1m打开网址  https://${TRANSMISSION_DOMAIN}  测试登录  \e[0m"
-				echo -e "\e[32m\e[1m文件下载服务器地址  https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/\e[0m"
+		# echo -e "\e[31m\e[1m休眠5s\e[0m"
+		# sleep 5
+		TRANSMISSION_COUNT=1
+		while [[ true ]]; do
+			systemctl stop transmission.service
+			TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
+			if [[ "inactive" == "$TRANSMISSION_SERVICE_LIFE" && -e "$TRANSMISSION_CONFIG" ]]; then
+				systemctl status transmission
+				echo -e "\e[32m\e[1m检测到transmission配置文件\e[0m"
+				MODIFY_CONFIG "$TRANSMISSION_CONFIG"
+				break
 			else 
-				echo -e port:"          ""\e[32m\e[1m$port\e[0m"
+				if [[ $TRANSMISSION_COUNT -gt 11 ]]; then
+					echo "循环次数过多,停止修改配置文件"
+					break
+				else
+					echo "transmission服务未停止或找不到配置文件, 1秒后重试"
+					echo "当前重试次数: " $TRANSMISSION_COUNT
+					let TRANSMISSION_COUNT++
+					systemctl status transmission
+					echo -e "\e[31m\e[1m[debug]====================================\e[0m"
+					cat $TRANSMISSION_CONFIG
+					sleep 1
+				fi
 			fi
-			echo -e password:"      ""\e[32m\e[1m$TRANSMISSION_PASSWD\e[0m"
-			echo -e username:"      ""\e[32m\e[1m$TRANSMISSION_USER_NAME\e[0m"
-			echo -e DOWNLOAD_PTAH:"      ""\e[32m\e[1m$dir\e[0m"
-			echo -e config.json:"   ""\e[32m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
+		done
+		## change config  sed引用 https://segmentfault.com/a/1190000020613397
+		##替换webUI
+		cd ~
+		git clone https://github.com/ronggang/transmission-web-control.git
+		mv /etc/transmission/share/transmission/web/index.html /etc/transmission/share/transmission/web/index.original.html
+		mv /root/transmission-web-control/src/* /etc/transmission/share/transmission/web/
+		rm -fr transmission-web-control
+		systemctl start transmission.service
+		systemctl enable transmission.service
+		if [[ "$OUTPUT_HTTPS_LOGIN_ADDR" ]]; then
+			systemctl restart nginx
+			echo -e "\e[32m\e[1m打开网址  https://${TRANSMISSION_DOMAIN}  测试登录  \e[0m"
+			echo -e "\e[32m\e[1m文件下载服务器地址  https://${TRANSMISSION_DOMAIN}/${TRRNA_FILE_SERVER_PATH}/\e[0m"
+		else 
+			echo -e "\e[32m\e[1m打开 http://your_IP:${port}  测试登录  \e[0m"
 		fi
+		echo -e password:"      ""\e[32m\e[1m$TRANSMISSION_PASSWD\e[0m"
+		echo -e username:"      ""\e[32m\e[1m$TRANSMISSION_USER_NAME\e[0m"
+		echo -e DOWNLOAD_PTAH:"      ""\e[32m\e[1m$dir\e[0m"
+		#echo -e config.json:"   ""\e[32m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
 	else 
 		echo -e "\e[31m\e[1mtransmission首次启动失败。\e[0m"
 	fi
@@ -768,7 +794,7 @@ function aria2(){
 	make && make install
 	check "aria2c编译安装失败"
 	#rm -fr aria2
-	ln -s /etc/aria2/bin/aria2c /usr/local/bin/aria2c
+	ln -s /etc/aria2/bin/aria2c /usr/bin/aria2c
 	###相关编译报错引用https://weair.xyz/build-aria2/
 	check "aria2c编译安装失败"
 	ARIA2_CONFIG_DIR="/etc/aria2"
@@ -884,48 +910,95 @@ function Up_kernel(){
 }
 #xray
 function Project_X(){
+	#检测安装v2ray/xray
+	PROJECT_BIN_VERSION=$1
+	read -p "输入节点名后缀,回车则不设置: " NODE_SUFFIX
 	function INSTALL_XRAY_BINARY(){
-		#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
-		wget -P /tmp https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip
 		if ! [[ "$(type -P unzip)" ]];then
 			$PKGMANAGER_INSTALL unzip
 		fi
-		unzip -o /tmp/Xray-linux-64.zip -d /tmp
-		if ! [[ -d /usr/local/share/xray ]];then
-			mkdir -p /usr/local/share/xray
+		if [[ "xray" == "$PROJECT_BIN_VERSION" ]]; then
+			XRAY_BIN_PACKGE="Xray-linux-64.zip"
+			rm -f /tmp/$XRAY_BIN_PACKGE
+			XRAY_BIN_DOWNLOAD_LINK="https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip"
+		elif [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
+			XRAY_BIN_PACKGE="v2ray-linux-64.zip"
+			rm -f /tmp/$XRAY_BIN_PACKGE
+			XRAY_BIN_DOWNLOAD_LINK="https://github.com/v2fly/v2ray-core/releases/download/v${V2RAY_BIN_VERSION}/v2ray-linux-64.zip"
+		else 
+			echo "未知参数,退出！"
+			exit -1
 		fi
-		alias mv='mv -i'
-		mv /tmp/geoip.dat /usr/local/share/xray/geoip.dat
-		mv /tmp/geosite.dat /usr/local/share/xray/geosite.dat
-		mv /tmp/xray /usr/local/bin/xray
-		rm -f /tmp/README.md /tmp/LICENSE Xray-linux-64.zip
-		#https://github.com/v2fly/v2ray-core/releases/download/v4.41.1/v2ray-linux-64.zip
+		wget -P /tmp $XRAY_BIN_DOWNLOAD_LINK
+		if [[ -a "/tmp/$XRAY_BIN_PACKGE" ]]; then
+			mkdir /etc/${PROJECT_BIN_VERSION}
+			unzip -o /tmp/$XRAY_BIN_PACKGE -d /tmp
+			mv /tmp/geoip.dat /etc/${PROJECT_BIN_VERSION}/geoip.dat
+			mv /tmp/geosite.dat /etc/${PROJECT_BIN_VERSION}/geosite.dat
+			mv /tmp/${PROJECT_BIN_VERSION} /etc/${PROJECT_BIN_VERSION}/
+			rm -f /tmp/README.md /tmp/LICENSE /tmp/$XRAY_BIN_PACKGE
+			#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
+		elif [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
+				echo -e "\e[31m\e[1mv2fly版本号异常,请重新输入版本号(格式:4.41.1)\e[0m"
+				read V2RAY_BIN_VERSION
+				INSTALL_XRAY_BINARY
+				return 0
+		else
+			echo "下载异常,请检查一下下载链接"
+			echo "$XRAY_BIN_DOWNLOAD_LINK"
+			exit 0
+		fi
+
 	}
 
-	if [[ "$(type -P xray)" ]]; then
-		XTLS_INSTALLED_VERSION=$(xray version|sed -n 1p|cut -d ' ' -f 2)
+	if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
+		#不放在INSTALL_XRAY_BINARY,防止申请完证书后还需要继续输入版本号
+		echo "输入v2ray版本号(4.41.1)"
+		read V2RAY_BIN_VERSION
+		V2RAY_BIN_VERSION=${V2RAY_BIN_VERSION:-4.41.1}
+		if [[ "$(type -P v2ray)" ]]; then
+			V2ray_INSTALLED_VERSION=$(v2ray -version|grep V2Ray|cut -d ' ' -f2)
+			CHECK_VERSION v2ray v2fly "$V2ray_INSTALLED_VERSION" "$V2RAY_BIN_VERSION"
+		fi
+	elif [[ "xray" == "$PROJECT_BIN_VERSION" ]]; then
+		if [[ "$(type -P xray)" ]]; then
+			XTLS_INSTALLED_VERSION=$(xray version|sed -n 1p|cut -d ' ' -f 2)
+			XRAY_RELEASE_LATEST=`wget -q -O - https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
+			CHECK_VERSION xray Xray $XTLS_INSTALLED_VERSION $XRAY_RELEASE_LATEST
+		fi
+	else 
+		echo "错误！"
+		exit -1
 	fi
-	XRAY_RELEASE_LATEST=`wget -q -O - https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
-	CHECK_VERSION xray Xray $XTLS_INSTALLED_VERSION $XRAY_RELEASE_LATEST
+
 
 	if [[ "$NEED_UPDATE" == "1" ]]; then
 		INSTALL_XRAY_BINARY
-		##格式化版本号，去掉小数点
-		TMP_VERSION=$(xray version|sed -n 1p|cut -d ' ' -f 2|sed 's/\.//g')
-		XRAY_RELEASE_LATEST_FORMAT=$(echo $XRAY_RELEASE_LATEST | sed 's/\.//g')
-		if [[ "$TMP_VERSION" == "$XRAY_RELEASE_LATEST_FORMAT" ]]; then
-			echo "Xray已更新(v$XRAY_RELEASE_LATEST)"
-			systemctl restart xray
-			xray version
-		else
-			echo "更新失败"
-			exit 1
+		if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
+			echo "已更新V2fly,版本信息如下"
+			v2ray -version
+		elif [[ "xray" == "$PROJECT_BIN_VERSION" ]]; then
+			##格式化版本号，去掉小数点
+			TMP_VERSION=$(xray version|sed -n 1p|cut -d ' ' -f 2|sed 's/\.//g')
+			XRAY_RELEASE_LATEST_FORMAT=$(echo $XRAY_RELEASE_LATEST | sed 's/\.//g')
+			if [[ "$TMP_VERSION" == "$XRAY_RELEASE_LATEST_FORMAT" ]]; then
+				echo "Xray已更新(v$XRAY_RELEASE_LATEST)"
+				systemctl restart xray
+				xray version
+			else
+				echo "更新失败"
+				exit 1
+			fi
+		else 
+			echo "错误！"
+			exit -1
 		fi
+
 	else
 		#不再支持自定义端口,Path,Service Name
 		#CHECK_PORT "XRAY_XTLS 监听端口(1000)?  " 1000
 		CHECK_PORT "NOINPUT" 15423
-		XRAY_XTLS_PORT=$port
+		RAY_TCP_PORT=$port
 		#read -p "回落端口(5555)?  " XRAY_DESP_PORT
 		XRAY_DESP_PORT=${XRAY_DESP_PORT:-5555}
 		#CHECK_PORT "GRPC 监听端口(2002)?  " 2002
@@ -934,14 +1007,24 @@ function Project_X(){
 		#CHECK_PORT "WebSocks 监听端口(1234)?  " 1234
 		CHECK_PORT "NOINPUT" 35446
 		XRAY_WS_PORT=$port
+		CHECK_PORT "NOINPUT" 45877
+		XRAY_TROJAN_PORT=$port
 		#read -p "Grpc Name(grpcforward)?  " XRAY_GRPC_NAME
 		#XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
 		XRAY_GRPC_NAME=`GET_RANDOM_STRING`
+		XRAY_TROJAN_GRPC_NAME=`GET_RANDOM_STRING`
+		#感叹号替换成小数点,兼容clash
+		XRAY_TROJAN_GRPC_NAME=${XRAY_TROJAN_GRPC_NAME//!/.}
 		#read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
 		#XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
 		XRAY_WS_PATH=`GET_RANDOM_STRING`
 
-		echo "请输入xray域名"
+		XRAY_UUID=$(cat /proc/sys/kernel/random/uuid)
+		XRAY_GRPC_UUID=$(cat /proc/sys/kernel/random/uuid)
+		XRAY_WS_UUID=$(cat /proc/sys/kernel/random/uuid)
+		XRAY_TROJAN_PASSWD=$(cat /proc/sys/kernel/random/uuid)
+
+		echo "请输入xray/v2fly域名"
 		FORAM_DOMAIN
 		XRAY_DOMAIN=$RETURN_DOMAIN
 		acme.sh "$XRAY_DOMAIN" "/etc/nginx/html"
@@ -950,35 +1033,43 @@ function Project_X(){
 			# read  XRAY_DOMAIN
 			# XRAY_DOMAIN=${XRAY_DOMAIN:-project_x.com}
 			INSTALL_XRAY_BINARY
-			if [[ "$(type -P /usr/local/bin/xray)" ]]; then
-				XRAY_UUID=$(/usr/local/bin/xray uuid)
-				XRAY_GRPC_UUID=$(/usr/local/bin/xray uuid)
-				XRAY_WS_UUID=$(/usr/local/bin/xray uuid)
-			else 
-				echo "XRAY安装失败！"
-				exit 1
-			fi
-			if ! [[ -d /usr/local/etc/xray ]];then
-				mkdir /usr/local/etc/xray
-			fi
-			XRAY_CONFIG=/usr/local/etc/xray/config.json
-			wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/xtls_tcp_grpc_ws.json
-			sed -i "s/XTLS_PORT/$XRAY_XTLS_PORT/" $XRAY_CONFIG
+			XRAY_CONFIG=/etc/${PROJECT_BIN_VERSION}/config.json
+			wget -O $XRAY_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/test/xtls_tcp_grpc_ws.json
+			sed -i "s/XTLS_PORT/$RAY_TCP_PORT/" $XRAY_CONFIG
+			sed -i "s/XTLS_UUID/$XRAY_UUID/" $XRAY_CONFIG
 			sed -i "s/DESP_PORT/$XRAY_DESP_PORT/" $XRAY_CONFIG
-			sed -i "s/GRPC_PORT/$XRAY_GRPC_PORT/" $XRAY_CONFIG
-			sed -i "s/GRPC_NAME/$XRAY_GRPC_NAME/" $XRAY_CONFIG
+
+			sed -i "s/VLESS_GRPC_PORT/$XRAY_GRPC_PORT/" $XRAY_CONFIG
+			sed -i "s/VLESS_GRPC_NAME/$XRAY_GRPC_NAME/" $XRAY_CONFIG
+			sed -i "s/VLESS_GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
+
 			sed -i "s/WS_PORT/$XRAY_WS_PORT/" $XRAY_CONFIG
 			sed -i "s/WS_PATH/$XRAY_WS_PATH/" $XRAY_CONFIG
+			sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
+
+			sed -i "s/TROJAN_GRPC_PORT/$XRAY_TROJAN_PORT/" $XRAY_CONFIG
+			sed -i "s/TROJAN_GRPC_PASSWD/$XRAY_TROJAN_PASSWD/" $XRAY_CONFIG
+			sed -i "s/TROJAN_GRPC_SERVICE_NAME/$XRAY_TROJAN_GRPC_NAME/" $XRAY_CONFIG
+
 			sed -i "s/SSL_XRAY_CER/$XRAY_DOMAIN/" $XRAY_CONFIG
 			sed -i "s/SSL_XRAY_KEY/$XRAY_DOMAIN/" $XRAY_CONFIG
 
-			sed -i "s/XtlsForUUID/$XRAY_UUID/" $XRAY_CONFIG
-			sed -i "s/GRPC_UUID/$XRAY_GRPC_UUID/" $XRAY_CONFIG
-			sed -i "s/WS_UUID/$XRAY_WS_UUID/" $XRAY_CONFIG
-
-			cat > $SYSTEMD_SERVICES/xray.service <<-EOF
+			#流控,用于订阅生成
+			RAY_FLOW='flow=xtls-rprx-direct&'
+			V2RAY_TRANSPORT='security=xtls'
+			V2RAY_TCP_NODENAME="TCP_xTLS"
+			if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
+				sed -i '/xtls-rprx-direct/d' $XRAY_CONFIG
+				sed -i 's/"xtls"/"tls"/' $XRAY_CONFIG
+				sed -i 's/"grpc"/"gun"/g' $XRAY_CONFIG
+				sed -i 's/"xtlsSettings"/"tlsSettings"/' $XRAY_CONFIG
+				RAY_FLOW=""
+				V2RAY_TRANSPORT='security=tls'
+				V2RAY_TCP_NODENAME="TCP_TLS"
+			fi
+			cat > $SYSTEMD_SERVICES/${PROJECT_BIN_VERSION}.service <<-EOF
 			[Unit]
-			Description=Xray Service
+			Description=${PROJECT_BIN_VERSION} Service
 			Documentation=https://github.com/xtls
 			After=network.target nss-lookup.target
 			[Service]
@@ -986,7 +1077,7 @@ function Project_X(){
 			#CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 			#AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 			#NoNewPrivileges=true
-			ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
+			ExecStart=/etc/${PROJECT_BIN_VERSION}/${PROJECT_BIN_VERSION} run -config $XRAY_CONFIG
 			Restart=on-failure
 			RestartPreventExitStatus=23
 			LimitNPROC=10000
@@ -994,45 +1085,11 @@ function Project_X(){
 			[Install]
 			WantedBy=multi-user.target
 			EOF
-
-			# XRAY_NGINX_CONFIG=$NGINX_CONFIG
-			# if [[ -e $XRAY_NGINX_CONFIG ]];then
-			# 	cat >$NGINX_SITE_ENABLED/${XRAY_DOMAIN}<<-EOF
-			# 	server {
-			# 	    listen       4433 http2 ssl;
-			# 	    server_name  ${XRAY_DOMAIN};
-			# 	    ssl_certificate      /ssl/${XRAY_DOMAIN}.cer;
-			# 	    ssl_certificate_key  /ssl/${XRAY_DOMAIN}.key;
-			# 	    ssl_session_cache    shared:SSL:1m;
-			# 	    ssl_session_timeout  5m;
-			# 	    ssl_protocols TLSv1.2 TLSv1.3;
-			# 	    ssl_prefer_server_ciphers  on;
-			# 	    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-			# 	    location /${XRAY_GRPC_NAME} {
-			# 	        if (\$content_type !~ "application/grpc") {
-			# 	            return 404;
-			# 	        }
-			# 	        client_max_body_size 0;
-			# 	        client_body_timeout 1071906480m;
-			# 	        grpc_read_timeout 1071906480m;
-			# 	        grpc_pass grpc://127.0.0.1:${XRAY_GRPC_PORT};
-			# 	    }
-			# 	    location /${XRAY_WS_PATH} {
-			# 	        proxy_redirect off;
-			# 	        proxy_pass http://127.0.0.1:${XRAY_WS_PORT};
-			# 	        proxy_http_version 1.1;
-			# 	        proxy_set_header Upgrade \$http_upgrade;
-			# 	        proxy_set_header Connection "upgrade";
-			# 	        proxy_set_header Host \$http_host;
-			# 	    }
-			# 	}
-			# 	EOF
-			# fi
 			NGINX_HTTPS_DEFAULT=${NGINX_SITE_ENABLED}/Default
 			if [[ -e "$NGINX_HTTPS_DEFAULT" ]]; then
 				sed -i '/^}/d' $NGINX_HTTPS_DEFAULT
 				cat >>$NGINX_HTTPS_DEFAULT<<-EOF
-				    location /${XRAY_GRPC_NAME} {
+				    location /${XRAY_GRPC_NAME}/Tun {
 				        if (\$content_type !~ "application/grpc") {
 				            return 404;
 				        }
@@ -1049,26 +1106,34 @@ function Project_X(){
 				        proxy_set_header Connection "upgrade";
 				        proxy_set_header Host \$http_host;
 				    }
+				    location /${XRAY_TROJAN_GRPC_NAME}/Tun {
+				        if (\$content_type !~ "application/grpc") {
+				            return 404;
+				        }
+				        client_max_body_size 0;
+				        client_body_timeout 1071906480m;
+				        grpc_read_timeout 1071906480m;
+				        grpc_pass grpc://127.0.0.1:${XRAY_TROJAN_PORT};
+				    }
 				}
 				EOF
 			fi
 			NGINX_HTPTS_DOMAIN=`cat $NGINX_HTTPS_DEFAULT | grep server_name | awk '{print $2}'`
-			NGINX_SNI "${XRAY_DOMAIN}" "$XRAY_XTLS_PORT"
+			NGINX_SNI "${XRAY_DOMAIN}" "$RAY_TCP_PORT"
 			systemctl daemon-reload
-			systemctl start xray
-			systemctl enable xray
+			systemctl start ${PROJECT_BIN_VERSION}
+			systemctl enable ${PROJECT_BIN_VERSION}
 			systemctl restart nginx
 
-			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
-			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?security=xtls\&sni=${XRAY_DOMAIN}\&flow=xtls-rprx-direct#🍭 XTLS[洛杉矶] >> /etc/sub/trojan.tmp
-			#echo -e "\e[32m\e[1mvless://$XRAY_GRPC_UUID@$XRAY_DOMAIN:443?type=grpc&encryption=none&serviceName=$XRAY_GRPC_NAME&security=tls&sni=$XRAY_DOMAIN#GRPC\e[0m"
-			###echo vless://${XRAY_GRPC_UUID}@${XRAY_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${XRAY_DOMAIN}#⛩ GRPC >> /etc/sub/trojan.tmp
-			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC[洛杉矶] >> /etc/sub/trojan.tmp
-			#echo -e "\e[32m\e[1mvless://$XRAY_WS_UUID@$XRAY_DOMAIN:443?type=ws&security=tls&path=/$XRAY_WS_PATH?ed=2048&host=$XRAY_DOMAIN&sni=$XRAY_DOMAIN#WS\e[0m"
-			echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks[洛杉矶] >> /etc/sub/trojan.tmp
-			###echo vless://${XRAY_WS_UUID}@${XRAY_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${XRAY_DOMAIN}\&sni=${XRAY_DOMAIN}#🌋 WebSocks >> /etc/sub/trojan.tmp
-			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
-			rm -f /etc/sub/trojan.tmp
+			base64 -d -i /etc/sub/trojan.sys > /etc/sub/subscription_tmp
+			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${V2RAY_TRANSPORT}\&${RAY_FLOW}sni=${XRAY_DOMAIN}#🍭 ${V2RAY_TCP_NODENAME}${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			echo \#vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
+			echo "trojan-grpc信息"
+			echo -e "域名: \e[32m\e[1m${NGINX_HTPTS_DOMAIN}\e[0m"
+			echo -e "密码: \e[32m\e[1m${XRAY_TROJAN_PASSWD}\e[0m"
+			echo -e "serviceName: \e[32m\e[1m${XRAY_TROJAN_GRPC_NAME}\e[0m"
 		else 
 			echo -e "\e[31m\e[1m找不到证书文件,退出安装！\e[0m"
 		fi
@@ -1076,6 +1141,7 @@ function Project_X(){
 }
 #trojan
 function trojan(){
+	read -p "输入节点名后缀,回车则不设置: " NODE_SUFFIX
 	TROJAN_LAEST_VERSION=`curl -s https://api.github.com/repos/trojan-gfw/trojan/releases/latest | grep tag_name|cut -f4 -d "\""|cut -c 2-`
 	TROJAN_CONFIG=/etc/trojan/config.json
 	function TROJAN_BINARY(){
@@ -1113,20 +1179,10 @@ function trojan(){
 	echo "输入trojan域名"
 	FORAM_DOMAIN
 	TROJAN_DOMAIN=$RETURN_DOMAIN
-	# while [[ true ]]; do
-	# 	echo "输入Trojan域名"
-	# 	read ENTER_TROJAN_DOMAIN
-	# 	if [[ "$ENTER_TROJAN_DOMAIN" ]]; then
-	# 		TROJAN_DOMAIN="$ENTER_TROJAN_DOMAIN"
-	# 		break
-	# 	fi
-	# done
 	CHECK_NGINX_443=`ss -lnp|grep ":443 "|grep nginx`
 	#不再支持端口，密码自定义
 	if [[ "$CHECK_NGINX_443" ]]; then
 		echo -e "\e[32m\e[1mNGINX正在监听443端口，检查SNI配置\e[0m"
-		#echo "输入Trojan分流端口(非443)"
-		#read TROJAN_HTTPS_PORT
 		CHECK_PORT "NOINPUT" 5978
 		TROJAN_HTTPS_PORT=$port
 	else 
@@ -1174,10 +1230,10 @@ function trojan(){
 			NGINX_SNI $TROJAN_DOMAIN $TROJAN_HTTPS_PORT
 			systemctl restart nginx
 			systemctl enable trojan
-			base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
+			base64 -d -i /etc/sub/trojan.sys > /etc/sub/subscription_tmp
 			#echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
-			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🍹 Trojan-gfw[洛杉矶] >> /etc/sub/trojan.tmp
-			base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
+			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🍹 Trojan-gfw${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
 		fi
 	else 
 		"检测不到证书，退出"
@@ -1192,8 +1248,8 @@ function INSTALL_NGINX(){
 	NGINX_CONFIG=/etc/nginx/conf/nginx.conf
 	NGINX_BIN=/etc/nginx/sbin/nginx
 	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
-	#SUBSCRIPTION_PATH=`GET_RANDOM_STRING`
-	SUBSCRIPTION_PATH="baEgIFbgmXo8yuGJ1MujZFA9H9c477gofgNN"
+	SUBSCRIPTION_PATH=`GET_RANDOM_STRING`
+	#SUBSCRIPTION_PATH="baEgIFbgmXo8yuGJ1MujZFA9H9c477gofgNN"
 	SUBSCRIPTION_FILE="/etc/sub/trojan.sys"
 	if ! [[ -d /etc/sub ]]; then
 		mkdir /etc/sub
@@ -1295,7 +1351,7 @@ function INSTALL_NGINX(){
 	ln -s /etc/nginx/sbin/nginx /usr/bin/nginx
 	mv $NGINX_CONFIG ${NGINX_CONFIG}_backup
 	wget -O $NGINX_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/nginxForFsGrpc.conf
-	echo "export ngp=$NGINX_CONFIG" >> /etc/profile
+	echo "export ngp=$NGINX_SITE_ENABLED/Default" >> /etc/profile
 	
 	###crate service
 	#单双引号不转义，反单引号 $ 要转
@@ -1381,6 +1437,7 @@ function caddy(){
 	echo "输入Caddy域名"
 	FORAM_DOMAIN
 	CADDY_DOMAIN=$RETURN_DOMAIN
+	read -p "输入节点名后缀,回车则不设置: " NODE_SUFFIX
 	#read -p "设置用户名(禁止@:): " CADDY_USER
 	#CADDY_USER=${CADDY_USER:-Oieu!ji330}
 	CADDY_USER=`GET_RANDOM_STRING`
@@ -1482,10 +1539,10 @@ function caddy(){
 				NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
 				systemctl restart nginx
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go /root/go
-				base64 -d -i /etc/sub/trojan.sys > /etc/sub/trojan.tmp
+				base64 -d -i /etc/sub/trojan.sys > /etc/sub/subscription_tmp
 				#echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
-				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#🌶️ NaiveProxy[洛杉矶] >> /etc/sub/trojan.tmp
-				base64 /etc/sub/trojan.tmp > /etc/sub/trojan.sys
+				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#⛱️ NaiveProxy${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+				base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
 			else
 				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
@@ -1517,6 +1574,12 @@ function hysteria(){
 				chmod +x ${DESTINATION_PATH}/hysteria
 				systemctl start hysteria.service
 				echo -e "\e[32m\e[1m已更新，当前版本为：`$HYSTERIA_BIN -v|cut -d ' ' -f3`\e[0m"
+				return 0
+			fi
+		else 
+			read -p "当前版本已与服务端保持最新($CHRRENT_HYSTERIA_VERSION),是否全新编译?(y/N)" HYSTERIA_REBUILD_CONFIRM
+			if [[ "y" != "$HYSTERIA_REBUILD_CONFIRM" ]]; then
+				echo  -e "\e[32m\e[1m已取消操作\e[0m"
 				return 0
 			fi
 		fi
@@ -1577,8 +1640,54 @@ function hysteria(){
 		echo -e "\e[31m\e[1m检测不到证书，安装退出\e[0m"
 	fi
 }
+function REMOVE_SOFTWARE(){
+	function REMOVE_SOFTWARE_BIN(){
+		REMOVE_SOFTWARE_NAME=$1
+		systemctl disable $REMOVE_SOFTWARE_NAME
+		systemctl stop $REMOVE_SOFTWARE_NAME
+		rm -fr /etc/$REMOVE_SOFTWARE_NAME /etc/systemd/system/${REMOVE_SOFTWARE_NAME}.service
+		if [[ -a "/usr/bin/$REMOVE_SOFTWARE_NAME" ]]; then
+			rm -f /usr/bin/$REMOVE_SOFTWARE_NAME
+		fi
+		echo -e "\e[31m\e[1m列出一些可能的残留文件,按照需要手动清理\e[0m"
+		find / -name ${REMOVE_SOFTWARE_NAME}*
+	}
+	select option in "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "aria2"
+	do
+		case $option in
+			"transmission")
+				rm -fr /root/.config/transmission-daemon
+				REMOVE_SOFTWARE_BIN "transmission"
+				break;;
+			"aria2")
+				REMOVE_SOFTWARE_BIN "aria2"
+				break;;
+			"trojan")
+				REMOVE_SOFTWARE_BIN "trojan"
+				break;;
+			"nginx")
+				REMOVE_SOFTWARE_BIN "nginx"
+				break;;
+			"Project_X")
+				REMOVE_SOFTWARE_BIN "xray"
+				break;;
+			"Project_V")
+				REMOVE_SOFTWARE_BIN "v2ray"
+				break;;
+			"caddy")
+				REMOVE_SOFTWARE_BIN "caddy"
+				break;;
+			"hysteria")
+				REMOVE_SOFTWARE_BIN "hysteria"
+				break;;
+			*)
+				echo "nothink to do"
+				break;;
+		esac
+	done
+}
 echo -e "\e[31m\e[1m输入对应的数字选项:\e[0m"
-select option in "acme.sh" "shadowsocks-libev" "transmission" "aria2" "Up_kernel" "trojan" "nginx" "Project_X" "caddy" "hysteria"
+select option in "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "acme.sh" "shadowsocks-libev" "aria2" "Up_kernel" "uninstall_software"
 do
 	case $option in
 		"acme.sh")
@@ -1603,13 +1712,19 @@ do
 			INSTALL_NGINX
 			break;;
 		"Project_X")
-			Project_X
+			Project_X "xray"
+			break;;
+		"Project_V")
+			Project_X "v2ray"
 			break;;
 		"caddy")
 			caddy
 			break;;
 		"hysteria")
 			hysteria
+			break;;
+		"uninstall_software")
+			REMOVE_SOFTWARE
 			break;;
 		*)
 			echo "nothink to do"
