@@ -794,7 +794,7 @@ function aria2(){
 	make && make install
 	check "aria2c编译安装失败"
 	#rm -fr aria2
-	ln -s /etc/aria2/bin/aria2c /usr/local/bin/aria2c
+	ln -s /etc/aria2/bin/aria2c /usr/bin/aria2c
 	###相关编译报错引用https://weair.xyz/build-aria2/
 	check "aria2c编译安装失败"
 	ARIA2_CONFIG_DIR="/etc/aria2"
@@ -1013,6 +1013,8 @@ function Project_X(){
 		#XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
 		XRAY_GRPC_NAME=`GET_RANDOM_STRING`
 		XRAY_TROJAN_GRPC_NAME=`GET_RANDOM_STRING`
+		#感叹号替换成小数点,兼容clash
+		XRAY_TROJAN_GRPC_NAME=${XRAY_TROJAN_GRPC_NAME//!/.}
 		#read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
 		#XRAY_WS_PATH=${XRAY_WS_PATH:-wsforward}
 		XRAY_WS_PATH=`GET_RANDOM_STRING`
@@ -1126,7 +1128,7 @@ function Project_X(){
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/subscription_tmp
 			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${V2RAY_TRANSPORT}\&${RAY_FLOW}sni=${XRAY_DOMAIN}#🍭 ${V2RAY_TCP_NODENAME}${NODE_SUFFIX} >> /etc/sub/subscription_tmp
-			echo vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			echo \#vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
 			echo "trojan-grpc信息"
 			echo -e "域名: \e[32m\e[1m${NGINX_HTPTS_DOMAIN}\e[0m"
@@ -1177,20 +1179,10 @@ function trojan(){
 	echo "输入trojan域名"
 	FORAM_DOMAIN
 	TROJAN_DOMAIN=$RETURN_DOMAIN
-	# while [[ true ]]; do
-	# 	echo "输入Trojan域名"
-	# 	read ENTER_TROJAN_DOMAIN
-	# 	if [[ "$ENTER_TROJAN_DOMAIN" ]]; then
-	# 		TROJAN_DOMAIN="$ENTER_TROJAN_DOMAIN"
-	# 		break
-	# 	fi
-	# done
 	CHECK_NGINX_443=`ss -lnp|grep ":443 "|grep nginx`
 	#不再支持端口，密码自定义
 	if [[ "$CHECK_NGINX_443" ]]; then
 		echo -e "\e[32m\e[1mNGINX正在监听443端口，检查SNI配置\e[0m"
-		#echo "输入Trojan分流端口(非443)"
-		#read TROJAN_HTTPS_PORT
 		CHECK_PORT "NOINPUT" 5978
 		TROJAN_HTTPS_PORT=$port
 	else 
@@ -1654,6 +1646,9 @@ function REMOVE_SOFTWARE(){
 		systemctl disable $REMOVE_SOFTWARE_NAME
 		systemctl stop $REMOVE_SOFTWARE_NAME
 		rm -fr /etc/$REMOVE_SOFTWARE_NAME /etc/systemd/system/${REMOVE_SOFTWARE_NAME}.service
+		if [[ -a "/usr/bin/$REMOVE_SOFTWARE_NAME" ]]; then
+			rm -f /usr/bin/$REMOVE_SOFTWARE_NAME
+		fi
 		echo -e "\e[31m\e[1m列出一些可能的残留文件,按照需要手动清理\e[0m"
 		find / -name ${REMOVE_SOFTWARE_NAME}*
 	}
@@ -1661,6 +1656,7 @@ function REMOVE_SOFTWARE(){
 	do
 		case $option in
 			"transmission")
+				rm -fr /root/.config/transmission-daemon
 				REMOVE_SOFTWARE_BIN "transmission"
 				break;;
 			"aria2")
