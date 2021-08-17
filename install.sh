@@ -1687,7 +1687,7 @@ function REMOVE_SOFTWARE(){
 	done
 }
 echo -e "\e[31m\e[1m输入对应的数字选项:\e[0m"
-select option in "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "acme.sh" "shadowsocks-libev" "aria2" "Up_kernel" "uninstall_software"
+select option in "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "acme.sh" "shadowsocks-libev" "aria2" "Up_kernel" "uninstall_software" "Timezone"
 do
 	case $option in
 		"acme.sh")
@@ -1722,6 +1722,9 @@ do
 			break;;
 		"hysteria")
 			hysteria
+			break;;
+		"Timezone")
+			timedatectl set-timezone Asia/Shanghai
 			break;;
 		"uninstall_software")
 			REMOVE_SOFTWARE
