@@ -1735,3 +1735,11 @@ do
 	esac
 done
 
+#!/bin/bash
+# NGINX_life="$(systemctl is-active nginx.service)"
+# getTime=`date '+%m-%d %H:%M'`
+# outupt_log=/etc/run.log
+# if [[ "$NGINX_life" != "active" ]]; then
+#             echo "RT" | /usr/bin/mailx -s "NGINX服务状态异常 $getTime" 925198583@qq.com
+# fi
+# echo "nginx status: $NGINX_life  $getTime">> $outupt_log
