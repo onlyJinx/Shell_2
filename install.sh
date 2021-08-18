@@ -1065,7 +1065,7 @@ function Project_X(){
 				sed -i 's/"xtlsSettings"/"tlsSettings"/' $XRAY_CONFIG
 				RAY_FLOW=""
 				V2RAY_TRANSPORT='security=tls'
-				V2RAY_TCP_NODENAME="TCP_TLS"
+				V2RAY_TCP_NODENAME="TCP-TLS"
 			fi
 			cat > $SYSTEMD_SERVICES/${PROJECT_BIN_VERSION}.service <<-EOF
 			[Unit]
@@ -1130,10 +1130,11 @@ function Project_X(){
 			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${V2RAY_TRANSPORT}\&${RAY_FLOW}sni=${XRAY_DOMAIN}#🍭 ${V2RAY_TCP_NODENAME}${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			echo \#vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
-			echo "trojan-grpc信息"
-			echo -e "域名: \e[32m\e[1m${NGINX_HTPTS_DOMAIN}\e[0m"
-			echo -e "密码: \e[32m\e[1m${XRAY_TROJAN_PASSWD}\e[0m"
-			echo -e "serviceName: \e[32m\e[1m${XRAY_TROJAN_GRPC_NAME}\e[0m"
+			#添加clash订阅
+			ADD_CLASH_SUB -n "🍨 trojan-grpc" -s ${NGINX_HTPTS_DOMAIN} -t trojan -a ${XRAY_TROJAN_PASSWD} -r ${XRAY_TROJAN_GRPC_NAME} -p 443 -d -e grpc -i ${NGINX_HTPTS_DOMAIN}
+			if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
+				ADD_CLASH_SUB -n "🍭 vless-tls" -s ${XRAY_DOMAIN} -t vless -p 443 -u ${XRAY_UUID} -c none -d -l
+			fi
 		else 
 			echo -e "\e[31m\e[1m找不到证书文件,退出安装！\e[0m"
 		fi
@@ -1234,6 +1235,7 @@ function trojan(){
 			#echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
 			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🍹 Trojan-gfw${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
+			ADD_CLASH_SUB -n "🍹 trojan-gfw" -t trojan -s ${TROJAN_DOMAIN} -p 443 -a ${TROJAN_PASSWD} -d -i ${TROJAN_DOMAIN}
 		fi
 	else 
 		"检测不到证书，退出"
@@ -1424,7 +1426,8 @@ function INSTALL_NGINX(){
 			#开启80端口强制重定向443
 			sed -i 's/#ENABLE_REDIRECT//' $NGINX_CONFIG
 			systemctl restart nginx
-			echo "订阅地址: https://${NGINX_DOMAIN}/${SUBSCRIPTION_PATH}/trojan.sys"
+			echo "v2ray订阅地址: https://${NGINX_DOMAIN}/${SUBSCRIPTION_PATH}/trojan.sys"
+			echo "clash订阅地址: https://${NGINX_DOMAIN}/${SUBSCRIPTION_PATH}/clash.yaml"			
 		else
 			echo "证书申请失败，ssl配置未写入"
 		fi
@@ -1639,6 +1642,69 @@ function hysteria(){
 	else
 		echo -e "\e[31m\e[1m检测不到证书，安装退出\e[0m"
 	fi
+}
+function ADD_CLASH_SUB(){
+
+  # - name: "vless"
+  #   type: vless
+  #   server: server
+  #   port: 443
+  #   uuid: uuid
+  #   cipher: none
+  #   udp: true
+  #   tls: true
+
+	CLASH_SUB_FILE=/etc/sub/clash.yaml
+	if [[ ! -a "$CLASH_SUB_FILE" ]]; then
+		echo 'proxies:' > $CLASH_SUB_FILE
+	fi
+	while getopts ":n:s:p:t:a:u:e:i:r:dlc:" sub_gen; do
+		case $sub_gen in
+			n)	auto_sub_name="name: ${OPTARG}";;
+			s)	auto_sub_server="server: ${OPTARG}";;
+			p)	auto_sub_port="port: ${OPTARG}";;
+			t)	auto_sub_type="type: ${OPTARG}";;
+			a)	auto_sub_password="password: ${OPTARG}";;
+			u)	auto_sub_uuid="uuid: ${OPTARG}";;
+			e)	auto_sub_network="network: ${OPTARG}";;
+			i)	auto_sub_sni="sni: ${OPTARG}";;
+			r)	auto_sub_grpc_service="grpc-service-name: ${OPTARG}"
+				auto_sub_grpc_opt='grpc-opts:';;
+			d)	auto_sub_udp="udp: true";;
+			c)	auto_sub_cipher="cipher: ${OPTARG}";;
+			l)	auto_sub_tls="tls: true";;
+			?)	echo '参数错误'
+				echo 'n:name'
+				echo 's:server'
+				echo 'p:port'
+				echo 't:type'
+				echo 'c:cipher'
+				echo 'a:password'
+				echo 'u:uuid'
+				echo 'e:network'
+				echo 'i:sni'
+				echo 'r:grpc-service-name'
+				echo 'd:udp(无参数)'
+				echo 'l:tls(无参数)'
+				exit 0;;
+		esac
+	done
+	cat >> $CLASH_SUB_FILE<<-EOF
+	  - $auto_sub_name
+	    $auto_sub_server
+	    $auto_sub_port
+	    $auto_sub_type
+	    $auto_sub_cipher
+	    $auto_sub_password
+	    $auto_sub_uuid
+	    $auto_sub_network
+	    $auto_sub_sni
+	    $auto_sub_tls
+	    $auto_sub_grpc_opt
+	      $auto_sub_grpc_service
+	    $auto_sub_udp
+	EOF
+	sed -i '/^\s*$/d' $CLASH_SUB_FILE
 }
 function REMOVE_SOFTWARE(){
 	function REMOVE_SOFTWARE_BIN(){
