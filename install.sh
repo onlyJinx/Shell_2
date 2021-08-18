@@ -1653,7 +1653,8 @@ function ADD_CLASH_SUB(){
   #   cipher: none
   #   udp: true
   #   tls: true
-
+  	#重置OPTIND,防止第一次调用函数导致的IND偏移
+  	OPTIND=1
 	CLASH_SUB_FILE=/etc/sub/clash.yaml
 	if [[ ! -a "$CLASH_SUB_FILE" ]]; then
 		echo 'proxies:' > $CLASH_SUB_FILE
