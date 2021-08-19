@@ -1656,6 +1656,21 @@ function ADD_CLASH_SUB(){
   	#重置OPTIND,防止第一次调用函数导致的IND偏移
   	OPTIND=1
 	CLASH_SUB_FILE=/etc/sub/clash.yaml
+	#初始化变量
+	auto_sub_name=""
+	auto_sub_server=""
+	auto_sub_port=""
+	auto_sub_type=""
+	auto_sub_password=""
+	auto_sub_uuid=""
+	auto_sub_network=""
+	auto_sub_sni=""
+	auto_sub_grpc_service=""
+	auto_sub_grpc_opt=""
+	auto_sub_udp=""
+	auto_sub_cipher=""
+	auto_sub_tls=""
+	
 	if [[ ! -a "$CLASH_SUB_FILE" ]]; then
 		echo 'proxies:' > $CLASH_SUB_FILE
 	fi
@@ -1693,17 +1708,17 @@ function ADD_CLASH_SUB(){
 	cat >> $CLASH_SUB_FILE<<-EOF
 	  - $auto_sub_name
 	    $auto_sub_server
-	    $auto_sub_port
 	    $auto_sub_type
-	    $auto_sub_cipher
+	    $auto_sub_port
 	    $auto_sub_password
 	    $auto_sub_uuid
+	    $auto_sub_cipher
 	    $auto_sub_network
 	    $auto_sub_sni
-	    $auto_sub_tls
 	    $auto_sub_grpc_opt
 	      $auto_sub_grpc_service
 	    $auto_sub_udp
+	    $auto_sub_tls
 	EOF
 	sed -i '/^\s*$/d' $CLASH_SUB_FILE
 }
