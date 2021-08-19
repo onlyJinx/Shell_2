@@ -1131,9 +1131,9 @@ function Project_X(){
 			echo \#vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
 			#添加clash订阅
-			ADD_CLASH_SUB -n "🍨 trojan-grpc" -s ${NGINX_HTPTS_DOMAIN} -t trojan -a ${XRAY_TROJAN_PASSWD} -r ${XRAY_TROJAN_GRPC_NAME} -p 443 -d -e grpc -i ${NGINX_HTPTS_DOMAIN}
+			ADD_CLASH_SUB -n "🍨 trojan-grpc${NODE_SUFFIX}" -s ${NGINX_HTPTS_DOMAIN} -t trojan -a ${XRAY_TROJAN_PASSWD} -r ${XRAY_TROJAN_GRPC_NAME} -p 443 -d -e grpc -i ${NGINX_HTPTS_DOMAIN}
 			if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
-				ADD_CLASH_SUB -n "🍭 vless-tls" -s ${XRAY_DOMAIN} -t vless -p 443 -u ${XRAY_UUID} -c none -d -l
+				ADD_CLASH_SUB -n "🍭 vless-tls${NODE_SUFFIX}" -s ${XRAY_DOMAIN} -t vless -p 443 -u ${XRAY_UUID} -c none -d -l
 			fi
 		else 
 			echo -e "\e[31m\e[1m找不到证书文件,退出安装！\e[0m"
@@ -1235,7 +1235,7 @@ function trojan(){
 			#echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
 			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🍹 Trojan-gfw${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
-			ADD_CLASH_SUB -n "🍹 trojan-gfw" -t trojan -s ${TROJAN_DOMAIN} -p 443 -a ${TROJAN_PASSWD} -d -i ${TROJAN_DOMAIN}
+			ADD_CLASH_SUB -n "🍹 trojan-gfw${NODE_SUFFIX}" -t trojan -s ${TROJAN_DOMAIN} -p 443 -a ${TROJAN_PASSWD} -d -i ${TROJAN_DOMAIN}
 		fi
 	else 
 		"检测不到证书，退出"
