@@ -26,14 +26,10 @@
             "streamSettings": {
                 "network": "tcp",
                 "tcpSettings": {
-                    "acceptProxyProtocol": true,
-                    "header": {
-                        "type": "none"
-                    }
+                    "acceptProxyProtocol": true
                 },
                 "security": "xtls",
                 "xtlsSettings": {
-                    "acceptProxyProtocol": false,
                     "alpn": [
                         "http/1.1"
                     ],
