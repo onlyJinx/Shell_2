@@ -566,7 +566,7 @@ function transmission(){
 	function TRANSMISSION_CREATE_NGINX_SITE(){
 		cat >$NGINX_SITE_ENABLED/${TRANSMISSION_DOMAIN}<<-EOF
 		server {
-		    listen       4433 http2 ssl;
+		    listen       4433 http2 ssl proxy_protocol;
 		    server_name  ${TRANSMISSION_DOMAIN};
 		    ssl_certificate      /ssl/${TRANSMISSION_DOMAIN}.cer;
 		    ssl_certificate_key  /ssl/${TRANSMISSION_DOMAIN}.key;
@@ -1000,7 +1000,7 @@ function Project_X(){
 		CHECK_PORT "NOINPUT" 15423
 		RAY_TCP_PORT=$port
 		#read -p "回落端口(5555)?  " XRAY_DESP_PORT
-		XRAY_DESP_PORT=${XRAY_DESP_PORT:-5555}
+		XRAY_DESP_PORT=${XRAY_DESP_PORT:-19954}
 		#CHECK_PORT "GRPC 监听端口(2002)?  " 2002
 		CHECK_PORT "NOINPUT" 8845
 		XRAY_GRPC_PORT=$port
@@ -1013,6 +1013,7 @@ function Project_X(){
 		#XRAY_GRPC_NAME=${XRAY_GRPC_NAME:-grpcforward}
 		XRAY_GRPC_NAME=`GET_RANDOM_STRING`
 		XRAY_TROJAN_GRPC_NAME=`GET_RANDOM_STRING`
+		XRAY_TROJAN_TCP_PASSWD=`GET_RANDOM_STRING`
 		#感叹号替换成小数点,兼容clash
 		XRAY_TROJAN_GRPC_NAME=${XRAY_TROJAN_GRPC_NAME//!/.}
 		#read -p "WebSocks Path(默认 wsforward)?  " XRAY_WS_PATH
@@ -1053,6 +1054,8 @@ function Project_X(){
 
 			sed -i "s/SSL_XRAY_CER/$XRAY_DOMAIN/" $XRAY_CONFIG
 			sed -i "s/SSL_XRAY_KEY/$XRAY_DOMAIN/" $XRAY_CONFIG
+
+			sed -i "s/V2RAY_TROJAN_PASSWORD/$XRAY_TROJAN_TCP_PASSWD/" $XRAY_CONFIG
 
 			#流控,用于订阅生成
 			RAY_FLOW='flow=xtls-rprx-direct&'
@@ -1126,6 +1129,7 @@ function Project_X(){
 			systemctl restart nginx
 
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/subscription_tmp
+			echo trojan://$XRAY_TROJAN_TCP_PASSWD@${XRAY_DOMAIN}:443?sni=${XRAY_DOMAIN}#🥀 Trojan${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${V2RAY_TRANSPORT}\&${RAY_FLOW}sni=${XRAY_DOMAIN}#🍭 ${V2RAY_TCP_NODENAME}${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			echo \#vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks${NODE_SUFFIX} >> /etc/sub/subscription_tmp
@@ -1404,7 +1408,7 @@ function INSTALL_NGINX(){
 			echo -e "\e[32m\e[1m证书申请成功，开始写入ssl配置\e[0m"
 			cat >${NGINX_SITE_ENABLED}/Default<<-EOF
 			server {
-			    listen       4433 http2 ssl;
+			    listen       4433 http2 ssl proxy_protocol;
 			    server_name  ${NGINX_DOMAIN} default;
 			    ssl_certificate      /ssl/${NGINX_DOMAIN}.cer;
 			    ssl_certificate_key  /ssl/${NGINX_DOMAIN}.key;
@@ -1480,13 +1484,16 @@ function caddy(){
 		echo -e "\e[31m\e[1m未配置GO环境，开始配置环境\e[0m"
 		$PKGMANAGER_INSTALL wget
 		wget -P /tmp https://golang.google.cn/dl/go1.16.6.linux-amd64.tar.gz
-		tar zxvf /tmp/go1.16.6.linux-amd64.tar.gz -C /tmp/
+		echo "正在解压golang压缩包..."
+		tar zxf /tmp/go1.16.6.linux-amd64.tar.gz -C /tmp/
 		export PATH=$PATH:/tmp/go/bin
 	fi
 	if [[ $(type -P go) ]]; then
 		cd /tmp/
 		go get -u github.com/caddyserver/xcaddy/cmd/xcaddy
-		~/go/bin/xcaddy build --with github.com/caddyserver/forwardproxy@caddy2=github.com/klzgrad/forwardproxy@naive
+		~/go/bin/xcaddy build \ 
+		--with github.com/caddyserver/forwardproxy@caddy2=github.com/klzgrad/forwardproxy@naive \ 
+		--with github.com/mastercactapus/caddy2-proxyprotocol
 		if [[ -e /tmp/caddy ]]; then
 			mkdir /etc/caddy
 			mv /tmp/caddy /etc/caddy/
@@ -1495,6 +1502,15 @@ function caddy(){
 				{
 				    http_port  $CADDY_HTTP_PORT
 				    https_port $CADDY_HTTPS_PORT
+				    servers {
+				        listener_wrappers {
+				        proxy_protocol {
+				                timeout 2s
+				                allow 0.0.0.0/0
+				            }
+				            tls
+				        }
+				    }
 				}
 				:${CADDY_HTTPS_PORT}, $CADDY_DOMAIN {
 				    $CADDY_TLS
