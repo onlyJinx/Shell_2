@@ -1255,7 +1255,6 @@ function INSTALL_NGINX(){
 	NGINX_BIN=/etc/nginx/sbin/nginx
 	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
 	SUBSCRIPTION_PATH=`GET_RANDOM_STRING`
-	#SUBSCRIPTION_PATH="baEgIFbgmXo8yuGJ1MujZFA9H9c477gofgNN"
 	SUBSCRIPTION_FILE="/etc/sub/trojan.sys"
 	if ! [[ -d /etc/sub ]]; then
 		mkdir /etc/sub
@@ -1356,7 +1355,7 @@ function INSTALL_NGINX(){
 
 	ln -s /etc/nginx/sbin/nginx /usr/bin/nginx
 	mv $NGINX_CONFIG ${NGINX_CONFIG}_backup
-	wget -O $NGINX_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/main/nginxForFsGrpc.conf
+	wget -O $NGINX_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/test/nginxForFsGrpc.conf
 	echo "export ngp=$NGINX_SITE_ENABLED/Default" >> /etc/profile
 	
 	###crate service
@@ -1491,8 +1490,8 @@ function caddy(){
 	if [[ $(type -P go) ]]; then
 		cd /tmp/
 		go get -u github.com/caddyserver/xcaddy/cmd/xcaddy
-		~/go/bin/xcaddy build \ 
-		--with github.com/caddyserver/forwardproxy@caddy2=github.com/klzgrad/forwardproxy@naive \ 
+		~/go/bin/xcaddy build \
+		--with github.com/caddyserver/forwardproxy@caddy2=github.com/klzgrad/forwardproxy@naive \
 		--with github.com/mastercactapus/caddy2-proxyprotocol
 		if [[ -e /tmp/caddy ]]; then
 			mkdir /etc/caddy
