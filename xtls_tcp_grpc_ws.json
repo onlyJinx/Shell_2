@@ -18,14 +18,22 @@
                 "decryption": "none",
                 "fallbacks": [
                     {
-                        "dest": DESP_PORT
+                        "dest": DESP_PORT,
+                        "xver": 1
                     }
                 ]
             },
             "streamSettings": {
                 "network": "tcp",
+                "tcpSettings": {
+                    "acceptProxyProtocol": true,
+                    "header": {
+                        "type": "none"
+                    }
+                },
                 "security": "xtls",
                 "xtlsSettings": {
+                    "acceptProxyProtocol": false,
                     "alpn": [
                         "http/1.1"
                     ],
@@ -76,6 +84,32 @@
                 "security": "none",
                 "wsSettings": {
                     "path": "/WS_PATH"
+                }
+            }
+        },
+        {
+            "port": DESP_PORT,
+            "listen": "127.0.0.1",
+            "protocol": "trojan",
+            "settings": {
+                "clients": [
+                    {
+                        "password": "V2RAY_TROJAN_PASSWORD",
+                        "level": 0,
+                        "email": "love@example.com"
+                    }
+                ],
+                "fallbacks": [
+                    {
+                        "dest": 5555
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "tcp",
+                "security": "none",
+                "tcpSettings": {
+                    "acceptProxyProtocol": true
                 }
             }
         },
