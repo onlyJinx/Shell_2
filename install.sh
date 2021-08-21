@@ -1842,20 +1842,29 @@ function Onekey_install(){
 	read ONE_KEY_CADDY_DOMAIN
 	echo "输入Transmission域名"
 	read ONE_KEY_TRANSMISSION_DOMAIN
+	echo "输入acme.sh邮箱(回车跳过)"
+	read ONE_KEY_ACME_EMAIL
 
 	ONE_KEY_NGINX_VERSION="1.21.1"
-	ONE_KEY_ENABLE_NGINX_SSL="yes"
-	ONE_KEY_CONFIRM_OPENSSL="yes"
+	ONE_KEY_ENABLE_NGINX_SSL="y"
+	##默认不编译OPENSSL
+	#ONE_KEY_CONFIRM_OPENSSL="yes"
 	NOE_KEY_V2RAY_BIN_VERSION="4.41.1"
+	ONE_KEY_TRANSMISSION_ENABLE_HTTPS_TS="yes"
 	ONE_KEY_TRANSMISSION_DOWN_PATH="/usr/downloads"
+	ONE_KEY_ACME_EMAIL=${ONE_KEY_ACME_EMAIL:-no_email@gmail.com}
 
+	curl https://get.acme.sh | sh -s email=$ONE_KEY_ACME_EMAIL
 	INSTALL_NGINX
 	Project_X "v2ray"
 	transmission
 	caddy
+
+	echo "v2ray订阅地址: https://${NGINX_DOMAIN}/${SUBSCRIPTION_PATH}/trojan.sys"
+	echo "clash订阅地址: https://${NGINX_DOMAIN}/${SUBSCRIPTION_PATH}/clash.yaml"
 }
 echo -e "\e[31m\e[1m输入对应的数字选项:\e[0m"
-select option in "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "acme.sh" "shadowsocks-libev" "aria2" "Up_kernel" "uninstall_software" "Timezone"
+select option in "Onekey_install" "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "acme.sh" "shadowsocks-libev" "aria2" "Up_kernel" "uninstall_software" "Timezone"
 do
 	case $option in
 		"acme.sh")
@@ -1863,6 +1872,9 @@ do
 			break;;
 		"shadowsocks-libev")
 			shadowsocks-libev
+			break;;
+		"Onekey_install")
+			Onekey_install
 			break;;
 		"transmission")
 			transmission
