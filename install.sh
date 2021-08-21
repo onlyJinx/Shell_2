@@ -546,8 +546,9 @@ function shadowsocks-libev(){
 }
 #transmission
 function transmission(){
-	TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
 	TRANSMISSION_NGINX_CONFIG=$NGINX_CONFIG
+	TRANSMISSION_CONFIG="/root/.config/transmission-daemon/settings.json"
+	TRANSMISSION_DOWNLOAD_LINK="https://github.com/transmission/transmission-releases/raw/master/transmission-3.00.tar.xz"
 	function MODIFY_CONFIG(){
 		sed -i '/rpc-whitelist-enabled/ s/true/false/' $1
 		sed -i '/rpc-host-whitelist-enabled/ s/true/false/' $1
@@ -650,11 +651,33 @@ function transmission(){
 		exit 1
 	fi
 	
-	wget https://github.com/transmission/transmission-releases/raw/master/transmission-3.00.tar.xz
-	tar xf transmission-3.00.tar.xz && cd transmission-3.00
-
+	wget -O /tmp/transmission-3.00.tar.xz $TRANSMISSION_DOWNLOAD_LINK
+	
+	if [[ ! -a "/tmp/transmission-3.00.tar.xz" ]]; then
+		echo "检测不到transmission-3.00.tar.xz"
+		echo "确认下载连接是否有效"
+		echo $TRANSMISSION_DOWNLOAD_LINK
+		echo "停止安装(S)还是输入有效下载链接继续安装(R)?"
+		read TRANSMISSION_RE_DOWNLOAD
+		if [[ "$TRANSMISSION_RE_DOWNLOAD" == "S" || "$TRANSMISSION_RE_DOWNLOAD" == "s" ]]; then
+			echo "STOP"
+			exit 0
+		elif [[ "$TRANSMISSION_RE_DOWNLOAD" == "R" || "$TRANSMISSION_RE_DOWNLOAD" == "r" ]]; then
+			echo "请输入下载地址"
+			read TRANSMISSION_DOWNLOAD_LINK
+			wget -O /tmp/transmission-3.00.tar.xz $TRANSMISSION_DOWNLOAD_LINK
+			if [[ ! -a "/tmp/transmission-3.00.tar.xz" ]]; then
+				echo "再次下载失败,退出"
+				exit -1
+			fi
+		else
+			echo "非法输入,退出"
+			exit -1
+		fi
+	fi
+	tar xf /tmp/transmission-3.00.tar.xz && cd /tmp/transmission-3.00
 	./configure --prefix=/etc/transmission  && make && make install
-	rm -fr ../transmission-3.00 ../transmission-3.00.tar.xz
+	rm -fr /tmp/transmission-3.00.tar.xz /tmp/transmission-3.00
 	###检查返回状态码
 	check "transmission编译失败！"
 
@@ -702,7 +725,11 @@ function transmission(){
 			else 
 				if [[ $TRANSMISSION_COUNT -gt 11 ]]; then
 					echo "循环次数过多,停止修改配置文件"
-					break
+					echo "退出安装(e)还是继续(Y)?"
+					read TRANSMISSION_EXIT_CONFIRM
+					if [[ "$TRANSMISSION_EXIT_CONFIRM" == "e" || "$TRANSMISSION_EXIT_CONFIRM" == "E" ]]; then
+						exit -1
+					fi	
 				else
 					echo "transmission服务未停止或找不到配置文件, 1秒后重试"
 					echo "当前重试次数: " $TRANSMISSION_COUNT
@@ -736,6 +763,7 @@ function transmission(){
 		#echo -e config.json:"   ""\e[32m\e[1m/root/.config/transmission-daemon/settings.json\n\n\e[0m"
 	else 
 		echo -e "\e[31m\e[1mtransmission首次启动失败。\e[0m"
+		exit -1
 	fi
 }
 
