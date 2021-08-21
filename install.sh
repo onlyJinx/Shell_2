@@ -600,7 +600,6 @@ function transmission(){
 	}
 	CKECK_FILE_EXIST transmission-3.00+
 	CHECK_VERSION transmission-daemon transmission
-	clear
 	CHECK_PORT "NOINPUT" 9091
 	#read -p "请输入用户名(transmission):  " TRANSMISSION_USER_NAME
 	TRANSMISSION_USER_NAME=${TRANSMISSION_USER_NAME:-transmission}
@@ -651,7 +650,7 @@ function transmission(){
 		exit 1
 	fi
 	
-	wget -O /tmp/transmission-3.00.tar.xz $TRANSMISSION_DOWNLOAD_LINK
+	wget -P /tmp/ $TRANSMISSION_DOWNLOAD_LINK
 	
 	if [[ ! -a "/tmp/transmission-3.00.tar.xz" ]]; then
 		echo "检测不到transmission-3.00.tar.xz"
@@ -665,7 +664,7 @@ function transmission(){
 		elif [[ "$TRANSMISSION_RE_DOWNLOAD" == "R" || "$TRANSMISSION_RE_DOWNLOAD" == "r" ]]; then
 			echo "请输入下载地址"
 			read TRANSMISSION_DOWNLOAD_LINK
-			wget -O /tmp/transmission-3.00.tar.xz $TRANSMISSION_DOWNLOAD_LINK
+			wget -P /tmp/ $TRANSMISSION_DOWNLOAD_LINK
 			if [[ ! -a "/tmp/transmission-3.00.tar.xz" ]]; then
 				echo "再次下载失败,退出"
 				exit -1
@@ -675,8 +674,8 @@ function transmission(){
 			exit -1
 		fi
 	fi
-	tar xf /tmp/transmission-3.00.tar.xz && cd /tmp/transmission-3.00
-	./configure --prefix=/etc/transmission  && make && make install
+	tar xvf /tmp/transmission-3.00.tar.xz -C /tmp && cd /tmp/transmission-3.00
+	/tmp/transmission-3.00/configure --prefix=/etc/transmission  && make && make install
 	rm -fr /tmp/transmission-3.00.tar.xz /tmp/transmission-3.00
 	###检查返回状态码
 	check "transmission编译失败！"
@@ -709,7 +708,6 @@ function transmission(){
 	systemctl start transmission.service
 	TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
 	if [[ "active" == "$TRANSMISSION_SERVICE_LIFE" ]]; then
-		systemctl status transmission
 		echo -e "\e[32m\e[1mtransmission服务已启动\e[0m"
 		# echo -e "\e[31m\e[1m休眠5s\e[0m"
 		# sleep 5
@@ -718,7 +716,6 @@ function transmission(){
 			systemctl stop transmission.service
 			TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
 			if [[ "inactive" == "$TRANSMISSION_SERVICE_LIFE" && -e "$TRANSMISSION_CONFIG" ]]; then
-				systemctl status transmission
 				echo -e "\e[32m\e[1m检测到transmission配置文件\e[0m"
 				MODIFY_CONFIG "$TRANSMISSION_CONFIG"
 				break
@@ -1329,7 +1326,7 @@ function INSTALL_NGINX(){
 			make && make install
 			check "编译nginx失败！"
 			#清理残留
-			rm -fr /tmp/nginx-$NGINX_VERSION
+			rm -fr /tmp/nginx-$NGINX_VERSION /tmp/nginx-${NGINX_VERSION}.tar.gz
 		else 
 			echo -e "\e[32m\e[1m找不到nginx压缩包,检查是否下载成功。\e[0m"
 			exit 0
@@ -1415,6 +1412,7 @@ function INSTALL_NGINX(){
 		ln -s /usr/local/bin/openssl /usr/bin/openssl
 		ln -s /usr/local/include/openssl /usr/include/openssl
 		echo "/usr/local/ssl/lib" >> /etc/ld.so.conf
+		rm -fr openssl-1.1.1k.tar.gz openssl-1.1.1k
 		ldconfig -v
 		echo -e "\e[32m\e[1m当前openssl版本号: \e[0m"`openssl version`
 		sleep 2
