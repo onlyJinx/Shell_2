@@ -37,7 +37,12 @@ function GET_RANDOM_STRING(){
 	echo $GET_RANDOM_STR
 }
 function FORAM_DOMAIN(){
-	read FORAM_DOMAIN_ENTER
+	###传入默认域名, 配合ONE_KEY
+	if [[ "$1" ]]; then
+		FORAM_DOMAIN_ENTER=$1
+	else
+		read FORAM_DOMAIN_ENTER
+	fi
 	if [[ "" == "$FORAM_DOMAIN_ENTER" ]]; then
 		echo -e "\e[31m\e[1m域名不可为空,重新输入！\e[0m"
 		FORAM_DOMAIN
@@ -140,14 +145,15 @@ function CHECK_VERSION(){
 }
 
 function DOWNLOAD_PTAH(){
-
 	#函数 提示语 默认路劲
-	read -p "$1" dir
+	if [[ "$1" != "NOINPUT" ]]; then
+		read -p "$1" dir
+	fi
 	dir=${dir:-$2}
-	 if [ ! -d $dir ]; then
-	 	echo "文件夹不存在，已创建文件夹 $dir"
-	 	mkdir -p $dir
-	 fi
+	if [ ! -d $dir ]; then
+		echo "文件夹不存在，已创建文件夹 $dir"
+		mkdir -p $dir
+	fi
 }
 
 function CKECK_FILE_EXIST(){
@@ -594,23 +600,31 @@ function transmission(){
 	CKECK_FILE_EXIST transmission-3.00+
 	CHECK_VERSION transmission-daemon transmission
 	clear
-	CHECK_PORT "请输入端口号(9091)" 9091
-	read -p "请输入用户名(transmission):  " TRANSMISSION_USER_NAME
+	CHECK_PORT "NOINPUT" 9091
+	#read -p "请输入用户名(transmission):  " TRANSMISSION_USER_NAME
 	TRANSMISSION_USER_NAME=${TRANSMISSION_USER_NAME:-transmission}
-	read -p "请输入密码(transmission2020):  " TRANSMISSION_PASSWD
+	#read -p "请输入密码(transmission2020):  " TRANSMISSION_PASSWD
 	TRANSMISSION_PASSWD=${TRANSMISSION_PASSWD:-transmission2020}
-	DOWNLOAD_PTAH "文件保存路径(默认/usr/downloads): " "/usr/downloads"
-
+	if [[ "$ONE_KEY_TRANSMISSION_DOWN_PATH" ]]; then
+		DOWNLOAD_PTAH "NOINPUT" "$ONE_KEY_TRANSMISSION_DOWN_PATH"
+	else
+		DOWNLOAD_PTAH "文件保存路径(默认/usr/downloads): " "/usr/downloads"
+	fi
 	if [[ -e $TRANSMISSION_NGINX_CONFIG ]];then
-		echo "检测到NGINX配置文件，是否开启https WEBUI反代?(Y/n) "
 		OUTPUT_HTTPS_LOGIN_ADDR=""
-		read ENABLE_HTTPS_TS
-		if [[ "" == "$ENABLE_HTTPS_TS" ]] || [[ "y" == "$ENABLE_HTTPS_TS" ]]; then
+		if [[ "$ONE_KEY_TRANSMISSION_ENABLE_HTTPS_TS" ]]; then
+			ENABLE_HTTPS_TS="y"
+		else
+			echo "检测到NGINX配置文件，是否开启https WEBUI反代?(Y/n) "
+			read ENABLE_HTTPS_TS
+		fi
+		
+		if [[ "" == "$ENABLE_HTTPS_TS" || "y" == "$ENABLE_HTTPS_TS" ]]; then
 			echo "输入transmission域名"
-			FORAM_DOMAIN
+			FORAM_DOMAIN "$ONE_KEY_TRANSMISSION_DOMAIN"
 			TRANSMISSION_DOMAIN=$RETURN_DOMAIN
-			echo "输入文件下载服务器路径(downloads)"
-			read TRRNA_FILE_SERVER_PATH
+			#echo "输入文件下载服务器路径(downloads)"
+			#read TRRNA_FILE_SERVER_PATH
 			TRRNA_FILE_SERVER_PATH=${TRRNA_FILE_SERVER_PATH:-downloads}
 			acme.sh $TRANSMISSION_DOMAIN "/etc/nginx/html"
 			if [[ -e "/ssl/${TRANSMISSION_DOMAIN}.key" ]]; then
@@ -912,7 +926,11 @@ function Up_kernel(){
 function Project_X(){
 	#检测安装v2ray/xray
 	PROJECT_BIN_VERSION=$1
-	read -p "输入节点名后缀,回车则不设置: " NODE_SUFFIX
+	if [[ "$ONE_KEY_NODE_SUFFIX" ]]; then
+		NODE_SUFFIX="$ONE_KEY_NODE_SUFFIX"
+	else
+		read -p "输入节点名后缀,回车则不设置: " NODE_SUFFIX
+	fi
 	function INSTALL_XRAY_BINARY(){
 		if ! [[ "$(type -P unzip)" ]];then
 			$PKGMANAGER_INSTALL unzip
@@ -952,10 +970,14 @@ function Project_X(){
 	}
 
 	if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
-		#不放在INSTALL_XRAY_BINARY,防止申请完证书后还需要继续输入版本号
-		echo "输入v2ray版本号(4.41.1)"
-		read V2RAY_BIN_VERSION
-		V2RAY_BIN_VERSION=${V2RAY_BIN_VERSION:-4.41.1}
+		if [[ "$NOE_KEY_V2RAY_BIN_VERSION" ]]; then
+			V2RAY_BIN_VERSION=$NOE_KEY_V2RAY_BIN_VERSION
+		else
+			#不放在INSTALL_XRAY_BINARY,防止申请完证书后还需要继续输入版本号
+			echo "输入v2ray版本号(4.41.1)"
+			read V2RAY_BIN_VERSION
+			V2RAY_BIN_VERSION=${V2RAY_BIN_VERSION:-4.41.1}
+		fi
 		if [[ "$(type -P v2ray)" ]]; then
 			V2ray_INSTALLED_VERSION=$(v2ray -version|grep V2Ray|cut -d ' ' -f2)
 			CHECK_VERSION v2ray v2fly "$V2ray_INSTALLED_VERSION" "$V2RAY_BIN_VERSION"
@@ -1026,7 +1048,7 @@ function Project_X(){
 		XRAY_TROJAN_PASSWD=$(cat /proc/sys/kernel/random/uuid)
 
 		echo "请输入xray/v2fly域名"
-		FORAM_DOMAIN
+		FORAM_DOMAIN "$ONE_KEY_V2RAY_DOMAIN"
 		XRAY_DOMAIN=$RETURN_DOMAIN
 		acme.sh "$XRAY_DOMAIN" "/etc/nginx/html"
 		if [[ -a "/ssl/${XRAY_DOMAIN}.key" ]]; then
@@ -1291,8 +1313,14 @@ function INSTALL_NGINX(){
 		echo -e "已检测到nginx v\e[32m\e[1m${NGINX_CURRENT_VERSION}\e[0m,是否继续编译更新版本?(Y/n)"
 		read NGINX_UPDATE_COMFIRM
 		if [[ "" == "$NGINX_UPDATE_COMFIRM" ]]; then
-			read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
-			NGINX_VERSION=${NGINX_VERSION:-1.21.1}
+
+			###接收一键函数传递的变量
+			if [[ "$ONE_KEY_NGINX_VERSION" ]]; then
+				NGINX_VERSION=$ONE_KEY_NGINX_VERSION
+			else
+				read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION			
+				NGINX_VERSION=${NGINX_VERSION:-1.21.1}
+			fi
 			nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
 			systemctl stop nginx
 			NGINX_BINARY
@@ -1306,14 +1334,23 @@ function INSTALL_NGINX(){
 			exit 0
 		fi
 	fi
-
-	read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
-	NGINX_VERSION=${NGINX_VERSION:-1.21.1}
+	###接收一键函数传递的变量
+	if [[ "$ONE_KEY_NGINX_VERSION" ]]; then
+		NGINX_VERSION=$ONE_KEY_NGINX_VERSION
+	else
+		read -p "输入NGINX版本(默认1.21.1)： " NGINX_VERSION
+		NGINX_VERSION=${NGINX_VERSION:-1.21.1}
+	fi	
 	nginx_url=http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
-	read -p "是否开启SSL配置?(Y/n) " ENAGLE_NGINX_SSL
+	if [[ "$ONE_KEY_ENABLE_NGINX_SSL" ]]; then
+		ENAGLE_NGINX_SSL=$ONE_KEY_ENABLE_NGINX_SSL
+	else 
+		read -p "是否开启SSL配置?(Y/n) " ENAGLE_NGINX_SSL
+	fi
+	
 	if [[ "" == "$ENAGLE_NGINX_SSL" ]] || [[ "y" == "$ENAGLE_NGINX_SSL" ]]; then
 		echo "输入NGING 域名"
-		FORAM_DOMAIN
+		FORAM_DOMAIN "$ONE_KEY_NGINX_DOMAIN"
 		NGINX_DOMAIN=$RETURN_DOMAIN
 		ENAGLE_NGINX_SSL_=true
 	fi
@@ -1321,7 +1358,11 @@ function INSTALL_NGINX(){
 	CURRENT_OPENSSL_VERSION=`openssl version|cut -d ' ' -f2`
 	if [[ "$CURRENT_OPENSSL_VERSION" != "1.1.1k" ]]; then
 		echo -e "\e[32m\e[1m当前openssl版本为${CURRENT_OPENSSL_VERSION},是否更新至1.1.1k(Y/n)?\e[0m"
-		read CONFIRM_OPENSSL
+		if [[ "$ONE_KEY_CONFIRM_OPENSSL" ]]; then
+			CONFIRM_OPENSSL="y"
+		else 
+			read CONFIRM_OPENSSL
+		fi
 	fi
 	##安装依赖
 	if [[ "$(type -P apt)" ]]; then
@@ -1441,9 +1482,13 @@ function INSTALL_NGINX(){
 #caddy
 function caddy(){
 	echo "输入Caddy域名"
-	FORAM_DOMAIN
+	FORAM_DOMAIN "$ONE_KEY_CADDY_DOMAIN"
 	CADDY_DOMAIN=$RETURN_DOMAIN
-	read -p "输入节点名后缀,回车则不设置: " NODE_SUFFIX
+	if [[ "$ONE_KEY_NODE_SUFFIX" ]]; then
+		NODE_SUFFIX=$ONE_KEY_NODE_SUFFIX
+	else 
+		read -p "输入节点名后缀,回车则不设置: " NODE_SUFFIX
+	fi
 	#read -p "设置用户名(禁止@:): " CADDY_USER
 	#CADDY_USER=${CADDY_USER:-Oieu!ji330}
 	CADDY_USER=`GET_RANDOM_STRING`
@@ -1764,6 +1809,7 @@ function REMOVE_SOFTWARE(){
 				break;;
 			"nginx")
 				REMOVE_SOFTWARE_BIN "nginx"
+				echo "订阅文件(/etc/sub/)需手动移除"
 				break;;
 			"Project_X")
 				REMOVE_SOFTWARE_BIN "xray"
@@ -1782,6 +1828,31 @@ function REMOVE_SOFTWARE(){
 				break;;
 		esac
 	done
+}
+
+function Onekey_install(){
+
+	echo "输入节点后缀(通用)" 
+	read ONE_KEY_NODE_SUFFIX
+	echo "输入NGINX域名"
+	read ONE_KEY_NGINX_DOMAIN
+	echo "输入V2ray域名"
+	read ONE_KEY_V2RAY_DOMAIN
+	echo "输入Caddy域名"
+	read ONE_KEY_CADDY_DOMAIN
+	echo "输入Transmission域名"
+	read ONE_KEY_TRANSMISSION_DOMAIN
+
+	ONE_KEY_NGINX_VERSION="1.21.1"
+	ONE_KEY_ENABLE_NGINX_SSL="yes"
+	ONE_KEY_CONFIRM_OPENSSL="yes"
+	NOE_KEY_V2RAY_BIN_VERSION="4.41.1"
+	ONE_KEY_TRANSMISSION_DOWN_PATH="/usr/downloads"
+
+	INSTALL_NGINX
+	Project_X "v2ray"
+	transmission
+	caddy
 }
 echo -e "\e[31m\e[1m输入对应的数字选项:\e[0m"
 select option in "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "acme.sh" "shadowsocks-libev" "aria2" "Up_kernel" "uninstall_software" "Timezone"
