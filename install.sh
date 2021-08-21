@@ -720,6 +720,7 @@ function transmission(){
 				MODIFY_CONFIG "$TRANSMISSION_CONFIG"
 				break
 			else 
+				systemctl start transmission.service
 				if [[ $TRANSMISSION_COUNT -gt 11 ]]; then
 					echo "循环次数过多,停止修改配置文件"
 					echo "退出安装(e)还是继续(Y)?"
@@ -1139,6 +1140,7 @@ function Project_X(){
 			if [[ -e "$NGINX_HTTPS_DEFAULT" ]]; then
 				sed -i '/^}/d' $NGINX_HTTPS_DEFAULT
 				cat >>$NGINX_HTTPS_DEFAULT<<-EOF
+				    #vless_grpc
 				    location /${XRAY_GRPC_NAME}/Tun {
 				        if (\$content_type !~ "application/grpc") {
 				            return 404;
