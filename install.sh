@@ -1,5 +1,5 @@
 #!/bin/bash
-ICON_ARRARY=( "🐬" "🥀" "🍁" "🍂" "🦅" "👗" "🚀" "🎀" "🎯" "🦋")
+ICON_ARRARY=( "🐬" "🥀" "🍁" "🍂" "👗" "🚀" "🎀" "🎯" "🦋")
 function check(){
 	###函数名 参数1 参数2
 	if [ "0" != "$?" ]; then
@@ -83,7 +83,7 @@ function GetRandomNumber(){
     echo $(($num%$max+$min))
 }
 function GetRandomIcon(){
-	RANDOM_ICON_INDEX=$(GetRandomNumber 0 9)
+	RANDOM_ICON_INDEX=$(GetRandomNumber 0 8)
 	RANDOM_ICON=${ICON_ARRARY[${RANDOM_ICON_INDEX}]}
 	if [[ "$RANDOM_ICON" == "NON" ]]; then
 		GetRandomIcon
@@ -992,14 +992,15 @@ function Project_X(){
 			echo "未知参数,退出！"
 			exit -1
 		fi
-		wget -P /tmp $XRAY_BIN_DOWNLOAD_LINK
-		if [[ -a "/tmp/$XRAY_BIN_PACKGE" ]]; then
+		mkdir /tmp/v2fly 2>/dev/nul
+		wget -P /tmp/v2fly $XRAY_BIN_DOWNLOAD_LINK
+		if [[ -a "/tmp/v2fly/$XRAY_BIN_PACKGE" ]]; then
 			mkdir /etc/${PROJECT_BIN_VERSION}
-			unzip -o /tmp/$XRAY_BIN_PACKGE -d /tmp
-			mv /tmp/geoip.dat /etc/${PROJECT_BIN_VERSION}/geoip.dat
-			mv /tmp/geosite.dat /etc/${PROJECT_BIN_VERSION}/geosite.dat
-			mv /tmp/${PROJECT_BIN_VERSION} /etc/${PROJECT_BIN_VERSION}/
-			rm -f /tmp/README.md /tmp/LICENSE /tmp/$XRAY_BIN_PACKGE
+			unzip -o /tmp/v2fly/$XRAY_BIN_PACKGE -d /tmp/v2fly
+			mv /tmp/v2fly/geoip.dat /etc/${PROJECT_BIN_VERSION}/geoip.dat
+			mv /tmp/v2fly/geosite.dat /etc/${PROJECT_BIN_VERSION}/geosite.dat
+			mv /tmp/v2fly/${PROJECT_BIN_VERSION} /etc/${PROJECT_BIN_VERSION}/
+			rm -fr /tmp/v2fly
 			#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 		elif [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
 				echo -e "\e[31m\e[1mv2fly版本号异常,请重新输入版本号(格式:4.41.1)\e[0m"
@@ -1856,8 +1857,8 @@ function REMOVE_SOFTWARE(){
 				REMOVE_SOFTWARE_BIN "trojan"
 				break;;
 			"nginx")
+				rm -fr /etc/sub
 				REMOVE_SOFTWARE_BIN "nginx"
-				echo "订阅文件(/etc/sub/)需手动移除"
 				break;;
 			"Project_X")
 				REMOVE_SOFTWARE_BIN "xray"
@@ -1866,6 +1867,7 @@ function REMOVE_SOFTWARE(){
 				REMOVE_SOFTWARE_BIN "v2ray"
 				break;;
 			"caddy")
+				rm -fr /root/.local/share/caddy /root/.config/caddy
 				REMOVE_SOFTWARE_BIN "caddy"
 				break;;
 			"hysteria")
@@ -1912,7 +1914,7 @@ function Onekey_install(){
 	echo "clash订阅地址: https://${NGINX_DOMAIN}/${SUBSCRIPTION_PATH}/clash.yaml"
 }
 echo -e "\e[31m\e[1m输入对应的数字选项:\e[0m"
-select option in "Onekey_install" "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "acme.sh" "shadowsocks-libev" "aria2" "Up_kernel" "uninstall_software" "Timezone"
+select option in "Onekey_install" "Up_kernel" "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "acme.sh" "shadowsocks-libev" "aria2" "uninstall_software" "Timezone"
 do
 	case $option in
 		"acme.sh")
