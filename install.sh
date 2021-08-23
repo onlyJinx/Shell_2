@@ -1,5 +1,5 @@
 #!/bin/bash
-ICON_ARRARY=( "🐬" "🥀" "🍁" "🍂" "🍭" "👗" "🚀" "🎀" "🎯" )
+ICON_ARRARY=( "🐬" "🥀" "🍁" "🍂" "🦅" "👗" "🚀" "🎀" "🎯" "🦋")
 function check(){
 	###函数名 参数1 参数2
 	if [ "0" != "$?" ]; then
@@ -83,7 +83,7 @@ function GetRandomNumber(){
     echo $(($num%$max+$min))
 }
 function GetRandomIcon(){
-	RANDOM_ICON_INDEX=$(GetRandomNumber 0 6)
+	RANDOM_ICON_INDEX=$(GetRandomNumber 0 9)
 	RANDOM_ICON=${ICON_ARRARY[${RANDOM_ICON_INDEX}]}
 	if [[ "$RANDOM_ICON" == "NON" ]]; then
 		GetRandomIcon
@@ -1196,23 +1196,17 @@ function Project_X(){
 			systemctl enable ${PROJECT_BIN_VERSION}
 			systemctl restart nginx
 
-			V2RAY_TROJAN_ICON=$(GetRandomIcon)
-			V2RAY_VLESS_TCP_ICON=$(GetRandomIcon)
-			V2RAY_VLESS_GRPC_ICON=$(GetRandomIcon)
-			V2RAY_VLESS_WS_ICON=$(GetRandomIcon)
-
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/subscription_tmp
-			echo trojan://$XRAY_TROJAN_TCP_PASSWD@${XRAY_DOMAIN}:443?sni=${XRAY_DOMAIN}#$V2RAY_TROJAN_ICON Trojan ${NODE_SUFFIX} >> /etc/sub/subscription_tmp
-			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#$V2RAY_VLESS_GRPC_ICON gRPC ${NODE_SUFFIX} >> /etc/sub/subscription_tmp
-			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${V2RAY_TRANSPORT}\&${RAY_FLOW}sni=${XRAY_DOMAIN}#🍭 ${V2RAY_TCP_NODENAME} ${NODE_SUFFIX} >> /etc/sub/subscription_tmp
-			echo \#vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#$V2RAY_VLESS_WS_ICON WebSocks ${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			echo trojan://$XRAY_TROJAN_TCP_PASSWD@${XRAY_DOMAIN}:443?sni=${XRAY_DOMAIN}#$(GetRandomIcon) Trojan ${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#$(GetRandomIcon) gRPC ${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${V2RAY_TRANSPORT}\&${RAY_FLOW}sni=${XRAY_DOMAIN}#$(GetRandomIcon) ${V2RAY_TCP_NODENAME} ${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			echo \#vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#$(GetRandomIcon) WebSocks ${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
 			#添加clash订阅
-			ADD_CLASH_SUB -n "$V2RAY_TROJAN_ICON Trojan ${NODE_SUFFIX}" -t trojan -s ${XRAY_DOMAIN} -p 443 -a $XRAY_TROJAN_TCP_PASSWD -d -i ${XRAY_DOMAIN}
-			##Icon不够,Trojan-grpc复用Icon
-			ADD_CLASH_SUB -n "$V2RAY_VLESS_WS_ICON trojan-grpc ${NODE_SUFFIX}" -s ${NGINX_HTPTS_DOMAIN} -t trojan -a ${XRAY_TROJAN_PASSWD} -r ${XRAY_TROJAN_GRPC_NAME} -p 443 -d -e grpc -i ${NGINX_HTPTS_DOMAIN}
+			ADD_CLASH_SUB -n "$(GetRandomIcon) Trojan ${NODE_SUFFIX}" -t trojan -s ${XRAY_DOMAIN} -p 443 -a $XRAY_TROJAN_TCP_PASSWD -d -i ${XRAY_DOMAIN}
+			ADD_CLASH_SUB -n "$(GetRandomIcon) trojan-grpc ${NODE_SUFFIX}" -s ${NGINX_HTPTS_DOMAIN} -t trojan -a ${XRAY_TROJAN_PASSWD} -r ${XRAY_TROJAN_GRPC_NAME} -p 443 -d -e grpc -i ${NGINX_HTPTS_DOMAIN}
 			if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
-				ADD_CLASH_SUB -n "$V2RAY_VLESS_TCP_ICON v2fly ${NODE_SUFFIX}" -s ${XRAY_DOMAIN} -t vless -p 443 -u ${XRAY_UUID} -c none -d -l
+				ADD_CLASH_SUB -n "$(GetRandomIcon) v2fly ${NODE_SUFFIX}" -s ${XRAY_DOMAIN} -t vless -p 443 -u ${XRAY_UUID} -c none -d -l
 			fi
 		else 
 			echo -e "\e[31m\e[1m找不到证书文件,退出安装！\e[0m"
@@ -1312,7 +1306,7 @@ function trojan(){
 			systemctl enable trojan
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/subscription_tmp
 			#echo -e "\e[32m\e[1mtrojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#Trojan\e[0m"
-			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#🍹 Trojan-gfw${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			echo trojan://${TROJAN_PASSWD}@${TROJAN_DOMAIN}:443?sni=${TROJAN_DOMAIN}#$(GetRandomIcon) Trojan-gfw${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
 			ADD_CLASH_SUB -n "$(GetRandomIcon) trojan-gfw${NODE_SUFFIX}" -t trojan -s ${TROJAN_DOMAIN} -p 443 -a ${TROJAN_PASSWD} -d -i ${TROJAN_DOMAIN}
 		fi
