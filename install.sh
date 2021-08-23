@@ -1108,7 +1108,7 @@ function Project_X(){
 			#流控,用于订阅生成
 			RAY_FLOW='flow=xtls-rprx-direct&'
 			V2RAY_TRANSPORT='security=xtls'
-			V2RAY_TCP_NODENAME="TCP_xTLS"
+			V2RAY_TCP_NODENAME="xTLS"
 			if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
 				sed -i '/xtls-rprx-direct/d' $XRAY_CONFIG
 				sed -i 's/"xtls"/"tls"/' $XRAY_CONFIG
@@ -1116,7 +1116,7 @@ function Project_X(){
 				sed -i 's/"xtlsSettings"/"tlsSettings"/' $XRAY_CONFIG
 				RAY_FLOW=""
 				V2RAY_TRANSPORT='security=tls'
-				V2RAY_TCP_NODENAME="TCP-TLS"
+				V2RAY_TCP_NODENAME="v2fly"
 			fi
 			cat > $SYSTEMD_SERVICES/${PROJECT_BIN_VERSION}.service <<-EOF
 			[Unit]
@@ -1178,16 +1178,16 @@ function Project_X(){
 			systemctl restart nginx
 
 			base64 -d -i /etc/sub/trojan.sys > /etc/sub/subscription_tmp
-			echo trojan://$XRAY_TROJAN_TCP_PASSWD@${XRAY_DOMAIN}:443?sni=${XRAY_DOMAIN}#🥀 Trojan${NODE_SUFFIX} >> /etc/sub/subscription_tmp
-			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 GRPC${NODE_SUFFIX} >> /etc/sub/subscription_tmp
-			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${V2RAY_TRANSPORT}\&${RAY_FLOW}sni=${XRAY_DOMAIN}#🍭 ${V2RAY_TCP_NODENAME}${NODE_SUFFIX} >> /etc/sub/subscription_tmp
-			echo \#vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			echo trojan://$XRAY_TROJAN_TCP_PASSWD@${XRAY_DOMAIN}:443?sni=${XRAY_DOMAIN}#🥀 Trojan ${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			echo vless://${XRAY_GRPC_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=grpc\&encryption=none\&serviceName=${XRAY_GRPC_NAME}\&security=tls\&sni=${NGINX_HTPTS_DOMAIN}#🍨 gRPC ${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			echo vless://${XRAY_UUID}@${XRAY_DOMAIN}:443?${V2RAY_TRANSPORT}\&${RAY_FLOW}sni=${XRAY_DOMAIN}#🍭 ${V2RAY_TCP_NODENAME} ${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+			echo \#vless://${XRAY_WS_UUID}@${NGINX_HTPTS_DOMAIN}:443?type=ws\&security=tls\&path=/${XRAY_WS_PATH}?ed=2048\&host=${NGINX_HTPTS_DOMAIN}\&sni=${NGINX_HTPTS_DOMAIN}#🐠 WebSocks ${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 			base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
 			#添加clash订阅
-			ADD_CLASH_SUB -n "🥀 Trojan${NODE_SUFFIX}" -t trojan -s ${XRAY_DOMAIN} -p 443 -a $XRAY_TROJAN_TCP_PASSWD -d -i ${XRAY_DOMAIN}
-			ADD_CLASH_SUB -n "🍨 trojan-grpc${NODE_SUFFIX}" -s ${NGINX_HTPTS_DOMAIN} -t trojan -a ${XRAY_TROJAN_PASSWD} -r ${XRAY_TROJAN_GRPC_NAME} -p 443 -d -e grpc -i ${NGINX_HTPTS_DOMAIN}
+			ADD_CLASH_SUB -n "🥀 Trojan ${NODE_SUFFIX}" -t trojan -s ${XRAY_DOMAIN} -p 443 -a $XRAY_TROJAN_TCP_PASSWD -d -i ${XRAY_DOMAIN}
+			ADD_CLASH_SUB -n "🍨 trojan-grpc ${NODE_SUFFIX}" -s ${NGINX_HTPTS_DOMAIN} -t trojan -a ${XRAY_TROJAN_PASSWD} -r ${XRAY_TROJAN_GRPC_NAME} -p 443 -d -e grpc -i ${NGINX_HTPTS_DOMAIN}
 			if [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
-				ADD_CLASH_SUB -n "🍭 vless-tls${NODE_SUFFIX}" -s ${XRAY_DOMAIN} -t vless -p 443 -u ${XRAY_UUID} -c none -d -l
+				ADD_CLASH_SUB -n "🍭 v2fly ${NODE_SUFFIX}" -s ${XRAY_DOMAIN} -t vless -p 443 -u ${XRAY_UUID} -c none -d -l
 			fi
 		else 
 			echo -e "\e[31m\e[1m找不到证书文件,退出安装！\e[0m"
@@ -1633,7 +1633,7 @@ function caddy(){
 				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go /root/go
 				base64 -d -i /etc/sub/trojan.sys > /etc/sub/subscription_tmp
 				#echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
-				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#⛱️ NaiveProxy${NODE_SUFFIX} >> /etc/sub/subscription_tmp
+				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#⛱️ Naive ${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 				base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
 			else
 				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
