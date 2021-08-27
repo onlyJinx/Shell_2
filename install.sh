@@ -1446,7 +1446,6 @@ function INSTALL_NGINX(){
 	ln -s /etc/nginx/sbin/nginx /usr/bin/nginx
 	mv $NGINX_CONFIG ${NGINX_CONFIG}_backup
 	wget -O $NGINX_CONFIG https://raw.githubusercontent.com/onlyJinx/Shell_2/test/nginxForFsGrpc.conf
-	echo "export ngp=$NGINX_SITE_ENABLED/Default" >> /etc/profile
 	
 	###crate service
 	#单双引号不转义，反单引号 $ 要转
@@ -1489,6 +1488,8 @@ function INSTALL_NGINX(){
 	systemctl enable nginx
 	###systemctl status nginx
 	echo -e "\e[32m\e[1m编译nginx成功\e[0m"
+
+	##启用https
 	if [[ "$ENAGLE_NGINX_SSL_" ]]; then
 		systemctl start nginx
 		#开始申请SSL证书
@@ -1516,6 +1517,7 @@ function INSTALL_NGINX(){
 			    }
 			}
 			EOF
+			echo "export ngp=$NGINX_SITE_ENABLED/Default" >> /etc/profile
 			#开启80端口强制重定向443
 			sed -i 's/#ENABLE_REDIRECT//' $NGINX_CONFIG
 			systemctl restart nginx
@@ -1526,6 +1528,7 @@ function INSTALL_NGINX(){
 		fi
 	else 
 		systemctl start nginx
+		echo "export ngp=$NGINX_CONFIG" >> /etc/profile
 	fi
 }
 #caddy
