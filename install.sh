@@ -1423,6 +1423,9 @@ function INSTALL_NGINX(){
 	fi
 	#开始编译
 	if [[ "$CONFIRM_OPENSSL" == "" || "$CONFIRM_OPENSSL" == "y" ]]; then
+		echo [debug] ==============================
+		echo "CONFIRM_OPENSSL = " $CONFIRM_OPENSSL
+		read
 		wget https://www.openssl.org/source/openssl-1.1.1k.tar.gz
 		tar xf openssl-1.1.1k.tar.gz
 		cd openssl-1.1.1k
