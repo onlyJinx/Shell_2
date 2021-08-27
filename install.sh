@@ -63,17 +63,24 @@ function packageManager(){
 	NGINX_CONFIG="/etc/nginx/conf/nginx.conf"
 	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
 	NGINX_WEBROOT="/etc/nginx/html"
-	if [[ "$(type -P apt)" ]]; then
-		PKGMANAGER_INSTALL="apt install -y --no-install-recommends"
-		PKGMANAGER_UNINSTALL="apt remove -y"
-		RUNNING_SYSTEM="debian"
-	elif [[ "$(type -P yum)" ]]; then
-		PKGMANAGER_INSTALL="yum install -y"
-		PKGMANAGER_UNINSTALL="yum remove -y"
-		RUNNING_SYSTEM="centOS"
+	LINUX_PLATFORM=`uname -r | awk -F- '{print $NF}'`
+	if [[ "amd64" == "$LINUX_PLATFORM" || "arm64" == "$LINUX_PLATFORM" ]]; then
+		echo "当前系统框架: $LINUX_PLATFORM"
+		if [[ "$(type -P apt)" ]]; then
+			PKGMANAGER_INSTALL="apt install -y --no-install-recommends"
+			PKGMANAGER_UNINSTALL="apt remove -y"
+			RUNNING_SYSTEM="debian"
+		elif [[ "$(type -P yum)" ]]; then
+			PKGMANAGER_INSTALL="yum install -y"
+			PKGMANAGER_UNINSTALL="yum remove -y"
+			RUNNING_SYSTEM="centOS"
+		else
+			echo "不支持的系统"
+			exit 1
+		fi
 	else
-		echo "不支持的系统"
-		exit 1
+		echo "未知系统,退出"
+		exit -1
 	fi
 }
 function GetRandomNumber(){
@@ -531,8 +538,8 @@ function shadowsocks-libev(){
 	EOF
 
 	###下载V2ray插件
-	wget https://github.com/shadowsocks/v2ray-plugin/releases/download/v1.3.0/v2ray-plugin-linux-amd64-v1.3.0.tar.gz
-	tar zxvf v2ray-plugin* && mv v2ray-plugin_linux_amd64 /etc/shadowsocks-libev/v2ray-plugin &&rm -f v2ray-plugin*
+	wget https://github.com/shadowsocks/v2ray-plugin/releases/download/v1.3.0/v2ray-plugin-linux-${LINUX_PLATFORM}-v1.3.0.tar.gz
+	tar zxvf v2ray-plugin* && mv v2ray-plugin_linux_${LINUX_PLATFORM} /etc/shadowsocks-libev/v2ray-plugin &&rm -f v2ray-plugin*
 
 
 	###crate service
@@ -916,7 +923,7 @@ function Up_kernel(){
 		fi
 		apt update
 		apt upgrade -y
-		$PKGMANAGER_INSTALL -t buster-backports linux-image-cloud-amd64 linux-headers-cloud-amd64 vim
+		$PKGMANAGER_INSTALL -t buster-backports linux-image-cloud-${LINUX_PLATFORM} linux-headers-cloud-${LINUX_PLATFORM} vim
 		check "内核安装失败"
 		echo "set nocompatible" >> /etc/vim/vimrc.tiny
 		echo "set backspace=2" >> /etc/vim/vimrc.tiny
@@ -976,18 +983,23 @@ function Project_X(){
 	else
 		read -p "输入节点名后缀,回车则不设置: " NODE_SUFFIX
 	fi
+	if [[ "arm64" == "$LINUX_PLATFORM" ]]; then
+		XRAY_PLATFORM='arm64-v8a'
+	else
+		XRAY_PLATFORM='64'
+	fi
 	function INSTALL_XRAY_BINARY(){
 		if ! [[ "$(type -P unzip)" ]];then
 			$PKGMANAGER_INSTALL unzip
 		fi
 		if [[ "xray" == "$PROJECT_BIN_VERSION" ]]; then
-			XRAY_BIN_PACKGE="Xray-linux-64.zip"
+			XRAY_BIN_PACKGE="Xray-linux-${XRAY_PLATFORM}.zip"
 			rm -f /tmp/$XRAY_BIN_PACKGE
-			XRAY_BIN_DOWNLOAD_LINK="https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-64.zip"
+			XRAY_BIN_DOWNLOAD_LINK="https://github.com/XTLS/Xray-core/releases/download/v$XRAY_RELEASE_LATEST/Xray-linux-${XRAY_PLATFORM}.zip"
 		elif [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
-			XRAY_BIN_PACKGE="v2ray-linux-64.zip"
+			XRAY_BIN_PACKGE="v2ray-linux-${XRAY_PLATFORM}.zip"
 			rm -f /tmp/$XRAY_BIN_PACKGE
-			XRAY_BIN_DOWNLOAD_LINK="https://github.com/v2fly/v2ray-core/releases/download/v${V2RAY_BIN_VERSION}/v2ray-linux-64.zip"
+			XRAY_BIN_DOWNLOAD_LINK="https://github.com/v2fly/v2ray-core/releases/download/v${V2RAY_BIN_VERSION}/v2ray-linux-${XRAY_PLATFORM}.zip"
 		else 
 			echo "未知参数,退出！"
 			exit -1
@@ -1582,9 +1594,9 @@ function caddy(){
 	if ! [[ $(type -P go) ]]; then
 		echo -e "\e[31m\e[1m未配置GO环境，开始配置环境\e[0m"
 		$PKGMANAGER_INSTALL wget
-		wget -P /tmp https://golang.google.cn/dl/go1.16.6.linux-amd64.tar.gz
+		wget -P /tmp https://golang.google.cn/dl/go1.16.6.linux-${LINUX_PLATFORM}.tar.gz
 		echo "正在解压golang压缩包..."
-		tar zxf /tmp/go1.16.6.linux-amd64.tar.gz -C /tmp/
+		tar zxf /tmp/go1.16.6.linux-${LINUX_PLATFORM}.tar.gz -C /tmp/
 		export PATH=$PATH:/tmp/go/bin
 	fi
 	if [[ $(type -P go) ]]; then
@@ -1656,14 +1668,14 @@ function caddy(){
 				systemctl enable caddy
 				NGINX_SNI $CADDY_DOMAIN $CADDY_HTTPS_PORT
 				systemctl restart nginx
-				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go /root/go
+				rm -fr /tmp/go1.16.6.linux-${LINUX_PLATFORM}.tar.gz /tmp/go /root/go
 				base64 -d -i /etc/sub/trojan.sys > /etc/sub/subscription_tmp
 				#echo -e "\e[32m\e[1mnaive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#Naive\e[0m"
 				echo naive+https://${CADDY_USER}:${CADDY_PASSWD}@${CADDY_DOMAIN}/#$(GetRandomIcon) Naive ${NODE_SUFFIX} >> /etc/sub/subscription_tmp
 				base64 /etc/sub/subscription_tmp > /etc/sub/trojan.sys
 			else
 				echo -e "\e[31m\e[1mCaddy启动失败，安装退出\e[0m"
-				rm -fr /tmp/go1.16.6.linux-amd64.tar.gz /tmp/go
+				rm -fr /tmp/go1.16.6.linux-${LINUX_PLATFORM}.tar.gz /tmp/go
 			fi
 		else
 			echo -e "\e[31m\e[1mcaddy编译失败\e[0m"
@@ -1680,7 +1692,7 @@ function hysteria(){
 	DESTINATION_PATH="/etc/hysteria"
 	HYSTERIA_BIN="/etc/hysteria/hysteria"
 	hysteria_LATEST=`curl -s https://api.github.com/repos/HyNetwork/hysteria/releases/latest | grep tag_name|cut -f4 -d "\""`
-	hysteria_DOWNLOAD_LINK=https://github.com/HyNetwork/hysteria/releases/download/${hysteria_LATEST}/hysteria-linux-amd64
+	hysteria_DOWNLOAD_LINK=https://github.com/HyNetwork/hysteria/releases/download/${hysteria_LATEST}/hysteria-linux-${LINUX_PLATFORM}
 	if [[ -a "$HYSTERIA_BIN" ]]; then
 		CHRRENT_HYSTERIA_VERSION=`$HYSTERIA_BIN -v|cut -d ' ' -f3`
 		if [[ "$CHRRENT_HYSTERIA_VERSION" != "$hysteria_LATEST" ]]; then
