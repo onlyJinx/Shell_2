@@ -63,26 +63,31 @@ function packageManager(){
 	NGINX_CONFIG="/etc/nginx/conf/nginx.conf"
 	NGINX_SITE_ENABLED="/etc/nginx/conf/sites"
 	NGINX_WEBROOT="/etc/nginx/html"
-	LINUX_PLATFORM=`uname -r | awk -F- '{print $NF}'`
-	if [[ "amd64" == "$LINUX_PLATFORM" || "arm64" == "$LINUX_PLATFORM" ]]; then
-		echo "当前系统框架: $LINUX_PLATFORM"
-		if [[ "$(type -P apt)" ]]; then
-			PKGMANAGER_INSTALL="apt install -y --no-install-recommends"
-			PKGMANAGER_UNINSTALL="apt remove -y"
-			RUNNING_SYSTEM="debian"
-		elif [[ "$(type -P yum)" ]]; then
-			PKGMANAGER_INSTALL="yum install -y"
-			PKGMANAGER_UNINSTALL="yum remove -y"
-			RUNNING_SYSTEM="centOS"
-		else
-			echo "不支持的系统"
-			exit 1
-		fi
+	LINUX_PLATFORM=`uname -m`
+	if [[ "x86_64" == "$LINUX_PLATFORM" ]]; then
+		LINUX_PLATFORM="amd64"
+	elif [[ "aarch64" == "$LINUX_PLATFORM" ]]; then
+		LINUX_PLATFORM="arm64"
 	else
-		echo "未知系统,退出"
+		echo -e "\e[32m\e[1m不支持的系统框架,退出\e[0m"
+		echo $LINUX_PLATFORM
 		exit -1
 	fi
+	echo -e "\e[32m\e[1m当前系统框架: ${LINUX_PLATFORM}\e[0m"
+	if [[ "$(type -P apt)" ]]; then
+		PKGMANAGER_INSTALL="apt install -y --no-install-recommends"
+		PKGMANAGER_UNINSTALL="apt remove -y"
+		RUNNING_SYSTEM="debian"
+	elif [[ "$(type -P yum)" ]]; then
+		PKGMANAGER_INSTALL="yum install -y"
+		PKGMANAGER_UNINSTALL="yum remove -y"
+		RUNNING_SYSTEM="centOS"
+	else
+		echo "未知包管理器命令"
+		exit 1
+	fi
 }
+packageManager
 function GetRandomNumber(){
     min=$1
     max=$(($2-$min+1))
@@ -100,7 +105,6 @@ function GetRandomIcon(){
 		echo $RANDOM_ICON
 	fi
 }
-packageManager
 function CHECK_PORT(){
 	#提示语 默认端口
 	#带NOINPUT参数时不跳过端口输入，直接调用默认端口
@@ -441,7 +445,7 @@ function acme.sh(){
 	$UNINSTALL_SOCAT
 }
 
-#脚本开始安装SS
+#shadowsocks
 function shadowsocks-libev(){
 
 	CKECK_FILE_EXIST /root/shadowsocks-libev
@@ -456,64 +460,79 @@ function shadowsocks-libev(){
 	#yum remove epel-release -y
 	#yum install epel-release -y
 
-	###yum install gcc gettext autoconf libtool automake make pcre-devel asciidoc xmlto c-ares-devel libev-devel libsodium-devel mbedtls-devel -y
-	yum install gcc gettext autoconf libtool automake make pcre-devel wget git vim asciidoc xmlto libev-devel -y
-	###手动编译libsodium-devel mbedtls-devel c-ares
+	if [[ "debian" == "$RUNNING_SYSTEM" ]]; then
+		##Debian
+		$PKGMANAGER_INSTALL gettext build-essential autoconf \
+		libtool libpcre3-dev asciidoc xmlto libmbedtls-dev \
+		libev-dev libudns-dev libc-ares-dev automake pkg-config git
 
+		git clone https://github.com/jedisct1/libsodium --branch stable
+		cd libsodium
+		./configure
+		make && make check
+		make install
+		ldconfig
+		cd ~
+		rm -fr libsodium
+		SHADOWSOCKS_CONFIGURE='./autogen.sh && ./configure '
+	else
+		##CentOS
+		$PKGMANAGER_INSTALL gcc gettext autoconf \
+		libtool automake make pcre-devel \
+		wget git vim asciidoc xmlto libev-devel
 
-	###Installation of MbedTLS
-	wget --no-check-certificate https://tls.mbed.org/download/mbedtls-2.16.3-gpl.tgz
-	###wget https://tls.mbed.org/download/mbedtls-2.16.2-apache.tgz
-	tar xvf mbedtls*gpl.tgz
-	cd mbedtls*
-	make SHARED=1 CFLAGS=-fPIC
-	sudo make DESTDIR=/usr install
-	check "shadowsocks依赖MbedTLS编译失败！"
-	cd ~
-	sudo ldconfig
+		###Installation of c-ares
+		git clone https://github.com/c-ares/c-ares.git
+		cd c-ares
+		./buildconf
+		autoconf configure.ac
+		./configure --prefix=/usr && make
+		make install
+		check "shadowsocks依赖c-ares编译失败！"
+		ldconfig
+		cd ~
+		###安装方法引用http://blog.sina.com.cn/s/blog_6c4a60110101342m.html
 
-	###Installation of Libsodium
-	## wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.18.tar.gz
-	## wget https://download.libsodium.org/libsodium/releases/LATEST.tar.gz
-	## tar xvf LATEST.tar.gz
-	## cd libsodium-stable
-	## ./configure --prefix=/usr && make
-	## sudo make install
-	## check "shadowsocks依赖Libsodium"
-	## sudo ldconfig
-	## cd ~
+		###Installation of MbedTLS
+		wget --no-check-certificate https://tls.mbed.org/download/mbedtls-2.16.3-gpl.tgz
+		tar xvf mbedtls-2.16.3-gpl.tgz
+		cd mbedtls-2.16.3
+		make SHARED=1 CFLAGS=-fPIC
+		make DESTDIR=/usr install
+		check "shadowsocks依赖MbedTLS编译失败！"
+		cd ~
+		ldconfig
 
-	wget https://download.libsodium.org/libsodium/releases/LATEST.tar.gz
-	cd LATEST
-	./configure --prefix=/usr
-	make && make install
-	check "shadowsocks依赖Libsodium编译失败！"
-	sudo ldconfig
-	cd ~
+		wget https://download.libsodium.org/libsodium/releases/LATEST.tar.gz
+		if [[ -a "/root/LATEST.tar.gz" ]]; then
+			tar zxf LATEST.tar.gz
+			if [[ libsodium-stable ]]; then
+				cd libsodium-stable
+				./configure --prefix=/usr
+				make && make install
+				check "shadowsocks依赖Libsodium编译失败！"
+				ldconfig
+				cd ~
+			else 
+				echo "未找到libsodium"
+				exit -1
+			fi
+		else
+			echo "libsodium下载失败"
+			exit -1
+		fi
 
-
-	###Installation of c-ares
-	git clone https://github.com/c-ares/c-ares.git
-	cd c-ares
-	./buildconf
-	autoconf configure.ac
-	./configure --prefix=/usr && make
-	sudo make install
-	check "shadowsocks依赖c-ares编译失败！"
-	sudo ldconfig
-	cd ~
-	###安装方法引用http://blog.sina.com.cn/s/blog_6c4a60110101342m.html
+		SHADOWSOCKS_CONFIGURE='./autogen.sh && ./configure --with-sodium-include=/usr/include --with-sodium-lib=/usr/lib'
+	fi
 
 	###报错 undefined reference to `ares_set_servers_ports_csv'，指定libsodium configure路径
 	###Installation of shadowsocks-libev
 	git clone https://github.com/shadowsocks/shadowsocks-libev.git
 	cd shadowsocks-libev
 	git submodule update --init --recursive
-	./autogen.sh && ./configure --with-sodium-include=/usr/include --with-sodium-lib=/usr/lib
-	##检查编译返回的状态码
 	check "ShadowSocks-libev configure失败！"
+	$SHADOWSOCKS_CONFIGURE
 	make && make install
-
 	###尝试运行程序
 	check "SS编译安装失败"
 	mkdir /etc/shadowsocks-libev
@@ -524,9 +543,9 @@ function shadowsocks-libev(){
 	cat >/etc/shadowsocks-libev/config.json<<-EOF
 	{
 	    "server":"0.0.0.0",
-	    "server_port":$port,
+	    "server_port":${port},
 	    "local_port":1080,
-	    "password":"$passwd",
+	    "password":"${passwd}",
 	    "timeout":60,
 	    "method":"xchacha20-ietf-poly1305",
 	    "fast_open": true,
@@ -538,12 +557,14 @@ function shadowsocks-libev(){
 	EOF
 
 	###下载V2ray插件
-	wget https://github.com/shadowsocks/v2ray-plugin/releases/download/v1.3.0/v2ray-plugin-linux-${LINUX_PLATFORM}-v1.3.0.tar.gz
-	tar zxvf v2ray-plugin* && mv v2ray-plugin_linux_${LINUX_PLATFORM} /etc/shadowsocks-libev/v2ray-plugin &&rm -f v2ray-plugin*
-
+	SHADOWSOCKS_V2RAY_PLUGIN="1.3.0"
+	wget https://github.com/shadowsocks/v2ray-plugin/releases/download/v${SHADOWSOCKS_V2RAY_PLUGIN}/v2ray-plugin-linux-${LINUX_PLATFORM}-v${SHADOWSOCKS_V2RAY_PLUGIN}.tar.gz
+	tar zxf v2ray-plugin-linux-${LINUX_PLATFORM}-v${SHADOWSOCKS_V2RAY_PLUGIN}.tar.gz
+	mv v2ray-plugin_linux_${LINUX_PLATFORM} /etc/shadowsocks-libev/v2ray-plugin
+	rm -f v2ray-plugin-linux-${LINUX_PLATFORM}-v${SHADOWSOCKS_V2RAY_PLUGIN}.tar.gz
 
 	###crate service
-	cat >$SYSTEMD_SERVICES/ssl.service<<-EOF
+	cat >$SYSTEMD_SERVICES/shadowsocks.service<<-EOF
 	[Unit]
 	Description=Shadowsocks Server
 	After=network.target
@@ -554,11 +575,10 @@ function shadowsocks-libev(){
 	WantedBy=multi-user.target
 	EOF
 	systemctl daemon-reload
-	systemctl start ssl&&systemctl enable ssl
+	systemctl start shadowsocks && systemctl enable shadowsocks
 	### remove the file
 	cd /root && rm -fr mbedtls* shadowsocks-libev libsodium LATEST.tar.gz c-ares
 
-	clear
 	###ss -lnp|grep 443
 	echo -e port:"          ""\e[31m\e[1m$port\e[0m"
 	echo -e password:"      ""\e[31m\e[1m$passwd\e[0m"
@@ -802,9 +822,7 @@ function aria2(){
 	}
 	CKECK_FILE_EXIST aria2
 	CHECK_VERSION aria2c aria2
-	clear
 	DOWNLOAD_PTAH "文件保存路径(/usr/downloads): " "/usr/downloads"
-	clear
 	read -p "输入密码(默认密码crazy_0): " ARIA2_PASSWD
 	ARIA2_PASSWD=${ARIA2_PASSWD:-crazy_0}
 	CHECK_PORT "输入RPC监听端口(6800): " 6800
@@ -835,18 +853,26 @@ function aria2(){
 	fi
 
 	if [[ "debian" == "$RUNNING_SYSTEM" ]]; then
+		##Debian
 		$PKGMANAGER_INSTALL git libxml2-dev libcppunit-dev \
 		autoconf automake autotools-dev autopoint libtool \
 		build-essential libtool pkg-config
 		#ARIA2_AUTOCONF="autoreconf -i -I /usr/share/aclocal/"
-	else
+	elif [[ "$RUNNING_SYSTEM"="CentOS" && "$LINUX_PLATFORM"="amd64" ]]; then
+		##Centos
 		$PKGMANAGER_INSTALL gcc-c++ make libtool automake bison \
 		autoconf git intltool libssh2-devel expat-devel \
-		gmp-devel nettle-devel libssh2-devel zlib-devel \
+		gmp-devel nettle-devel zlib-devel \
 		c-ares-devel gnutls-devel libgcrypt-devel libxml2-devel \
 		sqlite-devel gettext xz-devel gperftools gperftools-devel \
 		gperftools-libs trousers-devel
-		
+	else
+		##arm64
+		$PKGMANAGER_INSTALL gcc-c++ make libtool automake bison \
+		autoconf git intltool libssh2 expat-devel  \
+		gmp-devel nettle-devel zlib-devel  \
+		c-ares-devel gnutls-devel libgcrypt-devel libxml2-devel  \
+		sqlite-devel gettext xz-devel trousers
 	fi
 	ARIA2_AUTOCONF="autoreconf -i"
 	libtoolize --automake --copy --debug  --force
