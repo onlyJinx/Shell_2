@@ -474,7 +474,7 @@ function shadowsocks-libev(){
 		ldconfig
 		cd ~
 		rm -fr libsodium
-		SHADOWSOCKS_CONFIGURE='./autogen.sh && ./configure '
+		SHADOWSOCKS_CONFIGURE=' '
 	else
 		##CentOS
 		$PKGMANAGER_INSTALL gcc gettext autoconf \
@@ -522,7 +522,7 @@ function shadowsocks-libev(){
 			exit -1
 		fi
 
-		SHADOWSOCKS_CONFIGURE='./autogen.sh && ./configure --with-sodium-include=/usr/include --with-sodium-lib=/usr/lib'
+		SHADOWSOCKS_CONFIGURE='--with-sodium-include=/usr/include --with-sodium-lib=/usr/lib'
 	fi
 
 	###报错 undefined reference to `ares_set_servers_ports_csv'，指定libsodium configure路径
@@ -530,8 +530,9 @@ function shadowsocks-libev(){
 	git clone https://github.com/shadowsocks/shadowsocks-libev.git
 	cd shadowsocks-libev
 	git submodule update --init --recursive
+	./autogen.sh
+	./configure $SHADOWSOCKS_CONFIGURE
 	check "ShadowSocks-libev configure失败！"
-	$SHADOWSOCKS_CONFIGURE
 	make && make install
 	###尝试运行程序
 	check "SS编译安装失败"
@@ -586,7 +587,7 @@ function shadowsocks-libev(){
 	echo -e plugin:"        ""\e[31m\e[1mv2ray-plugin\e[0m"
 	echo -e plugin_opts:"   ""\e[31m\e[1mhttp\e[0m"
 	echo -e config.json:"   ""\e[31m\e[1m/etc/shadowsocks-libev/config.json\n\n\e[0m"
-	echo -e use \""\e[31m\e[1msystemctl status ssl\e[0m"\" run the shadowsocks-libev in background
+	echo -e use \""\e[31m\e[1msystemctl status shadowsocks\e[0m"\" run the shadowsocks-libev in background
 	echo -e "\e[31m\e[1mhttps://github.com/shadowsocks\e[0m"
 }
 #transmission
