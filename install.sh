@@ -761,18 +761,23 @@ function transmission(){
 		while [[ true ]]; do
 			systemctl stop transmission.service
 			TRANSMISSION_SERVICE_LIFE=`systemctl is-active transmission.service`
-			if [[ "inactive" == "$TRANSMISSION_SERVICE_LIFE" && -e "$TRANSMISSION_CONFIG" ]]; then
+			echo -e "\e[31m\e[1m[debug]===============TRANSMISSION_SERVICE_LIFE=====================\e[0m"
+			echo "TRANSMISSION_SERVICE_LIFE：" $TRANSMISSION_SERVICE_LIFE
+			echo -e "\e[31m\e[1m[debug]=================Service Status===================\e[0m"
+			systemctl status transmission|grep Active
+			if [[ "active" != "$TRANSMISSION_SERVICE_LIFE" && -e "$TRANSMISSION_CONFIG" ]]; then
 				echo -e "\e[32m\e[1m检测到transmission配置文件\e[0m"
 				MODIFY_CONFIG "$TRANSMISSION_CONFIG"
 				break
 			else 
-				systemctl start transmission.service
 				if [[ $TRANSMISSION_COUNT -gt 11 ]]; then
 					echo "循环次数过多,停止修改配置文件"
 					echo "退出安装(e)还是继续(Y)?"
 					read TRANSMISSION_EXIT_CONFIRM
 					if [[ "$TRANSMISSION_EXIT_CONFIRM" == "e" || "$TRANSMISSION_EXIT_CONFIRM" == "E" ]]; then
 						exit -1
+					else 
+						break
 					fi	
 				else
 					echo "transmission服务未停止或找不到配置文件, 1秒后重试"
@@ -783,6 +788,7 @@ function transmission(){
 					read TRANSMISSION_TEMP_READ
 					cat $TRANSMISSION_CONFIG
 					sleep 1
+					systemctl start transmission.service
 				fi
 			fi
 		done
