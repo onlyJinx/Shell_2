@@ -1,5 +1,7 @@
 {
     "log": {
+        "access": "/etc/v2ray/access.log",
+        "error": "/etc/v2ray/error.log",
         "loglevel": "warning"
     },
     "inbounds": [
@@ -131,7 +133,36 @@
     ],
     "outbounds": [
         {
+            "tag": "DIRECT",
             "protocol": "freedom"
+        },
+        {
+            "tag": "BLOCKD",
+            "protocol": "Blackhole"
         }
-    ]
+    ],
+    "routing": {
+        "domainStrategy": "IPOnDemand",
+        "rules": [
+            {
+                "domainMatcher": "mph",
+                "type": "field",
+                "domains": [
+                    "geosite:cn"
+                ],
+                "network": "tcp",
+                "outboundTag": "BLOCKD"
+            },
+            {
+                "domainMatcher": "mph",
+                "type": "field",
+                "ip": [
+                    "127.0.0.1/16",
+                    "192.168.0.0/16",
+                    "geoip:cn"
+                ],
+                "outboundTag": "DIRECT"
+            }
+        ]
+    }
 }
