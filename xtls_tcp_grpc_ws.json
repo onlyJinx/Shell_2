@@ -137,7 +137,11 @@
             "protocol": "freedom"
         },
         {
-            "tag": "BLOCKD",
+            "tag": "BLOCKD_CN",
+            "protocol": "Blackhole"
+        },
+        {
+            "tag": "BLOCKD_ADS",
             "protocol": "Blackhole"
         }
     ],
@@ -151,7 +155,16 @@
                     "geosite:cn"
                 ],
                 "network": "tcp",
-                "outboundTag": "BLOCKD"
+                "outboundTag": "BLOCKD_CN"
+            },
+            {
+                "domainMatcher": "mph",
+                "type": "field",
+                "domains": [
+                    "geosite:category-ads-all"
+                ],
+                "network": "tcp",
+                "outboundTag": "BLOCKD_ADS"
             },
             {
                 "domainMatcher": "mph",
