@@ -30,3 +30,5 @@ iptables -t mangle -A PREROUTING -j clash
 
 # FORWARD DNS Service
 iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 5353
+
+# https://www.wogong.net/blog/2020/11/clash-transparent-proxy
