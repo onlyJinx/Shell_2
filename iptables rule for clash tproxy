@@ -32,3 +32,24 @@ iptables -t mangle -A PREROUTING -j clash
 iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 5353
 
 # https://www.wogong.net/blog/2020/11/clash-transparent-proxy
+
+
+# proxy self
+
+iptables -t mangle -N clash_mask
+iptables -t mangle -F clash_mask
+iptables -t mangle -A clash_mask -d 0.0.0.0/8 -j RETURN
+iptables -t mangle -A clash_mask -d 10.0.0.0/8 -j RETURN
+iptables -t mangle -A clash_mask -d 100.64.0.0/10 -j RETURN
+iptables -t mangle -A clash_mask -d 127.0.0.0/8 -j RETURN
+iptables -t mangle -A clash_mask -d 169.254.0.0/16 -j RETURN
+iptables -t mangle -A clash_mask -d 172.16.0.0/12 -j RETURN
+iptables -t mangle -A clash_mask -d 192.168.0.0/16 -j RETURN
+iptables -t mangle -A clash_mask -d 224.0.0.0/4 -j RETURN
+iptables -t mangle -A clash_mask -d 240.0.0.0/4 -j RETURN
+iptables -t mangle -A clash_mask -d 255.255.255.255/32 -j RETURN
+iptables -t mangle -A clash_mask -p tcp -j MARK --set-mark 1
+iptables -t mangle -A clash_mask -p udp -j MARK --set-mark 1
+iptables -t mangle -A OUTPUT -m owner ! --uid-owner clash -j clash_mask
+# FORWARD DNS
+iptables -t nat -A OUTPUT -p udp --dport 53 -m owner ! --uid-owner clash -j REDIRECT --to-ports 5354
