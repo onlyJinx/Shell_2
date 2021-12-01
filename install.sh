@@ -368,6 +368,7 @@ function acme.sh(){
 		else
 			echo -e "\e[32m\e[1m输入域名，多个域名使用空格分开(a.com b.com)\e[0m"
 			FORAM_DOMAIN
+			ENTER_APPLY_DOMAIN=$RETURN_DOMAIN
 			#read ENTER_APPLY_DOMAIN
 			APPLY_DOMAIN=$(echo $ENTER_APPLY_DOMAIN | sed 's/ / -d /g')
 			#通配符检测
