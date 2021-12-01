@@ -367,7 +367,8 @@ function acme.sh(){
 			ACME_HTTP
 		else
 			echo -e "\e[32m\e[1m输入域名，多个域名使用空格分开(a.com b.com)\e[0m"
-			read ENTER_APPLY_DOMAIN
+			FORAM_DOMAIN
+			#read ENTER_APPLY_DOMAIN
 			APPLY_DOMAIN=$(echo $ENTER_APPLY_DOMAIN | sed 's/ / -d /g')
 			#通配符检测
 			Wildcard="$(echo $APPLY_DOMAIN | grep \*)"
