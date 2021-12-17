@@ -1462,16 +1462,16 @@ function INSTALL_NGINX(){
 		NGINX_DOMAIN=$RETURN_DOMAIN
 		ENAGLE_NGINX_SSL_=true
 	fi
-	#检测openssl版本
-	CURRENT_OPENSSL_VERSION=`openssl version|cut -d ' ' -f2`
-	if [[ "$CURRENT_OPENSSL_VERSION" != "1.1.1k" ]]; then
-		echo -e "\e[32m\e[1m当前openssl版本为${CURRENT_OPENSSL_VERSION},是否更新至1.1.1k(Y/n)?\e[0m"
-		if [[ "$ONE_KEY_CONFIRM_OPENSSL" ]]; then
-			CONFIRM_OPENSSL="$ONE_KEY_CONFIRM_OPENSSL"
-		else 
-			read CONFIRM_OPENSSL
-		fi
-	fi
+	# #检测openssl版本
+	# CURRENT_OPENSSL_VERSION=`openssl version|cut -d ' ' -f2`
+	# if [[ "$CURRENT_OPENSSL_VERSION" != "1.1.1k" ]]; then
+	# 	echo -e "\e[32m\e[1m当前openssl版本为${CURRENT_OPENSSL_VERSION},是否更新至1.1.1k(Y/n)?\e[0m"
+	# 	if [[ "$ONE_KEY_CONFIRM_OPENSSL" ]]; then
+	# 		CONFIRM_OPENSSL="$ONE_KEY_CONFIRM_OPENSSL"
+	# 	else 
+	# 		read CONFIRM_OPENSSL
+	# 	fi
+	# fi
 	##安装依赖
 	if [[ "$(type -P apt)" ]]; then
 		$PKGMANAGER_INSTALL build-essential libpcre3 libpcre3-dev zlib1g-dev git openssl wget libssl-dev
@@ -1482,27 +1482,27 @@ function INSTALL_NGINX(){
 		exit 1
 	fi
 	#开始编译
-	if [[ "$CONFIRM_OPENSSL" == "" || "$CONFIRM_OPENSSL" == "y" ]]; then
-		echo [debug] ==============================
-		echo "CONFIRM_OPENSSL = " $CONFIRM_OPENSSL
-		read
-		wget https://www.openssl.org/source/openssl-1.1.1k.tar.gz
-		tar xf openssl-1.1.1k.tar.gz
-		cd openssl-1.1.1k
-		./config
-		make test && make install
-		rm -fr openssl-1.1.1k.tar.gz openssl-1.1.1k
-		check "OPENSSL更新失败"
-		mv /usr/bin/openssl /usr/bin/openssl.bak
-		mv /usr/include/openssl /usr/include/openssl.bak
-		ln -s /usr/local/bin/openssl /usr/bin/openssl
-		ln -s /usr/local/include/openssl /usr/include/openssl
-		echo "/usr/local/ssl/lib" >> /etc/ld.so.conf
-		rm -fr openssl-1.1.1k.tar.gz openssl-1.1.1k
-		ldconfig -v
-		echo -e "\e[32m\e[1m当前openssl版本号: \e[0m"`openssl version`
-		sleep 2
-	fi
+	# if [[ "$CONFIRM_OPENSSL" == "" || "$CONFIRM_OPENSSL" == "y" ]]; then
+	# 	echo [debug] ==============================
+	# 	echo "CONFIRM_OPENSSL = " $CONFIRM_OPENSSL
+	# 	read
+	# 	wget https://www.openssl.org/source/openssl-1.1.1k.tar.gz
+	# 	tar xf openssl-1.1.1k.tar.gz
+	# 	cd openssl-1.1.1k
+	# 	./config
+	# 	make test && make install
+	# 	rm -fr openssl-1.1.1k.tar.gz openssl-1.1.1k
+	# 	check "OPENSSL更新失败"
+	# 	mv /usr/bin/openssl /usr/bin/openssl.bak
+	# 	mv /usr/include/openssl /usr/include/openssl.bak
+	# 	ln -s /usr/local/bin/openssl /usr/bin/openssl
+	# 	ln -s /usr/local/include/openssl /usr/include/openssl
+	# 	echo "/usr/local/ssl/lib" >> /etc/ld.so.conf
+	# 	rm -fr openssl-1.1.1k.tar.gz openssl-1.1.1k
+	# 	ldconfig -v
+	# 	echo -e "\e[32m\e[1m当前openssl版本号: \e[0m"`openssl version`
+	# 	sleep 2
+	# fi
 
 	NGINX_BINARY
 
@@ -1967,7 +1967,7 @@ function Onekey_install(){
 	ONE_KEY_NGINX_VERSION="1.21.1"
 	ONE_KEY_ENABLE_NGINX_SSL="y"
 	##默认不编译OPENSSL
-	ONE_KEY_CONFIRM_OPENSSL="no"
+	# ONE_KEY_CONFIRM_OPENSSL="no"
 	NOE_KEY_V2RAY_BIN_VERSION="4.41.1"
 	ONE_KEY_TRANSMISSION_ENABLE_HTTPS_TS="yes"
 	ONE_KEY_TRANSMISSION_DOWN_PATH="/usr/downloads"
