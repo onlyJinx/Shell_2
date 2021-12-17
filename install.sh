@@ -692,7 +692,7 @@ function transmission(){
 		$PKGMANAGER_INSTALL ca-certificates libcurl4-openssl-dev libssl-dev pkg-config build-essential autoconf libtool zlib1g-dev intltool libevent-dev wget git
 		check "transmission依赖安装失败"
 	elif [[ "$(type -P yum)" ]]; then
-		$PKGMANAGER_INSTALL gcc gcc-c++ make automake libtool gettext openssl-devel libevent-devel intltool libiconv curl-devel systemd-devel wget git
+		$PKGMANAGER_INSTALL gcc gcc-c++ make automake libcurl-devel libtool gettext openssl-devel libevent-devel intltool curl-devel systemd-devel wget git libiconv
 	else
 		echo "error: The script does not support the package manager in this operating system."
 		exit 1
