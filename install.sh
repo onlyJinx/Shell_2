@@ -1050,7 +1050,7 @@ function Project_X(){
 			rm -fr /tmp/v2fly
 			#获取github仓库最新版release引用 https://bbs.zsxwz.com/thread-3958.htm
 		elif [[ "v2ray" == "$PROJECT_BIN_VERSION" ]]; then
-				echo -e "\e[31m\e[1mv2fly版本号异常,请重新输入版本号(格式:4.41.1)\e[0m"
+				echo -e "\e[31m\e[1mv2fly版本号异常,请重新输入版本号(格式:4.44.0)\e[0m"
 				read V2RAY_BIN_VERSION
 				INSTALL_XRAY_BINARY
 				return 0
@@ -1067,9 +1067,9 @@ function Project_X(){
 			V2RAY_BIN_VERSION=$NOE_KEY_V2RAY_BIN_VERSION
 		else
 			#不放在INSTALL_XRAY_BINARY,防止申请完证书后还需要继续输入版本号
-			echo "输入v2ray版本号(4.41.1)"
+			echo "输入v2ray版本号(4.44.0)"
 			read V2RAY_BIN_VERSION
-			V2RAY_BIN_VERSION=${V2RAY_BIN_VERSION:-4.41.1}
+			V2RAY_BIN_VERSION=${V2RAY_BIN_VERSION:-4.44.0}
 		fi
 		if [[ "$(type -P v2ray)" ]]; then
 			V2ray_INSTALLED_VERSION=$(v2ray -version|grep V2Ray|cut -d ' ' -f2)
@@ -1968,7 +1968,7 @@ function Onekey_install(){
 	ONE_KEY_ENABLE_NGINX_SSL="y"
 	##默认不编译OPENSSL
 	# ONE_KEY_CONFIRM_OPENSSL="no"
-	NOE_KEY_V2RAY_BIN_VERSION="4.41.1"
+	NOE_KEY_V2RAY_BIN_VERSION="4.44.0"
 	ONE_KEY_TRANSMISSION_ENABLE_HTTPS_TS="yes"
 	ONE_KEY_TRANSMISSION_DOWN_PATH="/usr/downloads"
 	ONE_KEY_ACME_EMAIL=${ONE_KEY_ACME_EMAIL:-no_email@gmail.com}
