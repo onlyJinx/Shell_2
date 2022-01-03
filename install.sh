@@ -1900,6 +1900,137 @@ function ADD_CLASH_SUB(){
 	EOF
 	sed -i '/^\s*$/d' $CLASH_SUB_FILE
 }
+#Qbittorrent
+function qbittorrent(){
+	QBITTORRENT_NGINX_CONFIG=$NGINX_CONFIG
+	QBITTORRENT_CONFIG='/etc/qBittorrent/config/qBittorrent.conf'
+	QBITTORRENT_DOWNLOAD_LINK="https://github.com/userdocs/qbittorrent-nox-static/releases/download/release-4.3.9_v2.0.5/x86_64-qbittorrent-nox"
+	function QBITTORRENT_CREATE_NGINX_SITE(){
+		cat >$NGINX_SITE_ENABLED/${QBITTORRENT_DOMAIN}<<-EOF
+		server {
+		    listen       4433 http2 ssl proxy_protocol;
+		    server_name  ${QBITTORRENT_DOMAIN};
+		    ssl_certificate      /ssl/${QBITTORRENT_DOMAIN}.cer;
+		    ssl_certificate_key  /ssl/${QBITTORRENT_DOMAIN}.key;
+		    ssl_session_cache    shared:SSL:1m;
+		    ssl_session_timeout  5m;
+		    ssl_protocols TLSv1.2 TLSv1.3;
+		    ssl_prefer_server_ciphers  on;
+		    error_page 404 https://${QBITTORRENT_DOMAIN}/${FILE_SERVER_PATH}/;
+		    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+		    location / {
+		        proxy_redirect off;
+		        proxy_pass http://127.0.0.1:${port};
+		        proxy_http_version 1.1;
+		        proxy_set_header Upgrade \$http_upgrade;
+		        proxy_set_header Connection "upgrade";
+		        proxy_set_header Host \$http_host;
+		    }
+		    location /${FILE_SERVER_PATH}/ {
+		        alias ${dir}/;
+		        autoindex on;
+		    }
+		}
+		EOF
+	}
+	CHECK_PORT "NOINPUT" 8384
+	if [[ "$ONE_KEY_QBITTORRENT_DOWN_PATH" ]]; then
+		DOWNLOAD_PTAH "NOINPUT" "$ONE_KEY_QBITTORRENT_DOWN_PATH"
+	else
+		DOWNLOAD_PTAH "文件保存路径(默认/usr/downloads): " "/usr/downloads"
+	fi
+	if [[ -e $QBITTORRENT_NGINX_CONFIG ]];then
+		OUTPUT_HTTPS_LOGIN_ADDR=""
+		if [[ "$ONE_KEY_QBITTORRENT_ENABLE_HTTPS_TS" ]]; then
+			ENABLE_HTTPS_TS="y"
+		else
+			echo "检测到NGINX配置文件，是否开启https WEBUI反代?(Y/n) "
+			read ENABLE_HTTPS_TS
+		fi
+		
+		if [[ "" == "$ENABLE_HTTPS_TS" || "y" == "$ENABLE_HTTPS_TS" ]]; then
+			echo "输入Qbittorrent域名"
+			FORAM_DOMAIN "$ONE_KEY_QBITTORRENT_DOMAIN"
+			QBITTORRENT_DOMAIN=$RETURN_DOMAIN
+			FILE_SERVER_PATH=${FILE_SERVER_PATH:-downloads}
+			acme.sh $QBITTORRENT_DOMAIN "/etc/nginx/html"
+			if [[ -e "/ssl/${QBITTORRENT_DOMAIN}.key" ]]; then
+				echo -e "\e[32m\e[1m已检测到证书\e[0m"
+				QBITTORRENT_CREATE_NGINX_SITE
+				OUTPUT_HTTPS_LOGIN_ADDR="true"
+			else 
+				echo -e "\e[31m\e[1m找不到证书，取消配置WEBUI HTTPS\e[0m"
+			fi
+		else 
+			echo -e "\e[31m\e[1m已确认取消HTTPS WEBUI配置\e[0m"
+		fi
+	fi
+	mkdir -p /etc/qBittorrent/config
+	bin_path='/etc/qBittorrent/qbittorrent-nox'
+	wget -O $bin_path $QBITTORRENT_DOWNLOAD_LINK
+	
+	if [[ ! -a $bin_path ]]; then
+		echo "检测不到下载的文件"
+		echo "确认下载连接是否有效"
+		echo $QBITTORRENT_DOWNLOAD_LINK
+		echo "停止安装(S)还是输入有效下载链接继续安装(R)?"
+		read QBITTORRENT_RE_DOWNLOAD
+		if [[ "$QBITTORRENT_RE_DOWNLOAD" == "S" || "$QBITTORRENT_RE_DOWNLOAD" == "s" ]]; then
+			echo "STOP"
+			exit 0
+		elif [[ "$QBITTORRENT_RE_DOWNLOAD" == "R" || "$QBITTORRENT_RE_DOWNLOAD" == "r" ]]; then
+			echo "请重新输入下载地址"
+			read QBITTORRENT_DOWNLOAD_LINK
+			wget -P /etc/qBittorrent/ $QBITTORRENT_DOWNLOAD_LINK
+			if [[ ! -a $bin_path ]]; then
+				echo "再次下载失败,退出"
+				exit -1
+			fi
+		else
+			echo "非法输入,退出"
+			exit -1
+		fi
+	else 
+		chmod +x $bin_path
+	fi
+
+	cat >$QBITTORRENT_CONFIG<<-EOF
+	[LegalNotice]
+	Accepted=true
+
+	[Preferences]
+	WebUI\Port=${port}
+	EOF
+	##crate service
+	cat >$SYSTEMD_SERVICES/qbittorrent.service<<-EOF
+	[Unit]
+	Description=qBittorrent-nox service
+	Wants=network-online.target
+	After=network-online.target nss-lookup.target
+
+	[Service]
+	Type=exec
+	User=root
+	ExecStart=$bin_path --profile=/etc/
+	Restart=on-failure
+	SyslogIdentifier=qbittorrent-nox
+
+	[Install]
+	WantedBy=multi-user.target
+	EOF
+
+	systemctl daemon-reload
+	##首次启动，生成配置文件
+	systemctl start qbittorrent.service
+	systemctl enable qbittorrent.service
+	if [[ "$OUTPUT_HTTPS_LOGIN_ADDR" ]]; then
+		systemctl restart nginx
+		echo -e "\e[32m\e[1m打开网址  https://${QBITTORRENT_DOMAIN}  测试登录  \e[0m"
+		echo -e "\e[32m\e[1m文件下载服务器地址  https://${QBITTORRENT_DOMAIN}/${FILE_SERVER_PATH}/\e[0m"
+	else 
+		echo -e "\e[32m\e[1m打开 http://your_IP:${port}  测试登录  \e[0m"
+	fi
+}
 function REMOVE_SOFTWARE(){
 	function REMOVE_SOFTWARE_BIN(){
 		REMOVE_SOFTWARE_NAME=$1
@@ -1983,7 +2114,7 @@ function Onekey_install(){
 	echo "clash订阅地址: https://${NGINX_DOMAIN}/${SUBSCRIPTION_PATH}/clash.yaml"
 }
 echo -e "\e[31m\e[1m输入对应的数字选项:\e[0m"
-select option in "Onekey_install" "Up_kernel" "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "acme.sh" "shadowsocks-libev" "aria2" "uninstall_software" "Timezone"
+select option in "Onekey_install" "qbittorrent" "Up_kernel" "nginx" "Project_V" "transmission" "trojan" "Project_X" "caddy" "hysteria" "acme.sh" "shadowsocks-libev" "aria2" "uninstall_software" "Timezone"
 do
 	case $option in
 		"acme.sh")
@@ -2015,6 +2146,9 @@ do
 			break;;
 		"Project_V")
 			Project_X "v2ray"
+			break;;
+		"qbittorrent")
+			qbittorrent
 			break;;
 		"caddy")
 			caddy
