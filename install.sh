@@ -2000,6 +2000,11 @@ function qbittorrent(){
 
 	[Preferences]
 	WebUI\Port=${port}
+
+	[Preferences]
+	Connection\PortRangeMin=51414
+	Downloads\SavePath=/usr/downloads/
+	Downloads\PreAllocation=true
 	EOF
 	##crate service
 	cat >$SYSTEMD_SERVICES/qbittorrent.service<<-EOF
